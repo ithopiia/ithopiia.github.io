@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ithopiia</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%235b21a6'/><text x='16' y='23' font-size='20' text-anchor='middle' fill='white' font-family='sans-serif'>i</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="top-bar">
+    <div class="brand">ithopiia</div>
+    <div class="top-nav">
+      <button id="admin-nav-btn" class="top-nav-btn" style="display:none" onclick="App.showAdmin()">لوحة المشرف</button>
+      <button id="profile-nav-btn" class="top-nav-btn" style="display:none" onclick="App.showDashboard()">الملف الشخصي</button>
+    </div>
+    <button id="logout-btn" class="logout-btn" style="display:none">تسجيل الخروج</button>
+  </div>
+
+
+  <div id="view-auth" class="view">
+    <div class="auth-container">
+      <div class="auth-brand">
+        <h1>ithopiia</h1>
+        <p>نظام إدارة المجموعات الكنسية – إثيوبيا</p>
+      </div>
+
+      <div id="auth-google" class="auth-form">
+        <h2>تسجيل الدخول</h2>
+        <p class="auth-subtitle">سجل الدخول باستخدام حساب Google الخاص بك</p>
+        <button id="google-auth-btn" class="btn-google">تسجيل الدخول باستخدام Google</button>
+        <div id="auth-error" class="auth-error"></div>
+      </div>
+
+      <div id="auth-complete-profile" class="auth-form" style="display:none">
+        <h2>أكمل ملفك الشخصي</h2>
+        <input type="text" id="comp-name" placeholder="الاسم الكامل" autocomplete="name">
+        <div class="date-selects">
+          <select id="comp-year"><option value="">السنة</option></select>
+          <select id="comp-month" style="display:none"><option value="">الشهر</option></select>
+          <select id="comp-day" style="display:none"><option value="">اليوم</option></select>
+        </div>
+        <select id="comp-elkaraza">
+          <option value="">هل حضرت الكارازة؟</option>
+          <option value="no">لا</option>
+          <option value="yes">نعم</option>
+        </select>
+        <select id="comp-gender">
+          <option value="">الجنس</option>
+          <option value="male">ذكر</option>
+          <option value="female">أنثى</option>
+        </select>
+        <input type="tel" id="comp-whatsapp" placeholder="رقم واتساب (اختياري)">
+        <button id="comp-btn">حفظ</button>
+        <div id="comp-error" class="auth-error"></div>
+      </div>
+
+      <div id="auth-local" class="auth-form" style="display:none">
+        <div class="divider"><span>أو</span></div>
+        <h2>دخول محلي</h2>
+        <input type="text" id="local-name" placeholder="الاسم الكامل" autocomplete="name">
+        <select id="local-gender">
+          <option value="">اختر الجنس</option>
+          <option value="male">ذكر</option>
+          <option value="female">أنثى</option>
+        </select>
+        <select id="local-room">
+          <option value="">اختر الغرفة</option>
+        </select>
+        <button id="local-btn">دخول</button>
+        <div id="local-error" class="auth-error"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-dashboard" class="view">
+    <div class="container">
+      <h2>الملف الشخصي</h2>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="tab-dashboard">الملف الشخصي</button>
+        <button class="tab-btn" data-tab="dash-tab-account">معلومات الحساب</button>
+        <button class="tab-btn" data-tab="dash-tab-feedback">الملاحظات</button>
+        <button class="tab-btn" data-tab="dash-tab-leaderboard">المتصدرين</button>
+      </div>
+      <div id="tab-dashboard" class="tab-content active">
+        <div id="dash-user-info"></div>
+        <div id="dash-claim-area"></div>
+        <div id="dash-stats"></div>
+      </div>
+      <div id="dash-tab-account" class="tab-content">
+        <div id="dash-account-info"></div>
+      </div>
+      <div id="dash-tab-feedback" class="tab-content">
+        <div id="dash-feedback"></div>
+      </div>
+      <div id="dash-tab-leaderboard" class="tab-content">
+        <div id="dash-leaderboard-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-admin" class="view">
+    <div class="container">
+      <h2>لوحة المشرف</h2>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="tab-evaluation">📊 التقييم اليومي</button>
+        <button class="tab-btn" data-tab="tab-sheet">📋 إدارة اليوم</button>
+        <button class="tab-btn" data-tab="tab-users">👥 المستخدمين</button>
+        <button class="tab-btn" data-tab="admin-tab-notes">📝 ملاحظات</button>
+        <button class="tab-btn" data-tab="admin-tab-leaderboard">🏆 المتصدرين</button>
+        <button class="tab-btn" data-tab="admin-tab-userinfo">ℹ️ المعلومات الشخصية</button>
+        <button class="tab-btn" data-tab="admin-tab-rooms">🚪 الغرف</button>
+      </div>
+      <div id="tab-evaluation" class="tab-content active"></div>
+      <div id="tab-sheet" class="tab-content"></div>
+      <div id="tab-users" class="tab-content"></div>
+      <div id="admin-tab-notes" class="tab-content"></div>
+      <div id="admin-tab-leaderboard" class="tab-content"></div>
+      <div id="admin-tab-userinfo" class="tab-content"></div>
+      <div id="admin-tab-rooms" class="tab-content"></div>
+    </div>
+  </div>
+
+  <script src="src/config.js?v=2"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+  <script>firebase.initializeApp(CONFIG.firebase)</script>
+  <script src="src/store.js?v=2"></script>
+  <script src="src/auth.js?v=2"></script>
+  <script src="src/timer.js?v=2"></script>
+  <script src="src/points.js?v=2"></script>
+  <script src="src/evaluation.js?v=2"></script>
+  <script src="src/leaderboard.js?v=2"></script>
+  <script src="src/admin.js?v=2"></script>
+  <script src="src/dashboard.js?v=2"></script>
+  <script src="src/app.js?v=2"></script>
+</body>
+</html>
