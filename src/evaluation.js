@@ -1,14 +1,16 @@
 window.Evaluation = {
   _dateKey: null,
+  _activeGender: 'male',
+  BASELINE_POINTS: 10,
 
   COLUMNS: [
-    { key: 'spiritual', label: 'الجزء الروحي', max: 3 },
-    { key: 'exercises', label: 'التمارين', max: 2 },
-    { key: 'moral', label: 'الالتزام الأخلاقي', max: 1 },
-    { key: 'rehearsal', label: 'الالتزام بالبروفة', max: 1 },
-    { key: 'acting', label: 'الأداء التمثيلي', max: 1 },
-    { key: 'movement', label: 'الأداء الحركي', max: 1 },
-    { key: 'clothing', label: 'ملابس مناسبة', max: 1 },
+    { key: 'spiritual', label: 'الجزء الروحي', min: -3, max: 3 },
+    { key: 'exercises', label: 'التمارين', min: -2, max: 2 },
+    { key: 'moral', label: 'الالتزام الأخلاقي', min: -1, max: 1 },
+    { key: 'rehearsal', label: 'الالتزام بالبروفة', min: -1, max: 1 },
+    { key: 'acting', label: 'الأداء التمثيلي', min: -1, max: 1 },
+    { key: 'movement', label: 'الأداء الحركي', min: -1, max: 1 },
+    { key: 'clothing', label: 'ملابس مناسبة', min: -1, max: 1 },
   ],
 
   getTodayKey() {
@@ -70,9 +72,10 @@ window.Evaluation = {
     }
 
     const allUsers = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
+    const genderUsers = allUsers.filter(u => u.gender === this._activeGender)
     const users = this._selectedRoom
-      ? allUsers.filter(u => (u.rooms || []).includes(this._selectedRoom))
-      : allUsers
+      ? genderUsers.filter(u => (u.rooms || []).includes(this._selectedRoom))
+      : genderUsers
     const dayData = this.getEvaluation(dateKey)
     const saved = dayData.length > 0 && dayData.every(e => e.saved)
     const isTodayKey = dateKey === this.getTodayKey()
@@ -84,6 +87,10 @@ window.Evaluation = {
           ? '<span class="badge badge-success">اليوم الحالي — مفتوح دائمًا</span>'
           : (saved ? '<span class="badge badge-info">تم حفظ اليوم</span>' : '<span class="badge badge-success">إدخال التقييم</span>')}
         </div>
+      </div>
+      <div class="gender-tabs" style="margin-bottom:8px">
+        <button class="filter-btn ${this._activeGender === 'male' ? 'active' : ''}" onclick="Evaluation.setEvalGender('male')">الأولاد</button>
+        <button class="filter-btn ${this._activeGender === 'female' ? 'active' : ''}" onclick="Evaluation.setEvalGender('female')">البنات</button>
       </div>
       ${rooms.length > 0 ? `
         <div style="margin:12px 0;display:flex;gap:8px;align-items:center">
@@ -103,7 +110,7 @@ window.Evaluation = {
               ${this.COLUMNS.map(c => `
                 <th class="col-score">
                   <span class="col-label">${c.label}</span>
-                  <span class="col-max">/${c.max}</span>
+                  <span class="col-max">±${c.max}</span>
                 </th>
               `).join('')}
               <th class="col-total">المجموع</th>
@@ -113,7 +120,8 @@ window.Evaluation = {
             ${users.length === 0 ? '<tr><td colspan="10" style="text-align:center;color:var(--text-muted)">لا يوجد أعضاء في هذه الغرفة</td></tr>' : ''}
             ${users.map((u, i) => {
                   const entry = dayData.find(e => e.userId === u.id)
-                  const total = entry ? this.calculateTotal(entry) : 0
+                  const offsetSum = entry ? this.calculateTotal(entry) : 0
+                  const total = this.BASELINE_POINTS + offsetSum
                   const inputDisabled = !isTodayKey && saved
                   return `
                     <tr data-user-id="${u.id}" class="eval-row">
@@ -127,7 +135,7 @@ window.Evaluation = {
                             data-col="${c.key}"
                             value="${entry ? (entry[c.key] ?? 0) : 0}"
                             ${inputDisabled ? 'disabled' : ''}
-                            min="0" max="${c.max}"
+                            min="${c.min}" max="${c.max}"
                             step="1"
                             inputmode="numeric">
                         </td>
@@ -165,6 +173,11 @@ window.Evaluation = {
   selectRoom(roomId) {
     this._selectedRoom = roomId
     localStorage.setItem('ithopiia_evalRoom', roomId)
+    this.render()
+  },
+
+  setEvalGender(gender) {
+    this._activeGender = gender
     this.render()
   },
 
@@ -224,15 +237,16 @@ window.Evaluation = {
     }
 
     const column = this.COLUMNS.find(c => c.key === col)
+    const minVal = column ? column.min : -1
     const maxVal = column ? column.max : 1
-    entry[col] = Math.max(0, Math.min(maxVal, Number(value) || 0))
+    entry[col] = Math.max(minVal, Math.min(maxVal, Number(value) || 0))
 
     const total = this.calculateTotal(entry)
     entry.totalScore = total
 
     // Immediate UI update
     const totalEl = document.getElementById(`eval-total-${userId}`)
-    if (totalEl) totalEl.textContent = total
+    if (totalEl) totalEl.textContent = this.BASELINE_POINTS + total
     this.updateStats()
 
     // Debounced persistence
@@ -249,18 +263,18 @@ window.Evaluation = {
       dp = {
         userId, dateKey: this._dateKey,
         date: new Date().toISOString(),
-        basePoints: CONFIG.pointsPerDay,
+        basePoints: this.BASELINE_POINTS,
         evaluationScore: 0,
         manualBonus: 0,
         overwritten: false,
-        finalScore: CONFIG.pointsPerDay,
+        finalScore: this.BASELINE_POINTS,
         adminNotes: '',
         saved: true,
       }
       dailyPoints.push(dp)
     }
     dp.evaluationScore = adjustment
-    dp.finalScore = CONFIG.pointsPerDay + (adjustment || 0) + (dp.manualBonus || 0)
+    dp.finalScore = this.BASELINE_POINTS + (adjustment || 0) + (dp.manualBonus || 0)
     dp.saved = true
 
     // Single sync with dailyPoints — listener will recompute cumulativePoints
@@ -284,9 +298,9 @@ window.Evaluation = {
     const el = document.getElementById('eval-stats')
     if (!el) return
     const dayData = this.getEvaluation(this._dateKey)
-    const total = dayData.reduce((s, e) => s + this.calculateTotal(e), 0)
+    const total = dayData.reduce((s, e) => s + this.BASELINE_POINTS + this.calculateTotal(e), 0)
     const count = dayData.length
-    el.textContent = `📊 ${count} أعضاء — إجمالي النقاط: ${total}`
+    el.textContent = `📊 ${count} أعضاء — إجمالي النقاط: ${total} (أساس ${this.BASELINE_POINTS})`
   },
 
   saveDay() {
@@ -305,11 +319,11 @@ window.Evaluation = {
         dailyPoints.push({
           userId: e.userId, dateKey,
           date: new Date().toISOString(),
-          basePoints: CONFIG.pointsPerDay,
+          basePoints: this.BASELINE_POINTS,
           evaluationScore: e.totalScore,
           manualBonus: 0,
           overwritten: false,
-          finalScore: CONFIG.pointsPerDay + (e.totalScore || 0),
+          finalScore: this.BASELINE_POINTS + (e.totalScore || 0),
           adminNotes: '',
           saved: true,
         })
