@@ -10,6 +10,10 @@ admin.initializeApp({
 const db = admin.database()
 const rootRef = db.ref('ithopiia')
 
+const SEED_DATE = '2026-06-21'
+const CAMPAIGN_START = '2026-06-22'
+const TODAY = '2026-06-25'
+
 const POINTS_MAP = {
   'بيشوي شوقي نصيف ايوب': 40,
   'Haidi Nasr Wanas Wanes': 40,
@@ -50,25 +54,64 @@ async function seed() {
   }
 
   const userIds = Object.keys(data.users)
+  const updates = {}
   let matched = 0
-  let updated = 0
+  let skipped = 0
 
   for (const userId of userIds) {
     const user = data.users[userId]
     const name = user.fullName?.trim()
     if (!name) continue
 
-    const target = POINTS_MAP[name]
-    if (target !== undefined) {
-      matched++
-      const oldPoints = user.cumulativePoints || 0
-      user.cumulativePoints = target
-      console.log(`✅ ${name}: ${oldPoints} → ${target}`)
-      updated++
+    const seedPoints = POINTS_MAP[name]
+    if (seedPoints === undefined) continue
+
+    matched++
+
+    // Sum existing dailyPoints from campaign days (Jun 22–25)
+    let campaignTotal = 0
+    if (data.dailyPoints) {
+      for (const dateKey of Object.keys(data.dailyPoints)) {
+        if (dateKey >= CAMPAIGN_START && dateKey <= TODAY) {
+          const day = data.dailyPoints[dateKey]?.[userId]
+          if (day) {
+            campaignTotal += day.finalScore ?? day.basePoints ?? 0
+          }
+        }
+      }
     }
+
+    // Check if seed entry already exists
+    const existingSeed = data.dailyPoints?.[SEED_DATE]?.[userId]
+    if (existingSeed) {
+      console.log(`⏭️ ${name}: seed entry already exists (finalScore=${existingSeed.finalScore}), skipping`)
+      skipped++
+      continue
+    }
+
+    // Create seed dailyPoints entry — this feeds into the frontend's
+    // cumulativePoints = sum of all dailyPoints.finalScore formula
+    const seedEntry = {
+      basePoints: seedPoints,
+      bonusPoints: 0,
+      finalScore: seedPoints,
+      overwritten: false,
+      adminNotes: 'قاعدة أولية',
+      saved: true,
+      date: new Date().toISOString(),
+    }
+
+    const total = seedPoints + campaignTotal
+
+    console.log(
+      `✅ ${name}: seed=${seedPoints}, campaign=${campaignTotal}, total=${total}`
+    )
+
+    updates[`dailyPoints/${SEED_DATE}/${userId}`] = seedEntry
+    updates[`users/${userId}/cumulativePoints`] = total
   }
 
-  if (updated === 0) {
+  if (matched === 0) {
     console.log('No matching users found. Check that fullName values match exactly.')
     console.log('Existing user names:')
     for (const userId of userIds) {
@@ -77,8 +120,13 @@ async function seed() {
     process.exit(1)
   }
 
-  await rootRef.child('users').update(data.users)
-  console.log(`\nUpdated ${updated}/${Object.keys(POINTS_MAP).length} users`)
+  if (Object.keys(updates).length === 0) {
+    console.log(`All ${matched} matched users already have seed entries. Nothing to update.`)
+    process.exit(0)
+  }
+
+  await rootRef.update(updates)
+  console.log(`\nDone. Matched ${matched}, skipped ${skipped}, updated ${Object.keys(updates).length / 2} users.`)
   process.exit(0)
 }
 

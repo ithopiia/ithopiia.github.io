@@ -172,17 +172,27 @@ window.Store = {
     if (!CONFIG.useFirebase || !this._rootRef) return
     try {
       const rtdb = this._buildRTDB()
-      const updates = {}
-      updates['users'] = rtdb.users
-      updates['dailyPoints'] = rtdb.dailyPoints
-      updates['evaluation'] = rtdb.evaluation
-      updates['rooms'] = rtdb.rooms
+      const writes = [
+        this._rootRef.child('users').set(rtdb.users),
+        this._rootRef.child('dailyPoints').set(rtdb.dailyPoints),
+        this._rootRef.child('evaluation').set(rtdb.evaluation),
+        this._rootRef.child('rooms').set(rtdb.rooms),
+      ]
       if (Auth.isAdmin()) {
-        updates['settings'] = rtdb.settings
+        writes.push(this._rootRef.child('settings').set(rtdb.settings))
       }
-      await this._rootRef.update(updates)
+      await Promise.all(writes)
     } catch (e) {
       console.warn('RTDB sync failed', e)
+    }
+  },
+
+  async writePath(path, value) {
+    if (!CONFIG.useFirebase || !this._rootRef) return
+    try {
+      await this._rootRef.child(path).set(value)
+    } catch (e) {
+      console.warn('Direct FB write failed', path, e)
     }
   },
 

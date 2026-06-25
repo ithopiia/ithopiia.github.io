@@ -258,14 +258,31 @@ window.Evaluation = {
     dp.bonusPoints = adjustment
     dp.finalScore = CONFIG.pointsPerDay + (adjustment || 0)
     dp.saved = true
-    Store.set('dailyPoints', dailyPoints)
 
     const users = Store.get('users') || []
     const user = users.find(u => u.id === userId)
     if (user) {
       const userPoints = dailyPoints.filter(p => p.userId === userId && p.saved)
       user.cumulativePoints = userPoints.reduce((sum, p) => sum + (p.finalScore || p.basePoints || 0), 0)
-      Store.set('users', users)
+    }
+
+    // Single sync with both changes
+    Store._data.dailyPoints = dailyPoints
+    Store._data.users = users
+    Store._sync()
+
+    // Direct Firebase writes for immediate persistence
+    Store.writePath(`dailyPoints/${this._dateKey}/${userId}`, {
+      basePoints: dp.basePoints,
+      bonusPoints: dp.bonusPoints,
+      finalScore: dp.finalScore,
+      overwritten: dp.overwritten ?? false,
+      adminNotes: dp.adminNotes ?? '',
+      saved: true,
+      date: dp.date ?? new Date().toISOString(),
+    })
+    if (user) {
+      Store.writePath(`users/${userId}/cumulativePoints`, user.cumulativePoints)
     }
   },
 
@@ -304,14 +321,45 @@ window.Evaluation = {
         })
       }
     })
-    Store.set('evaluation', all)
-    Store.set('dailyPoints', dailyPoints)
 
     users.forEach(u => {
       const userPoints = dailyPoints.filter(p => p.userId === u.id && p.saved)
       u.cumulativePoints = userPoints.reduce((sum, p) => sum + (p.finalScore || p.basePoints || 0), 0)
     })
-    Store.set('users', users)
+
+    // Single sync with all changes
+    Store._data.evaluation = all
+    Store._data.dailyPoints = dailyPoints
+    Store._data.users = users
+    Store._sync()
+
+    // Direct Firebase writes for every saved entry
+    const fbEval = {}
+    const fbDP = {}
+    dayEntries.forEach(e => {
+      const { userId, dateKey: dk, totalScore, saved, ...evalScores } = e
+      fbEval[`evaluation/${dateKey}/${userId}`] = { ...evalScores, totalScore, saved }
+      const dp = dailyPoints.find(p => p.userId === userId && p.dateKey === dateKey)
+      if (dp) {
+        fbDP[`dailyPoints/${dateKey}/${userId}`] = {
+          basePoints: dp.basePoints,
+          bonusPoints: dp.bonusPoints,
+          finalScore: dp.finalScore,
+          overwritten: dp.overwritten ?? false,
+          adminNotes: dp.adminNotes ?? '',
+          saved: true,
+          date: dp.date ?? new Date().toISOString(),
+        }
+      }
+    })
+    const fbUsers = {}
+    users.forEach(u => {
+      fbUsers[`users/${u.id}/cumulativePoints`] = u.cumulativePoints
+    })
+    const allPaths = { ...fbEval, ...fbDP, ...fbUsers }
+    Object.entries(allPaths).forEach(([path, val]) => {
+      Store.writePath(path, val)
+    })
 
     const notice = document.getElementById('eval-saved-notice')
     if (notice) {
