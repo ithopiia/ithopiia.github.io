@@ -1,5 +1,6 @@
 window.Admin = {
   _editingDateKey: null,
+  _activeGenderUsers: 'all',
 
   render() {
     this.renderUsers()
@@ -45,23 +46,35 @@ window.Admin = {
 
   renderUsers() {
     const users = (Store.get('users') || []).filter(u => u.role !== 'admin')
+    const activeGender = this._activeGenderUsers || 'all'
+    let filtered = users
+    if (activeGender !== 'all') {
+      filtered = users.filter(u => u.gender === activeGender)
+    }
+    const totalMale = users.filter(u => u.gender === 'male').length
+    const totalFemale = users.filter(u => u.gender === 'female').length
     const el = document.getElementById('tab-users')
     el.innerHTML = `
       <input type="text" id="admin-search" class="search-input" placeholder="بحث عن مستخدمين..." oninput="Admin.filterUsers()">
+      <div class="gender-tabs">
+        <button class="filter-btn ${activeGender === 'all' ? 'active' : ''}" onclick="Admin.setUsersGender('all')">الكل (${users.length})</button>
+        <button class="filter-btn ${activeGender === 'male' ? 'active' : ''}" onclick="Admin.setUsersGender('male')">الأولاد (${totalMale})</button>
+        <button class="filter-btn ${activeGender === 'female' ? 'active' : ''}" onclick="Admin.setUsersGender('female')">البنات (${totalFemale})</button>
+      </div>
       <div class="table-wrapper">
         <table>
           <thead><tr><th>الاسم</th><th>البريد الإلكتروني</th><th>الغرفة</th><th>النقاط</th><th>الحالة</th><th>النوع</th><th>الإجراء</th></tr></thead>
           <tbody id="admin-users-tbody">
-            ${users.map(u => `
+            ${filtered.map(u => `
               <tr>
-                <td>${u.fullName}</td>
+                <td><span class="name-link" onclick="Admin.showUserProfile('${u.id}')">${u.fullName}</span></td>
                 <td>${u.email || '-'}</td>
                 <td>${u.room || '-'}</td>
                 <td>${u.cumulativePoints || 0}</td>
                 <td>${u.status === 'approved' ? 'مقبول' : u.status === 'rejected' ? 'مرفوض' : u.status || '-'}</td>
                 <td>${u.role === 'member' ? '👤 عضو' : 'مستخدم'}</td>
-                <td>
-                  <button class="btn-sm ${u.role === 'member' ? 'btn-warning' : 'btn-primary'}" onclick="Admin.toggleMemberRole('${u.id}')">${u.role === 'member' ? 'إلغاء العضوية' : 'ترقية لعضو'}</button>
+                <td class="table-actions">
+                  <button class="btn-sm ${u.role === 'member' ? 'btn-danger' : 'btn-primary'}" onclick="Admin.toggleMemberRole('${u.id}')">${u.role === 'member' ? 'إلغاء العضوية' : 'ترقية لعضو'}</button>
                   <button class="btn-sm btn-danger" onclick="Admin.deleteUser('${u.id}')">حذف</button>
                 </td>
               </tr>
@@ -69,6 +82,13 @@ window.Admin = {
           </tbody>
         </table>
       </div>`
+    const search = document.getElementById('admin-search')
+    if (search && search.value) this.filterUsers()
+  },
+
+  setUsersGender(gender) {
+    this._activeGenderUsers = gender
+    this.renderUsers()
   },
 
   toggleMemberRole(id) {
@@ -91,6 +111,87 @@ window.Admin = {
       const name = tr.children[0]?.textContent.toLowerCase() || ''
       tr.style.display = name.includes(q) ? '' : 'none'
     })
+  },
+
+  showUserProfile(userId) {
+    const user = (Store.get('users') || []).find(u => u.id === userId)
+    if (!user) return
+
+    const dailyPoints = Store.get('dailyPoints') || []
+    const userPoints = dailyPoints.filter(p => p.userId === userId && p.saved)
+      .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
+
+    const notes = Store.get('notes') || []
+    const userNotes = notes.filter(n => n.targetUserId === userId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+
+    const genderMap = { male: 'ذكر', female: 'أنثى' }
+    const rooms = Store.get('rooms') || []
+    const userRoomNames = (user.rooms || []).map(id => {
+      const r = rooms.find(room => room.id === id)
+      return r ? r.name : id
+    }).join(', ') || '-'
+
+    const overlay = document.createElement('div')
+    overlay.className = 'modal-overlay'
+    overlay.innerHTML = `
+      <div class="modal-content">
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+        <div class="modal-header">
+          <h2>${user.fullName}</h2>
+          <span class="badge" style="background:var(--accent);color:#000">${user.role === 'member' ? 'عضو لجنة' : 'مستخدم'}</span>
+        </div>
+        <div class="modal-body">
+          <div class="stats-grid" style="grid-template-columns:1fr 1fr">
+            <div class="stat-card">
+              <div class="stat-value">${user.cumulativePoints || 0}</div>
+              <div class="stat-label">إجمالي النقاط</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${userPoints.length}</div>
+              <div class="stat-label">أيام مسجلة</div>
+            </div>
+          </div>
+          <div class="info-grid" style="margin-top:12px">
+            <div class="info-item"><span class="info-label">البريد</span><span class="info-value">${user.email || '-'}</span></div>
+            <div class="info-item"><span class="info-label">الجنس</span><span class="info-value">${genderMap[user.gender] || user.gender || '-'}</span></div>
+            <div class="info-item"><span class="info-label">الغرفة</span><span class="info-value">${user.room || '-'}</span></div>
+            <div class="info-item"><span class="info-label">الغرف التقييمية</span><span class="info-value">${userRoomNames}</span></div>
+            <div class="info-item"><span class="info-label">تاريخ الميلاد</span><span class="info-value">${user.birthdate || '-'}</span></div>
+            <div class="info-item"><span class="info-label">واتساب</span><span class="info-value">${user.whatsapp || '-'}</span></div>
+            <div class="info-item"><span class="info-label">الكرازة</span><span class="info-value">${user.attendedElKaraza === 'yes' ? 'نعم' : user.attendedElKaraza === 'no' ? 'لا' : '-'}</span></div>
+            ${user.createdAt ? `<div class="info-item"><span class="info-label">تاريخ التسجيل</span><span class="info-value">${new Date(user.createdAt).toLocaleDateString('ar-EG')}</span></div>` : ''}
+          </div>
+          ${userNotes.length > 0 ? `
+            <h3 style="margin-top:16px;font-size:1rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:8px">الملاحظات</h3>
+            ${userNotes.map(n => `
+              <div class="feedback-item">
+                <div class="feedback-meta">
+                  <span class="feedback-author">${n.authorName}</span>
+                  <span class="feedback-date">${new Date(n.createdAt).toLocaleDateString('ar-EG')}</span>
+                </div>
+                <div class="feedback-text" style="font-size:0.85rem">${n.text}</div>
+              </div>
+            `).join('')}
+          ` : ''}
+          ${userPoints.length > 0 ? `
+            <h3 style="margin-top:16px;font-size:1rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:8px">النقاط اليومية (آخر ١٤ يوم)</h3>
+            ${userPoints.slice(0, 14).map(p => `
+              <div class="info-item" style="font-size:0.82rem;padding:10px 12px">
+                <span class="info-label">${p.dateKey}</span>
+                <span style="color:var(--text-muted)">أساسي: ${p.basePoints || CONFIG.pointsPerDay}</span>
+                <span style="color:var(--text-muted)">تقيم: ${p.evaluationScore || 0}</span>
+                <span style="color:var(--text-muted)">يدوي: ${p.manualBonus || 0}</span>
+                <span class="info-value" style="font-size:0.85rem">= ${p.finalScore || 0}</span>
+              </div>
+            `).join('')}
+          ` : ''}
+        </div>
+      </div>`
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.remove()
+    })
+    document.body.appendChild(overlay)
   },
 
   deleteUser(id) {
@@ -147,7 +248,7 @@ window.Admin = {
               return `
                 <tr>
                   <td>${i + 1}</td>
-                  <td>${u.fullName}</td>
+                  <td><span class="name-link" onclick="Admin.showUserProfile('${u.id}')">${u.fullName}</span></td>
                   <td>${u.room || '-'}</td>
                   <td class="cell-points">${isToday ? CONFIG.pointsPerDay : base}</td>
                   <td><input type="number" class="sheet-bonus-input" data-user="${u.id}" value="${manualBonus}" ${inputsDisabled ? 'disabled' : ''} style="width:70px"></td>
