@@ -103,9 +103,9 @@ textarea { resize: vertical; }
 .btn-danger { background: #d90429; color: #fff; border-color: #d90429; font-weight: 600; }
 .btn-danger:active { background: #ba0322; border-color: #ba0322; }
 
-/* Warning: revoke membership — solid red (same as danger) */
-.btn-warning { background: #d90429; color: #fff; border-color: #d90429; font-weight: 600; }
-.btn-warning:active { background: #ba0322; border-color: #ba0322; }
+/* Warning: revoke membership — orange */
+.btn-warning { background: #f77f00; color: #fff; border-color: #f77f00; font-weight: 600; }
+.btn-warning:active { background: #d46600; border-color: #d46600; }
 
 /* Success: create room — green */
 .btn-success { background: #2d6a2d; color: #fff; border-color: #2d6a2d; font-weight: 600; }
