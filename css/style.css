@@ -12,7 +12,7 @@
   --border: #2a2a2a;
   --border-light: #333;
   --text: #eee;
-  --text-muted: #666;
+  --text-muted: #999;
   --accent: #aaa;
   --accent-hover: #ccc;
   --radius: 10px;
@@ -69,24 +69,52 @@ textarea { resize: vertical; }
   color: var(--text);
   font-size: 1rem;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
   white-space: nowrap;
   -webkit-appearance: none;
 }
 
-.btn:active { background: var(--surface2); }
-.btn:disabled { opacity: 0.3; }
-.btn-sm { padding: 10px 16px; font-size: 0.9rem; }
-.btn-primary { background: var(--text); color: #000; border-color: var(--text); font-weight: 600; }
-.btn-primary:active { background: #ccc; }
-.btn-danger { border-color: #444; color: var(--text-muted); }
-.btn-danger:active { background: var(--surface2); color: var(--text); }
-.btn-success { border-color: #444; color: var(--text-muted); }
-.btn-success:active { background: var(--surface2); color: var(--text); }
-.btn-ghost { background: transparent; border-color: var(--border); }
+.btn:active,
+.btn-sm:active { background: var(--surface2); }
+.btn:disabled,
+.btn-sm:disabled { opacity: 0.3; }
+.btn-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  font-size: 0.9rem;
+  border: 1px solid;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+  -webkit-appearance: none;
+}
+
+/* Primary: promote, save, submit — bright white text on dark button */
+.btn-primary { background: #2a2a2a; color: #fff; border-color: #444; font-weight: 600; }
+.btn-primary:active { background: #3a3a3a; }
+
+/* Danger: delete — sharp red */
+.btn-danger { border-color: #ff4d4d; color: #ff4d4d; font-weight: 600; }
+.btn-danger:active { background: rgba(255,77,77,0.12); }
+
+/* Warning: revoke membership — sharp red, same as danger */
+.btn-warning { border-color: #ff4d4d; color: #ff4d4d; font-weight: 600; }
+.btn-warning:active { background: rgba(255,77,77,0.12); }
+
+/* Success: create room — green */
+.btn-success { border-color: #4caf50; color: #4caf50; font-weight: 600; }
+.btn-success:active { background: rgba(76,175,80,0.12); }
+
+/* Ghost: secondary actions */
+.btn-ghost { background: transparent; border-color: var(--border); color: var(--text); }
 .btn-ghost:active { background: var(--surface); }
-.btn-warning { border-color: #444; color: var(--text-muted); }
-.btn-warning:active { background: var(--surface2); color: var(--text); }
+
 .btn-google { width: 100%; padding: 14px; background: var(--surface); border: 1px solid var(--border); font-weight: 600; }
 
 .text-muted { color: var(--text-muted); font-size: 0.85rem; }
@@ -336,10 +364,12 @@ textarea { resize: vertical; }
 }
 
 .feedback-item {
-  padding: 12px;
+  padding: 16px;
   border-bottom: 1px solid var(--border);
 }
 
+.feedback-item:nth-child(even) { background: #0d0d0d; }
+.feedback-item:nth-child(odd) { background: transparent; }
 .feedback-item:last-child { border-bottom: none; }
 
 .feedback-meta {
@@ -374,13 +404,14 @@ textarea { resize: vertical; }
 .leaderboard-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 14px;
+  padding: 16px 18px;
   border-radius: var(--radius);
-  background: var(--surface);
   border: 1px solid var(--border);
 }
 
+.leaderboard-item:nth-child(even) { background: #0d0d0d; }
+.leaderboard-item:nth-child(odd) { background: #151515; }
 .leaderboard-item.highlight { border-color: var(--accent); }
 
 .rank {
@@ -497,7 +528,7 @@ textarea { resize: vertical; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px;
+  padding: 20px;
 }
 
 .room-header {
@@ -528,11 +559,13 @@ textarea { resize: vertical; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
-  background: var(--surface2);
+  padding: 12px 14px;
   border-radius: var(--radius-sm);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
+
+.room-member-item:nth-child(even) { background: #0d0d0d; }
+.room-member-item:nth-child(odd) { background: #171717; }
 
 .room-add-member {
   display: flex;
