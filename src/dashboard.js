@@ -183,7 +183,7 @@ window.Dashboard = {
             <span class="info-value">${fresh.whatsapp || '-'}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">حضور الكارازة</span>
+            <span class="info-label">حضور الكرازة</span>
             <span class="info-value">${elkarazaMap[fresh.attendedElKaraza] || fresh.attendedElKaraza || '-'}</span>
           </div>
           <div class="info-item">

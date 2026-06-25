@@ -48,7 +48,7 @@ window.Admin = {
     const el = document.getElementById('tab-users')
     el.innerHTML = `
       <input type="text" id="admin-search" class="search-input" placeholder="بحث عن مستخدمين..." oninput="Admin.filterUsers()">
-      <div style="overflow-x:auto">
+      <div class="table-wrapper">
         <table>
           <thead><tr><th>الاسم</th><th>البريد الإلكتروني</th><th>الغرفة</th><th>النقاط</th><th>الحالة</th><th>النوع</th><th>الإجراء</th></tr></thead>
           <tbody id="admin-users-tbody">
@@ -387,7 +387,7 @@ window.Admin = {
     el.innerHTML = `
       <h3>المعلومات الشخصية لجميع الأعضاء</h3>
       <input type="text" id="userinfo-search" class="search-input" placeholder="بحث..." oninput="Admin.filterUserInfo()">
-      <div style="overflow-x:auto">
+      <div class="table-wrapper">
         <table>
           <thead>
             <tr>
@@ -398,7 +398,7 @@ window.Admin = {
               <th>الغرفة</th>
               <th>الغرف التقييمية</th>
               <th>واتساب</th>
-              <th>الكارازة</th>
+              <th>الكرازة</th>
               <th>النوع</th>
               <th>النقاط</th>
               <th>تاريخ التسجيل</th>
