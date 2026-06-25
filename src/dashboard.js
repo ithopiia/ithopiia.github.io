@@ -229,7 +229,7 @@ window.Dashboard = {
   renderLeaderboard() {
     const el = document.getElementById('dash-leaderboard-content')
     if (window.Leaderboard) {
-      el.innerHTML = Leaderboard.render()
+      el.innerHTML = Leaderboard.renderDashboard()
     }
   },
 

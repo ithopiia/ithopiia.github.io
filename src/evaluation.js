@@ -2,14 +2,13 @@ window.Evaluation = {
   _dateKey: null,
 
   COLUMNS: [
-    { key: 'spiritual', label: 'الجزء الروحي', max: 1 },
-    { key: 'exercises', label: 'التمارين', max: 1 },
+    { key: 'spiritual', label: 'الجزء الروحي', max: 3 },
+    { key: 'exercises', label: 'التمارين', max: 2 },
     { key: 'moral', label: 'الالتزام الأخلاقي', max: 1 },
     { key: 'rehearsal', label: 'الالتزام بالبروفة', max: 1 },
     { key: 'acting', label: 'الأداء التمثيلي', max: 1 },
     { key: 'movement', label: 'الأداء الحركي', max: 1 },
     { key: 'clothing', label: 'ملابس مناسبة', max: 1 },
-    { key: 'bonus', label: '+/-', max: 1 },
   ],
 
   getTodayKey() {
@@ -40,7 +39,6 @@ window.Evaluation = {
         acting: 0,
         movement: 0,
         clothing: 0,
-        bonus: 0,
         totalScore: 0,
         saved: false,
       }
@@ -58,7 +56,6 @@ window.Evaluation = {
       + (Number(entry.acting) || 0)
       + (Number(entry.movement) || 0)
       + (Number(entry.clothing) || 0)
-      + (Number(entry.bonus) || 0)
   },
 
   render(dateKey) {
@@ -104,9 +101,9 @@ window.Evaluation = {
               <th class="col-num">#</th>
               <th class="col-name">الاسم</th>
               ${this.COLUMNS.map(c => `
-                <th class="col-score ${c.key === 'bonus' ? 'col-bonus' : ''}">
+                <th class="col-score">
                   <span class="col-label">${c.label}</span>
-                  ${c.max ? `<span class="col-max">/${c.max}</span>` : ''}
+                  <span class="col-max">/${c.max}</span>
                 </th>
               `).join('')}
               <th class="col-total">المجموع</th>
@@ -123,14 +120,14 @@ window.Evaluation = {
                       <td class="col-num">${i + 1}</td>
                       <td class="col-name">${u.fullName}</td>
                       ${this.COLUMNS.map(c => `
-                        <td class="col-score ${c.key === 'bonus' ? 'col-bonus' : ''}">
+                        <td class="col-score">
                           <input type="number"
                             class="eval-input eval-input-${c.key}"
                             data-user="${u.id}"
                             data-col="${c.key}"
                             value="${entry ? (entry[c.key] ?? 0) : 0}"
                             ${inputDisabled ? 'disabled' : ''}
-                            min="-1" max="1"
+                            min="0" max="${c.max}"
                             step="1"
                             inputmode="numeric">
                         </td>
@@ -220,13 +217,15 @@ window.Evaluation = {
         userId, dateKey: this._dateKey,
         spiritual: 0, exercises: 0, moral: 0,
         rehearsal: 0, acting: 0, movement: 0, clothing: 0,
-        bonus: 0, totalScore: 0, saved: false,
+        totalScore: 0, saved: false,
       }
       all.push(newEntry)
       entry = newEntry
     }
 
-    entry[col] = Math.max(-1, Math.min(1, Number(value) || 0))
+    const column = this.COLUMNS.find(c => c.key === col)
+    const maxVal = column ? column.max : 1
+    entry[col] = Math.max(0, Math.min(maxVal, Number(value) || 0))
 
     const total = this.calculateTotal(entry)
     entry.totalScore = total

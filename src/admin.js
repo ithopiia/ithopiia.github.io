@@ -385,7 +385,7 @@ window.Admin = {
   renderLeaderboardTab() {
     const el = document.getElementById('admin-tab-leaderboard')
     if (window.Leaderboard) {
-      el.innerHTML = Leaderboard.render()
+      el.innerHTML = Leaderboard.renderAdmin()
     } else {
       el.innerHTML = '<p class="text-muted">لا توجد بيانات.</p>'
     }

@@ -637,6 +637,43 @@ textarea { resize: vertical; }
 .name { flex: 1; font-size: 0.9rem; font-weight: 500; }
 .points { font-weight: 700; font-size: 0.95rem; color: var(--accent); }
 
+.lb-gender-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--border);
+}
+
+.admin-lb-split {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.lb-gender-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.lb-gender-section .lb-search {
+  margin-bottom: 10px;
+}
+
+@media (min-width: 768px) {
+  .admin-lb-split {
+    flex-direction: row;
+  }
+  .lb-gender-section {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 /* ===== ADMIN USERS TABLE ===== */
 .table-wrapper {
   overflow-x: auto;
@@ -987,9 +1024,6 @@ textarea { resize: vertical; }
 }
 
 .eval-input:disabled { opacity: 0.25; }
-
-.col-bonus .eval-input { border-color: #4a3535; }
-.col-bonus .eval-input:focus { border-color: var(--accent); }
 
 /* ===== EVAL HEADER ===== */
 .eval-header-section {
