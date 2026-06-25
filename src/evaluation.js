@@ -81,7 +81,7 @@ window.Evaluation = {
     const isTodayKey = dateKey === this.getTodayKey()
 
     el.innerHTML = `
-      <div class="eval-header">
+      <div class="eval-header-section">
         <div class="eval-date">📅 ${this.formatDate(dateKey)}</div>
         <div class="eval-status">${isTodayKey
           ? '<span class="badge badge-success">اليوم الحالي — مفتوح دائمًا</span>'
