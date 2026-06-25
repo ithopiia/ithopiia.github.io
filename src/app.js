@@ -142,7 +142,7 @@ window.App = {
     document.getElementById('view-admin')?.classList.add('active')
     Admin.render()
     document.getElementById('admin-nav-btn').style.display = 'none'
-    document.getElementById('profile-nav-btn').style.display = ''
+    document.getElementById('profile-nav-btn').style.display = Auth.isMember() ? '' : 'none'
     setTimeout(() => this._restoreTab('admin'), 50)
   },
 
@@ -152,7 +152,7 @@ window.App = {
     document.getElementById('view-dashboard')?.classList.add('active')
     Dashboard.render()
     document.getElementById('profile-nav-btn').style.display = 'none'
-    document.getElementById('admin-nav-btn').style.display = ''
+    document.getElementById('admin-nav-btn').style.display = Auth.isMember() ? '' : 'none'
     setTimeout(() => this._restoreTab('dashboard'), 50)
   },
 
@@ -166,8 +166,7 @@ window.App = {
 
   render() {
     const user = Auth.currentUser()
-    const isHiddenAdmin = Auth.isHiddenAdmin()
-    const isAdminOrMember = Auth.isAdmin()
+    const role = user?.role
     const logoutBtn = document.getElementById('logout-btn')
     const adminNavBtn = document.getElementById('admin-nav-btn')
     const profileNavBtn = document.getElementById('profile-nav-btn')
@@ -177,20 +176,22 @@ window.App = {
 
     const savedView = localStorage.getItem('ithopiia_activeView')
 
-    if (user && isHiddenAdmin) {
+    if (user && role === 'admin') {
       if (adminNavBtn) adminNavBtn.style.display = 'none'
-      if (profileNavBtn) profileNavBtn.style.display = ''
+      if (profileNavBtn) profileNavBtn.style.display = 'none'
       document.getElementById('view-admin')?.classList.add('active')
       Admin.render()
       setTimeout(() => this._restoreTab('admin'), 50)
-    } else if (user && isAdminOrMember && !Auth.needsProfile()) {
-      if (adminNavBtn) adminNavBtn.style.display = ''
-      if (profileNavBtn) profileNavBtn.style.display = 'none'
-      if (savedView === 'admin' && isAdminOrMember) {
+    } else if (user && role === 'member' && !Auth.needsProfile()) {
+      if (savedView === 'admin') {
+        if (adminNavBtn) adminNavBtn.style.display = 'none'
+        if (profileNavBtn) profileNavBtn.style.display = ''
         document.getElementById('view-admin')?.classList.add('active')
         Admin.render()
         setTimeout(() => this._restoreTab('admin'), 50)
       } else {
+        if (profileNavBtn) profileNavBtn.style.display = 'none'
+        if (adminNavBtn) adminNavBtn.style.display = ''
         document.getElementById('view-dashboard')?.classList.add('active')
         Dashboard.render()
         setTimeout(() => this._restoreTab('dashboard'), 50)
