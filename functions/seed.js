@@ -68,29 +68,25 @@ async function seed() {
 
     matched++
 
-    // Sum existing dailyPoints from campaign days (Jun 22–25)
-    let campaignTotal = 0
-    if (data.dailyPoints) {
-      for (const dateKey of Object.keys(data.dailyPoints)) {
-        if (dateKey >= CAMPAIGN_START && dateKey <= TODAY) {
-          const day = data.dailyPoints[dateKey]?.[userId]
-          if (day) {
-            campaignTotal += day.finalScore ?? day.basePoints ?? 0
-          }
-        }
-      }
-    }
-
-    // Check if seed entry already exists
+    // Strict skip check: if user already has ANY recorded data, preserve it
     const existingSeed = data.dailyPoints?.[SEED_DATE]?.[userId]
-    if (existingSeed) {
-      console.log(`⏭️ ${name}: seed entry already exists (finalScore=${existingSeed.finalScore}), skipping`)
+    const hasCampaignEntry = data.dailyPoints && Object.keys(data.dailyPoints).some(
+      dateKey => dateKey >= CAMPAIGN_START && dateKey <= TODAY && data.dailyPoints[dateKey]?.[userId]
+    )
+    const hasCustomPoints = user.cumulativePoints != null && user.cumulativePoints !== 0
+
+    if (existingSeed || hasCampaignEntry || hasCustomPoints) {
+      const reasons = []
+      if (existingSeed) reasons.push('seed entry exists')
+      if (hasCampaignEntry) reasons.push('has campaign data')
+      if (hasCustomPoints) reasons.push(`cumulativePoints=${user.cumulativePoints}`)
+      console.log(`⏭️ ${name}: skipping (${reasons.join(', ')})`)
       skipped++
       continue
     }
 
-    // Create seed dailyPoints entry — this feeds into the frontend's
-    // cumulativePoints = sum of all dailyPoints.finalScore formula
+    // User is clean — no seed, no campaign entries, no custom points.
+    // Create baseline dailyPoints entry and set cumulativePoints.
     const seedEntry = {
       basePoints: seedPoints,
       bonusPoints: 0,
@@ -101,14 +97,10 @@ async function seed() {
       date: new Date().toISOString(),
     }
 
-    const total = seedPoints + campaignTotal
-
-    console.log(
-      `✅ ${name}: seed=${seedPoints}, campaign=${campaignTotal}, total=${total}`
-    )
+    console.log(`✅ ${name}: seed=${seedPoints}`)
 
     updates[`dailyPoints/${SEED_DATE}/${userId}`] = seedEntry
-    updates[`users/${userId}/cumulativePoints`] = total
+    updates[`users/${userId}/cumulativePoints`] = seedPoints
   }
 
   if (matched === 0) {

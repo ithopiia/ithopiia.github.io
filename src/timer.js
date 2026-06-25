@@ -21,6 +21,7 @@ window.Timer = {
   },
 
   startDayTimer(onTick, onComplete) {
+    this.stop()
     const now = new Date()
     const endOfDay = new Date(now)
     endOfDay.setHours(23, 59, 59, 999)

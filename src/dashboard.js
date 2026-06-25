@@ -32,11 +32,12 @@ window.Dashboard = {
     const entry = dailyPoints.find(p => p.userId === user.id && p.dateKey === todayKey)
     if (!entry) return
     const base = entry.basePoints || CONFIG.pointsPerDay
-    const bonus = entry.bonusPoints || 0
-    const total = entry.finalScore || (base + bonus)
+    const evalScore = entry.evaluationScore || 0
+    const manualBonus = entry.manualBonus || 0
+    const total = entry.finalScore || (base + evalScore + manualBonus)
     const el = document.querySelector('#dash-claim-area .points-breakdown')
     if (el) {
-      el.innerHTML = `<span>الأساسية: ${base}</span><span>+</span><span>مكافأة: ${bonus}</span><span>=</span><span class="points-total">${total}</span>`
+      el.innerHTML = `<span>الأساسية: ${base}</span><span>+</span><span>تقيم: ${evalScore}</span><span>+</span><span>يدوي: ${manualBonus}</span><span>=</span><span class="points-total">${total}</span>`
     }
   },
 
@@ -83,8 +84,9 @@ window.Dashboard = {
     }
 
     const base = todayEntry.basePoints || CONFIG.pointsPerDay
-    const bonus = todayEntry.bonusPoints || 0
-    const total = todayEntry.finalScore || (base + bonus)
+    const evalScore = todayEntry.evaluationScore || 0
+    const manualBonus = todayEntry.manualBonus || 0
+    const total = todayEntry.finalScore || (base + evalScore + manualBonus)
 
     el.innerHTML = `
       <div class="stat-card">
@@ -93,7 +95,9 @@ window.Dashboard = {
         <div class="points-breakdown">
           <span>الأساسية: ${base}</span>
           <span>+</span>
-          <span>مكافأة: ${bonus}</span>
+          <span>تقيم: ${evalScore}</span>
+          <span>+</span>
+          <span>يدوي: ${manualBonus}</span>
           <span>=</span>
           <span class="points-total">${total}</span>
         </div>

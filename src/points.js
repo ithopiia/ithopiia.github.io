@@ -22,21 +22,14 @@ const Points = {
       dateKey: key,
       date: new Date().toISOString(),
       basePoints: CONFIG.pointsPerDay,
-      bonusPoints: 0,
+      evaluationScore: 0,
+      manualBonus: 0,
       overwritten: false,
       finalScore: CONFIG.pointsPerDay,
       adminNotes: '',
       saved: true,
     }
     Store.push('dailyPoints', entry)
-
-    const users = Store.get('users') || []
-    const user = users.find(u => u.id === userId)
-    if (user) {
-      user.cumulativePoints = (user.cumulativePoints || 0) + entry.finalScore
-      Store.set('users', users)
-    }
-
     return entry
   },
 
@@ -98,7 +91,7 @@ const Points = {
     )
     if (entry) {
       const base = entry.overwritten ? entry.basePoints : CONFIG.pointsPerDay
-      entry.finalScore = (base || 0) + (entry.bonusPoints || 0)
+      entry.finalScore = (base || 0) + (entry.evaluationScore || 0) + (entry.manualBonus || 0)
       Store.update(
         'dailyPoints',
         p => p.userId === userId && p.dateKey === dateKey,
@@ -113,7 +106,7 @@ const Points = {
     all.forEach(p => {
       if (p.dateKey === dateKey && !p.saved) {
         const base = p.overwritten ? p.basePoints : CONFIG.pointsPerDay
-        p.finalScore = (base || 0) + (p.bonusPoints || 0)
+        p.finalScore = (base || 0) + (p.evaluationScore || 0) + (p.manualBonus || 0)
         p.saved = true
       }
     })

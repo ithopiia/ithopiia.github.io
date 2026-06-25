@@ -140,8 +140,9 @@ window.Admin = {
             ${users.map((u, i) => {
               const entry = dayEntries.find(p => p.userId === u.id)
               const base = entry ? entry.basePoints : CONFIG.pointsPerDay
-              const bonus = entry ? (entry.bonusPoints || 0) : 0
-              const total = entry ? (entry.finalScore || base + bonus) : base
+               const manualBonus = entry ? (entry.manualBonus ?? 0) : 0
+              const evaluationScore = entry ? (entry.evaluationScore ?? 0) : 0
+              const total = entry ? (entry.finalScore || base + manualBonus + evaluationScore) : base
               const notes = entry ? (entry.adminNotes || '') : ''
               return `
                 <tr>
@@ -149,7 +150,7 @@ window.Admin = {
                   <td>${u.fullName}</td>
                   <td>${u.room || '-'}</td>
                   <td class="cell-points">${isToday ? CONFIG.pointsPerDay : base}</td>
-                  <td><input type="number" class="sheet-bonus-input" data-user="${u.id}" value="${bonus}" ${inputsDisabled ? 'disabled' : ''} style="width:70px"></td>
+                  <td><input type="number" class="sheet-bonus-input" data-user="${u.id}" value="${manualBonus}" ${inputsDisabled ? 'disabled' : ''} style="width:70px"></td>
                   <td class="cell-total" id="sheet-total-${u.id}">${total}</td>
                   <td><input type="text" class="sheet-notes-input" data-user="${u.id}" value="${notes}" ${inputsDisabled ? 'disabled' : ''} style="width:120px" placeholder="ملاحظات..."></td>
                 </tr>
@@ -175,7 +176,9 @@ window.Admin = {
       const notes = e.target.closest('.sheet-notes-input')
       if (!bonus && !notes) return
       const userId = (bonus || notes).dataset.user
-      this._autoSaveRow(userId)
+      Store.debounce(`sheet_${this._editingDateKey}_${userId}`, () => {
+        this._autoSaveRow(userId)
+      }, 500)
     })
   },
 
@@ -184,43 +187,38 @@ window.Admin = {
     const all = Store.get('dailyPoints') || []
     const users = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
     users.forEach(u => {
-      const bonus = parseInt(document.querySelector(`.sheet-bonus-input[data-user="${u.id}"]`)?.value) || 0
+      const manualBonus = parseInt(document.querySelector(`.sheet-bonus-input[data-user="${u.id}"]`)?.value) || 0
       const notes = document.querySelector(`.sheet-notes-input[data-user="${u.id}"]`)?.value || ''
       let entry = all.find(p => p.userId === u.id && p.dateKey === dateKey)
       const base = entry ? entry.basePoints : CONFIG.pointsPerDay
       if (entry) {
-        entry.bonusPoints = bonus
+        entry.manualBonus = manualBonus
         entry.adminNotes = notes
         entry.overwritten = true
-        entry.finalScore = base + bonus
+        entry.finalScore = base + (entry.evaluationScore || 0) + manualBonus
         entry.saved = true
       } else {
         all.push({
           userId: u.id, dateKey,
           date: new Date().toISOString(),
           basePoints: base,
-          bonusPoints: bonus,
+          evaluationScore: 0,
+          manualBonus: manualBonus,
           overwritten: true,
-          finalScore: base + bonus,
+          finalScore: base + manualBonus,
           adminNotes: notes,
           saved: true,
         })
       }
     })
     Store.set('dailyPoints', all)
-    const allUsers = Store.get('users') || []
-    allUsers.forEach(u => {
-      const userPoints = all.filter(p => p.userId === u.id && p.saved && (!u.createdAt || u.createdAt.split('T')[0] <= p.dateKey))
-      u.cumulativePoints = userPoints.reduce((sum, p) => sum + (p.finalScore || 0), 0)
-    })
-    Store.set('users', allUsers)
     this.renderSheet()
     this._autoRefresh()
   },
 
   _autoSaveRow(userId) {
     const dateKey = this._editingDateKey
-    const bonus = parseInt(document.querySelector(`.sheet-bonus-input[data-user="${userId}"]`)?.value) || 0
+    const manualBonus = parseInt(document.querySelector(`.sheet-bonus-input[data-user="${userId}"]`)?.value) || 0
     const notes = document.querySelector(`.sheet-notes-input[data-user="${userId}"]`)?.value || ''
     const users = Store.get('users') || []
     const user = users.find(u => u.id === userId)
@@ -228,34 +226,30 @@ window.Admin = {
     const all = Store.get('dailyPoints') || []
     let entry = all.find(p => p.userId === userId && p.dateKey === dateKey)
     if (entry) {
-      entry.bonusPoints = bonus
+      entry.manualBonus = manualBonus
       entry.adminNotes = notes
       entry.overwritten = true
-      entry.finalScore = CONFIG.pointsPerDay + bonus
+      entry.finalScore = CONFIG.pointsPerDay + (entry.evaluationScore || 0) + manualBonus
       entry.saved = true
     } else {
       all.push({
         userId, dateKey,
         date: new Date().toISOString(),
         basePoints: CONFIG.pointsPerDay,
-        bonusPoints: bonus,
+        evaluationScore: 0,
+        manualBonus: manualBonus,
         overwritten: true,
-        finalScore: CONFIG.pointsPerDay + bonus,
+        finalScore: CONFIG.pointsPerDay + manualBonus,
         adminNotes: notes,
         saved: true,
       })
     }
     Store.set('dailyPoints', all)
 
+    const finalScore = CONFIG.pointsPerDay + (entry ? (entry.evaluationScore || 0) : 0) + manualBonus
     const totalEl = document.getElementById(`sheet-total-${userId}`)
-    if (totalEl) totalEl.textContent = CONFIG.pointsPerDay + bonus
+    if (totalEl) totalEl.textContent = finalScore
 
-    const allUsers = Store.get('users') || []
-    allUsers.forEach(u => {
-      const userPoints = all.filter(p => p.userId === u.id && p.saved && (!u.createdAt || u.createdAt.split('T')[0] <= p.dateKey))
-      u.cumulativePoints = userPoints.reduce((sum, p) => sum + (p.finalScore || 0), 0)
-    })
-    Store.set('users', allUsers)
     this._autoRefresh()
   },
 

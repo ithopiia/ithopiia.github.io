@@ -5,6 +5,7 @@ window.Store = {
   _listeners: [],
   _authReady: false,
   _pendingSync: false,
+  _debounceTimers: {},
 
   async init() {
     if (this._data) return
@@ -38,6 +39,12 @@ window.Store = {
           }
           if (remote.settings) this._data.settings = remote.settings
           if (remote.rooms) this._data.rooms = Object.values(remote.rooms)
+          if (remote.notes) {
+            this._data.notes = []
+            Object.keys(remote.notes).forEach(noteId => {
+              this._data.notes.push({ id: noteId, ...remote.notes[noteId] })
+            })
+          }
         }
         this._saveLocal()
         this._authReady = true
@@ -99,16 +106,63 @@ window.Store = {
           this._data.rooms = arr; changed = true
         }
       }
+      if (remote.notes) {
+        const arr = []
+        Object.keys(remote.notes).forEach(noteId => {
+          arr.push({ id: noteId, ...remote.notes[noteId] })
+        })
+        if (JSON.stringify(arr) !== JSON.stringify(this._data.notes)) {
+          this._data.notes = arr; changed = true
+        }
+      }
       if (changed) { this._saveLocal(); this._notify() }
+
+      // Reactive running total: after every data change, recompute
+      // cumulativePoints from all dailyPoints entries and write back.
+      if (remote.dailyPoints && remote.users && !this._recalculatingPts) {
+        this._recalculatingPts = true
+        this._recalcCumulativeFromRemote(remote).then(() => {
+          this._recalculatingPts = false
+        }, () => {
+          this._recalculatingPts = false
+        })
+      }
     })
+  },
+
+  async _recalcCumulativeFromRemote(remote) {
+    const updates = {}
+    const userIds = Object.keys(remote.users)
+    for (const userId of userIds) {
+      let total = 0
+      for (const dateKey of Object.keys(remote.dailyPoints)) {
+        const entry = remote.dailyPoints[dateKey]?.[userId]
+        if (entry?.finalScore) total += entry.finalScore
+      }
+      const current = remote.users[userId]?.cumulativePoints ?? 0
+      if (total !== current) {
+        updates[`users/${userId}/cumulativePoints`] = total
+        const localUser = (this._data.users || []).find(u => u.id === userId)
+        if (localUser) localUser.cumulativePoints = total
+      }
+    }
+    if (Object.keys(updates).length > 0) {
+      await this._rootRef.update(updates)
+      this._saveLocal()
+      this._notify()
+    }
   },
 
   _migrateSavedFlag() {
     const dailyPoints = this._data.dailyPoints || []
     dailyPoints.forEach(p => {
+      if (p.bonusPoints !== undefined && p.evaluationScore === undefined && p.manualBonus === undefined) {
+        p.evaluationScore = p.bonusPoints
+        delete p.bonusPoints
+      }
       if (p.saved === false) {
         p.saved = true
-        p.finalScore = (p.finalScore || p.basePoints || CONFIG.pointsPerDay) + (p.bonusPoints || 0)
+        p.finalScore = (p.finalScore || p.basePoints || CONFIG.pointsPerDay) + (p.evaluationScore || 0) + (p.manualBonus || 0)
       }
     })
     const users = this._data.users || []
@@ -124,6 +178,14 @@ window.Store = {
     if (changed) this._saveLocal()
   },
 
+  debounce(key, fn, delay) {
+    if (this._debounceTimers[key]) clearTimeout(this._debounceTimers[key])
+    this._debounceTimers[key] = setTimeout(() => {
+      delete this._debounceTimers[key]
+      fn()
+    }, delay)
+  },
+
   _notify() {
     this._listeners.forEach(fn => fn(this._data))
   },
@@ -134,7 +196,7 @@ window.Store = {
   },
 
   _defaults() {
-    return { users: [], dailyPoints: [], evaluation: [], settings: {}, rooms: [] }
+    return { users: [], dailyPoints: [], evaluation: [], settings: {}, rooms: [], notes: [] }
   },
 
   _loadLocal() {
@@ -169,7 +231,9 @@ window.Store = {
     })
     const rooms = {}
     this._data.rooms.forEach(r => { if (r.id) rooms[r.id] = r })
-    return { users, dailyPoints, evaluation, settings: this._data.settings || {}, rooms }
+    const notes = {}
+    this._data.notes.forEach(n => { if (n.id) notes[n.id] = n })
+    return { users, dailyPoints, evaluation, settings: this._data.settings || {}, rooms, notes }
   },
 
   setAuthReady() {
@@ -191,6 +255,7 @@ window.Store = {
         this._rootRef.child('dailyPoints').set(rtdb.dailyPoints),
         this._rootRef.child('evaluation').set(rtdb.evaluation),
         this._rootRef.child('rooms').set(rtdb.rooms),
+        this._rootRef.child('notes').set(rtdb.notes),
       ]
       if (Auth.isAdmin()) {
         writes.push(this._rootRef.child('settings').set(rtdb.settings))
