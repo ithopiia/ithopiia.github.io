@@ -114,6 +114,8 @@ window.Admin = {
   },
 
   showUserProfile(userId) {
+    const currentUser = Auth.currentUser()
+    if (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'member')) return
     const user = (Store.get('users') || []).find(u => u.id === userId)
     if (!user) return
 
