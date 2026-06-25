@@ -2,11 +2,15 @@ window.App = {
   async init() {
     await Store.init()
 
-    Points.grantDailyPoints()
-
     Auth.init()
 
-    Auth.onAuth(() => this.render())
+    Auth.onAuth(user => {
+      if (user) {
+        Store.setAuthReady()
+        Points.grantDailyPoints()
+      }
+      this.render()
+    })
 
     document.getElementById('logout-btn')?.addEventListener('click', () => this.handleLogout())
     document.getElementById('google-auth-btn')?.addEventListener('click', () => this.handleGoogleSignIn())

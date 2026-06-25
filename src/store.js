@@ -3,6 +3,8 @@ window.Store = {
   _db: null,
   _rootRef: null,
   _listeners: [],
+  _authReady: false,
+  _pendingSync: false,
 
   async init() {
     if (this._data) return
@@ -38,13 +40,15 @@ window.Store = {
           if (remote.rooms) this._data.rooms = Object.values(remote.rooms)
         }
         this._saveLocal()
+        this._authReady = true
       } catch (e) {
-        console.warn('RTDB unavailable, using localStorage', e)
-        if (e.code !== 'PERMISSION_DENIED') {
+        if (e.code === 'PERMISSION_DENIED') {
+          this._authReady = false
+        } else {
           CONFIG.useFirebase = false
         }
       }
-      if (CONFIG.useFirebase && this._rootRef) {
+      if (CONFIG.useFirebase && this._rootRef && this._authReady) {
         this._listen()
       }
     }
@@ -168,8 +172,18 @@ window.Store = {
     return { users, dailyPoints, evaluation, settings: this._data.settings || {}, rooms }
   },
 
+  setAuthReady() {
+    this._authReady = true
+    if (this._rootRef) this._listen()
+    if (this._pendingSync) {
+      this._pendingSync = false
+      this._syncRTDB()
+    }
+  },
+
   async _syncRTDB() {
     if (!CONFIG.useFirebase || !this._rootRef) return
+    if (!this._authReady) { this._pendingSync = true; return }
     try {
       const rtdb = this._buildRTDB()
       const writes = [
@@ -183,15 +197,18 @@ window.Store = {
       }
       await Promise.all(writes)
     } catch (e) {
+      if (e.code === 'PERMISSION_DENIED') return
       console.warn('RTDB sync failed', e)
     }
   },
 
   async writePath(path, value) {
     if (!CONFIG.useFirebase || !this._rootRef) return
+    if (!this._authReady) return
     try {
       await this._rootRef.child(path).set(value)
     } catch (e) {
+      if (e.code === 'PERMISSION_DENIED') return
       console.warn('Direct FB write failed', path, e)
     }
   },

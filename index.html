@@ -34,23 +34,28 @@
 
       <div id="auth-complete-profile" class="auth-form" style="display:none">
         <h2>أكمل ملفك الشخصي</h2>
-        <input type="text" id="comp-name" placeholder="الاسم الكامل" autocomplete="name">
+        <label for="comp-name">الاسم الكامل</label>
+        <input type="text" id="comp-name" name="comp-name" placeholder="الاسم الكامل" autocomplete="name">
+        <label for="comp-year">تاريخ الميلاد</label>
         <div class="date-selects">
-          <select id="comp-year"><option value="">السنة</option></select>
-          <select id="comp-month" style="display:none"><option value="">الشهر</option></select>
-          <select id="comp-day" style="display:none"><option value="">اليوم</option></select>
+          <select id="comp-year" name="comp-year"><option value="">السنة</option></select>
+          <select id="comp-month" name="comp-month" style="display:none"><option value="">الشهر</option></select>
+          <select id="comp-day" name="comp-day" style="display:none"><option value="">اليوم</option></select>
         </div>
-        <select id="comp-elkaraza">
+        <label for="comp-elkaraza">الكرازة</label>
+        <select id="comp-elkaraza" name="comp-elkaraza">
           <option value="">هل حضرت الكرازة؟</option>
           <option value="no">لا</option>
           <option value="yes">نعم</option>
         </select>
-        <select id="comp-gender">
+        <label for="comp-gender">الجنس</label>
+        <select id="comp-gender" name="comp-gender">
           <option value="">الجنس</option>
           <option value="male">ذكر</option>
           <option value="female">أنثى</option>
         </select>
-        <input type="tel" id="comp-whatsapp" placeholder="رقم واتساب (اختياري)">
+        <label for="comp-whatsapp">رقم واتساب (اختياري)</label>
+        <input type="tel" id="comp-whatsapp" name="comp-whatsapp" placeholder="رقم واتساب (اختياري)">
         <button id="comp-btn" class="btn btn-primary">حفظ</button>
         <div id="comp-error" class="auth-error"></div>
       </div>
@@ -58,13 +63,16 @@
       <div id="auth-local" class="auth-form" style="display:none">
         <div class="divider"><span>أو</span></div>
         <h2>دخول محلي</h2>
-        <input type="text" id="local-name" placeholder="الاسم الكامل" autocomplete="name">
-        <select id="local-gender">
+        <label for="local-name">الاسم الكامل</label>
+        <input type="text" id="local-name" name="local-name" placeholder="الاسم الكامل" autocomplete="name">
+        <label for="local-gender">الجنس</label>
+        <select id="local-gender" name="local-gender">
           <option value="">اختر الجنس</option>
           <option value="male">ذكر</option>
           <option value="female">أنثى</option>
         </select>
-        <select id="local-room">
+        <label for="local-room">الغرفة</label>
+        <select id="local-room" name="local-room">
           <option value="">اختر الغرفة</option>
         </select>
         <button id="local-btn" class="btn btn-primary">دخول</button>
@@ -126,14 +134,14 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
   <script>firebase.initializeApp(CONFIG.firebase)</script>
-  <script src="src/store.js?v=2"></script>
+  <script src="src/store.js?v=4"></script>
   <script src="src/auth.js?v=2"></script>
   <script src="src/timer.js?v=2"></script>
   <script src="src/points.js?v=2"></script>
-  <script src="src/evaluation.js?v=2"></script>
+  <script src="src/evaluation.js?v=3"></script>
   <script src="src/leaderboard.js?v=2"></script>
   <script src="src/admin.js?v=2"></script>
   <script src="src/dashboard.js?v=2"></script>
-  <script src="src/app.js?v=2"></script>
+  <script src="src/app.js?v=3"></script>
 </body>
 </html>
