@@ -156,7 +156,7 @@ window.Admin = {
           </div>
           <div class="info-grid" style="margin-top:12px">
             <div class="info-item"><span class="info-label">البريد</span><span class="info-value">${user.email || '-'}</span></div>
-            <div class="info-item"><span class="info-label">الجنس</span><span class="info-value">${genderMap[user.gender] || user.gender || '-'}</span></div>
+            <div class="info-item"><span class="info-label">النوع</span><span class="info-value">${genderMap[user.gender] || user.gender || '-'}</span></div>
             <div class="info-item"><span class="info-label">الغرفة</span><span class="info-value">${user.room || '-'}</span></div>
             <div class="info-item"><span class="info-label">الغرف التقييمية</span><span class="info-value">${userRoomNames}</span></div>
             <div class="info-item"><span class="info-label">تاريخ الميلاد</span><span class="info-value">${user.birthdate || '-'}</span></div>
@@ -490,7 +490,7 @@ window.Admin = {
             <tr>
               <th>الاسم</th>
               <th>البريد</th>
-              <th>الجنس</th>
+              <th>النوع</th>
               <th>تاريخ الميلاد</th>
               <th>الغرفة</th>
               <th>الغرف التقييمية</th>

@@ -167,7 +167,7 @@ window.Dashboard = {
             <span class="info-value">${fresh.email || '-'}</span>
           </div>
           <div class="info-item">
-            <span class="info-label">الجنس</span>
+            <span class="info-label">النوع</span>
             <span class="info-value">${genderMap[fresh.gender] || fresh.gender || '-'}</span>
           </div>
           <div class="info-item">

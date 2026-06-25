@@ -100,7 +100,7 @@ window.App = {
     const errorEl = document.getElementById('comp-error')
     errorEl.textContent = ''
 
-    if (!fullName || !year || !month || !day || !attendedElKaraza || !gender) {
+    if (!fullName || !year || !month || !day || !attendedElKaraza || !gender || !whatsapp) {
       errorEl.textContent = 'يرجى ملء جميع الحقول المطلوبة.'; return
     }
 

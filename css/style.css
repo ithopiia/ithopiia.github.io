@@ -1003,6 +1003,14 @@ textarea { resize: vertical; }
   font-size: 0.85rem;
 }
 
+.eval-grid tbody td.col-actions {
+  min-width: 90px;
+}
+
+.eval-grid thead th.col-actions {
+  min-width: 90px;
+}
+
 .eval-input {
   width: 46px;
   padding: 8px 4px;
@@ -1024,6 +1032,38 @@ textarea { resize: vertical; }
 }
 
 .eval-input:disabled { opacity: 0.25; }
+
+.eval-row-buttons {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+}
+
+.eval-row-buttons .btn-sm {
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.btn-bonus {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+.btn-bonus:hover {
+  background: var(--green-hover);
+  border-color: var(--green-hover);
+}
+
+.btn-minus {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+}
+.btn-minus:hover {
+  background: var(--red-hover);
+  border-color: var(--red-hover);
+}
 
 /* ===== EVAL HEADER ===== */
 .eval-header-section {

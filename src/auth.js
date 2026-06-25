@@ -73,9 +73,15 @@ window.Auth = {
     }
   },
 
+  hasCompleteProfile(user) {
+    if (!user) return false
+    if (user.role === 'admin' || user.role === 'member') return true
+    return !!(user.fullName && user.whatsapp && user.birthdate && user.gender)
+  },
+
   needsProfile() {
     if (!this._currentUser) return false
-    return this._currentUser.needsProfile || !this._currentUser.gender || !this._currentUser.birthdate
+    return this._currentUser.needsProfile || !this.hasCompleteProfile(this._currentUser)
   },
 
   async completeProfile(data) {

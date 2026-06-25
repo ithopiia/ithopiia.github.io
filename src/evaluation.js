@@ -11,6 +11,7 @@ window.Evaluation = {
     { key: 'acting', label: 'الأداء التمثيلي', min: -1, max: 1 },
     { key: 'movement', label: 'الأداء الحركي', min: -1, max: 1 },
     { key: 'clothing', label: 'ملابس مناسبة', min: -1, max: 1 },
+    { key: 'bonus', label: 'بونص (+/-)', min: -1, max: 1 },
   ],
 
   getTodayKey() {
@@ -41,6 +42,7 @@ window.Evaluation = {
         acting: 0,
         movement: 0,
         clothing: 0,
+        bonus: 0,
         totalScore: 0,
         saved: false,
       }
@@ -58,6 +60,7 @@ window.Evaluation = {
       + (Number(entry.acting) || 0)
       + (Number(entry.movement) || 0)
       + (Number(entry.clothing) || 0)
+      + (Number(entry.bonus) || 0)
   },
 
   render(dateKey) {
@@ -114,10 +117,11 @@ window.Evaluation = {
                 </th>
               `).join('')}
               <th class="col-total">المجموع</th>
+              <th class="col-actions">الإجراء</th>
             </tr>
           </thead>
           <tbody>
-            ${users.length === 0 ? '<tr><td colspan="10" style="text-align:center;color:var(--text-muted)">لا يوجد أعضاء في هذه الغرفة</td></tr>' : ''}
+            ${users.length === 0 ? '<tr><td colspan="12" style="text-align:center;color:var(--text-muted)">لا يوجد أعضاء في هذه الغرفة</td></tr>' : ''}
             ${users.map((u, i) => {
                   const entry = dayData.find(e => e.userId === u.id)
                   const offsetSum = entry ? this.calculateTotal(entry) : 0
@@ -141,6 +145,14 @@ window.Evaluation = {
                         </td>
                       `).join('')}
                       <td class="col-total eval-total" id="eval-total-${u.id}">${total}</td>
+                      <td class="col-actions">
+                        ${!inputDisabled ? `
+                          <div class="eval-row-buttons">
+                            <button class="btn-sm btn-bonus" onclick="Evaluation.fillRow('${u.id}','max')" title="تعيين الكل إلى أقصى قيمة">➕ بونص</button>
+                            <button class="btn-sm btn-minus" onclick="Evaluation.fillRow('${u.id}','min')" title="تعيين الكل إلى أدنى قيمة">➖ سالب</button>
+                          </div>
+                        ` : ''}
+                      </td>
                     </tr>
                   `
             }).join('')}
@@ -229,7 +241,7 @@ window.Evaluation = {
       const newEntry = {
         userId, dateKey: this._dateKey,
         spiritual: 0, exercises: 0, moral: 0,
-        rehearsal: 0, acting: 0, movement: 0, clothing: 0,
+        rehearsal: 0, acting: 0, movement: 0, clothing: 0, bonus: 0,
         totalScore: 0, saved: false,
       }
       all.push(newEntry)
@@ -292,6 +304,39 @@ window.Evaluation = {
       saved: true,
       date: dp.date ?? new Date().toISOString(),
     })
+  },
+
+  fillRow(userId, direction) {
+    const all = Store.get('evaluation') || []
+    let entry = all.find(e => e.userId === userId && e.dateKey === this._dateKey)
+    if (!entry) {
+      const newEntry = {
+        userId, dateKey: this._dateKey,
+        spiritual: 0, exercises: 0, moral: 0,
+        rehearsal: 0, acting: 0, movement: 0, clothing: 0, bonus: 0,
+        totalScore: 0, saved: false,
+      }
+      all.push(newEntry)
+      entry = newEntry
+    }
+
+    this.COLUMNS.forEach(c => {
+      const val = direction === 'max' ? c.max : c.min
+      entry[c.key] = val
+      const input = document.querySelector(`.eval-input-${c.key}[data-user="${userId}"]`)
+      if (input) input.value = val
+    })
+
+    const total = this.calculateTotal(entry)
+    entry.totalScore = total
+    const totalEl = document.getElementById(`eval-total-${userId}`)
+    if (totalEl) totalEl.textContent = this.BASELINE_POINTS + total
+    this.updateStats()
+
+    Store.debounce(`eval_${this._dateKey}_${userId}`, () => {
+      Store.set('evaluation', all)
+      this._applyAdjustment(userId, entry.totalScore)
+    }, 500)
   },
 
   updateStats() {

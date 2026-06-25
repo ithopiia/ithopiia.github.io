@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ithopiia - نظام إدارة المجموعات الكنسية</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%236a9a9b'/><text x='16' y='23' font-size='20' text-anchor='middle' fill='white' font-family='sans-serif'>i</text></svg>">
-  <link rel="stylesheet" href="css/style.css?v=3">
+  <link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
   <div class="top-bar">
@@ -48,9 +48,9 @@
           <option value="no">لا</option>
           <option value="yes">نعم</option>
         </select>
-        <label for="comp-gender">الجنس</label>
+        <label for="comp-gender">النوع</label>
         <select id="comp-gender" name="comp-gender">
-          <option value="">الجنس</option>
+          <option value="">النوع</option>
           <option value="male">ذكر</option>
           <option value="female">أنثى</option>
         </select>
@@ -65,9 +65,9 @@
         <h2>دخول محلي</h2>
         <label for="local-name">الاسم الكامل</label>
         <input type="text" id="local-name" name="local-name" placeholder="الاسم الكامل" autocomplete="name">
-        <label for="local-gender">الجنس</label>
+        <label for="local-gender">النوع</label>
         <select id="local-gender" name="local-gender">
-          <option value="">اختر الجنس</option>
+          <option value="">اختر النوع</option>
           <option value="male">ذكر</option>
           <option value="female">أنثى</option>
         </select>
@@ -135,13 +135,13 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
   <script>firebase.initializeApp(CONFIG.firebase)</script>
   <script src="src/store.js?v=7"></script>
-  <script src="src/auth.js?v=2"></script>
+  <script src="src/auth.js?v=3"></script>
   <script src="src/timer.js?v=3"></script>
   <script src="src/points.js?v=3"></script>
-  <script src="src/evaluation.js?v=8"></script>
+  <script src="src/evaluation.js?v=9"></script>
   <script src="src/leaderboard.js?v=5"></script>
-  <script src="src/admin.js?v=7"></script>
-  <script src="src/dashboard.js?v=4"></script>
-  <script src="src/app.js?v=3"></script>
+  <script src="src/admin.js?v=8"></script>
+  <script src="src/dashboard.js?v=5"></script>
+  <script src="src/app.js?v=4"></script>
 </body>
 </html>
