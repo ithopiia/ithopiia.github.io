@@ -7,7 +7,9 @@ window.App = {
     Auth.onAuth(user => {
       if (user) {
         Store.setAuthReady()
-        Points.grantDailyPoints()
+        if (!Auth.needsProfile()) {
+          Points.grantDailyPoints()
+        }
       }
       this.render()
     })

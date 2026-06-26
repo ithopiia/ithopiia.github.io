@@ -131,6 +131,8 @@ window.Store = {
   },
 
   async _recalcCumulativeFromRemote(remote) {
+    const currentUser = Auth.currentUser()
+    const canWriteCumulative = currentUser && (currentUser.role === 'admin' || currentUser.role === 'member')
     const userIds = Object.keys(remote.users)
     const promises = []
     for (const userId of userIds) {
@@ -143,11 +145,16 @@ window.Store = {
       if (total !== current) {
         const localUser = (this._data.users || []).find(u => u.id === userId)
         if (localUser) localUser.cumulativePoints = total
-        promises.push(this.writePath(`users_data/${userId}/cumulativePoints`, total))
+        if (canWriteCumulative) {
+          promises.push(this.writePath(`users_data/${userId}/cumulativePoints`, total))
+        }
       }
     }
     if (promises.length > 0 && this._authReady) {
       await Promise.all(promises)
+      this._saveLocal()
+      this._notify()
+    } else if (promises.length === 0) {
       this._saveLocal()
       this._notify()
     }
