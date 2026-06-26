@@ -191,7 +191,6 @@ window.App = {
       document.getElementById('view-auth')?.classList.add('active')
       document.getElementById('auth-google').style.display = 'none'
       document.getElementById('auth-complete-profile').style.display = 'block'
-      document.getElementById('auth-local').style.display = 'none'
       const nameInput = document.getElementById('comp-name')
       if (nameInput && user.fullName) nameInput.value = user.fullName
       setTimeout(() => this.validateProfileForm(), 100)
@@ -201,7 +200,6 @@ window.App = {
       document.getElementById('view-auth')?.classList.add('active')
       document.getElementById('auth-complete-profile').style.display = 'none'
       document.getElementById('auth-google').style.display = 'block'
-      document.getElementById('auth-local')?.style.display = 'none'
       document.getElementById('auth-error').textContent = ''
     }
   },
