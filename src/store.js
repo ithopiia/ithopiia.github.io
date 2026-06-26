@@ -4,6 +4,7 @@ window.Store = {
   _rootRef: null,
   _listeners: [],
   _authReady: false,
+  _listening: false,
   _pendingSync: false,
   _debounceTimers: {},
 
@@ -55,14 +56,13 @@ window.Store = {
           CONFIG.useFirebase = false
         }
       }
-      if (CONFIG.useFirebase && this._rootRef && this._authReady) {
-        this._listen()
-      }
     }
     this._migrateSavedFlag()
   },
 
   _listen() {
+    if (this._listening) return
+    this._listening = true
     this._rootRef.on('value', snap => {
       if (!snap.exists()) return
       const remote = snap.val()
@@ -131,8 +131,8 @@ window.Store = {
   },
 
   async _recalcCumulativeFromRemote(remote) {
-    const updates = {}
     const userIds = Object.keys(remote.users)
+    const promises = []
     for (const userId of userIds) {
       let total = 0
       for (const dateKey of Object.keys(remote.dailyPoints)) {
@@ -141,13 +141,13 @@ window.Store = {
       }
       const current = remote.users[userId]?.cumulativePoints ?? 0
       if (total !== current) {
-        updates[`users/${userId}/cumulativePoints`] = total
         const localUser = (this._data.users || []).find(u => u.id === userId)
         if (localUser) localUser.cumulativePoints = total
+        promises.push(this.writePath(`users_data/${userId}/cumulativePoints`, total))
       }
     }
-    if (Object.keys(updates).length > 0 && this._authReady) {
-      await this._rootRef.update(updates)
+    if (promises.length > 0 && this._authReady) {
+      await Promise.all(promises)
       this._saveLocal()
       this._notify()
     }
@@ -248,6 +248,8 @@ window.Store = {
   async _syncRTDB() {
     if (!CONFIG.useFirebase || !this._rootRef) return
     if (!this._authReady) { this._pendingSync = true; return }
+    const user = Auth.currentUser()
+    if (!user || user.needsProfile || !Auth.hasCompleteProfile(user)) return
     try { await this._rootRef.once('value') } catch { return }
     try {
       const rtdb = this._buildRTDB()
