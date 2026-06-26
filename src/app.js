@@ -114,7 +114,7 @@ window.App = {
 
     const result = await Auth.completeProfile({ fullName, birthdate, whatsapp, gender, attendedElKaraza })
     if (result.ok) {
-      location.reload()
+      this.showDashboard()
     } else {
       errorEl.textContent = result.error
       btn.disabled = false; btn.textContent = 'حفظ'
