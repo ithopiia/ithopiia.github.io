@@ -90,23 +90,21 @@ window.Auth = {
   async completeProfile(data) {
     if (!this._currentUser) return { ok: false, error: 'لا يوجد مستخدم.' }
     const uid = this._currentUser.id
-    Store.update('users', u => u.id === uid, {
+
+    const profileData = {
       fullName: data.fullName,
       birthdate: data.birthdate || '',
       whatsapp: data.whatsapp || '',
       gender: data.gender,
       attendedElKaraza: data.attendedElKaraza,
       needsProfile: false
-    })
-    await Store.writePath(`users_data/${uid}/profile`, {
-      fullName: data.fullName,
-      birthdate: data.birthdate || '',
-      whatsapp: data.whatsapp || '',
-      gender: data.gender,
-      attendedElKaraza: data.attendedElKaraza,
-      needsProfile: false
-    })
-    this._currentUser = Store.get('users').find(u => u.id === uid) || this._currentUser
+    }
+
+    Object.assign(this._currentUser, profileData)
+
+    const updated = await Store.saveProfileData(uid, profileData)
+    if (updated) this._currentUser = updated
+
     this._notify()
     return { ok: true }
   },

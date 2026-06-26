@@ -112,13 +112,23 @@ window.App = {
     const btn = document.getElementById('comp-btn')
     btn.disabled = true; btn.textContent = 'جارٍ الحفظ...'
 
-    const result = await Auth.completeProfile({ fullName, birthdate, whatsapp, gender, attendedElKaraza })
-    if (result.ok) {
-      this.showDashboard()
-    } else {
-      errorEl.textContent = result.error
+    const uid = Auth.currentUser()?.id
+    if (!uid) {
+      errorEl.textContent = 'خطأ في تعريف المستخدم.'
       btn.disabled = false; btn.textContent = 'حفظ'
+      return
     }
+
+    const profileData = { fullName, birthdate, whatsapp, gender, attendedElKaraza, needsProfile: false }
+
+    await Store.saveProfileData(uid, profileData)
+
+    const saved = (Store.get('users') || []).find(u => u.id === uid)
+    if (saved && Auth.currentUser()) {
+      Object.assign(Auth.currentUser(), saved)
+    }
+
+    this.showDashboard()
   },
 
   showAdmin() {

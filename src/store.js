@@ -319,6 +319,28 @@ window.Store = {
     const idx = items.findIndex(predicate)
     if (idx !== -1) { Object.assign(items[idx], changes); this._sync(); return items[idx] }
   },
+  async updateUserProfile(uid, data) {
+    const users = this._data.users || []
+    const idx = users.findIndex(u => u.id === uid)
+    if (idx === -1) return null
+    Object.assign(users[idx], data)
+    this._saveLocal()
+    if (CONFIG.useFirebase && this._rootRef && this._authReady) {
+      await this._rootRef.child(`users/${uid}`).set(users[idx])
+    }
+    return users[idx]
+  },
+  async saveProfileData(uid, profileData) {
+    const users = this._data.users || []
+    const idx = users.findIndex(u => u.id === uid)
+    if (idx === -1) return null
+    Object.assign(users[idx], profileData)
+    this._saveLocal()
+    if (CONFIG.useFirebase && this._rootRef && this._authReady) {
+      await this._rootRef.child(`users/${uid}`).set(users[idx])
+    }
+    return users[idx]
+  },
   remove(key, predicate) {
     this._data[key] = this._data[key].filter(predicate)
     this._sync()
