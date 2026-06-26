@@ -1,7 +1,7 @@
 window.Evaluation = {
   _dateKey: null,
   _activeGender: 'male',
-  BASELINE_POINTS: 10,
+  BASELINE_POINTS: 0,
 
   COLUMNS: [
     { key: 'spiritual', label: 'الجزء الروحي', min: -3, max: 3 },
@@ -61,6 +61,18 @@ window.Evaluation = {
       + (Number(entry.movement) || 0)
       + (Number(entry.clothing) || 0)
       + (Number(entry.bonus) || 0)
+  },
+
+  onSmartAction(sel, userId) {
+    const val = sel.value
+    if (!val) return
+    switch (val) {
+      case 'bonus': this.fillRow(userId, 'max'); break
+      case 'penalty': this.fillRow(userId, 'min'); break
+      case 'neutral': this.fillRow(userId, 'zero'); break
+      case 'minusone': this.fillRow(userId, 'minusone'); break
+    }
+    sel.value = ''
   },
 
   render(dateKey) {
@@ -147,10 +159,13 @@ window.Evaluation = {
                       <td class="col-total eval-total" id="eval-total-${u.id}">${total}</td>
                       <td class="col-actions">
                         ${!inputDisabled ? `
-                          <div class="eval-row-buttons">
-                            <button class="btn-sm btn-bonus" onclick="Evaluation.fillRow('${u.id}','max')" title="تعيين الكل إلى أقصى قيمة">➕ بونص</button>
-                            <button class="btn-sm btn-minus" onclick="Evaluation.fillRow('${u.id}','min')" title="تعيين الكل إلى أدنى قيمة">➖ سالب</button>
-                          </div>
+                          <select class="eval-smart-action" data-user="${u.id}" onchange="Evaluation.onSmartAction(this, '${u.id}')">
+                            <option value="">تطبيق تلقائي</option>
+                            <option value="bonus">تقفيل بونص (+11)</option>
+                            <option value="penalty">تصفير عقاب (-11)</option>
+                            <option value="neutral">تثبيت محايد (0)</option>
+                            <option value="minusone">خصم موحد (-1)</option>
+                          </select>
                         ` : ''}
                       </td>
                     </tr>
@@ -256,12 +271,10 @@ window.Evaluation = {
     const total = this.calculateTotal(entry)
     entry.totalScore = total
 
-    // Immediate UI update
     const totalEl = document.getElementById(`eval-total-${userId}`)
     if (totalEl) totalEl.textContent = this.BASELINE_POINTS + total
     this.updateStats()
 
-    // Debounced persistence
     Store.debounce(`eval_${this._dateKey}_${userId}`, () => {
       Store.set('evaluation', all)
       this._applyAdjustment(userId, entry.totalScore)
@@ -289,11 +302,9 @@ window.Evaluation = {
     dp.finalScore = this.BASELINE_POINTS + (adjustment || 0) + (dp.manualBonus || 0)
     dp.saved = true
 
-    // Single sync with dailyPoints — listener will recompute cumulativePoints
     Store._data.dailyPoints = dailyPoints
     Store._sync()
 
-    // Direct Firebase write for immediate persistence
     Store.writePath(`dailyPoints/${this._dateKey}/${userId}`, {
       basePoints: dp.basePoints,
       evaluationScore: dp.evaluationScore,
@@ -321,7 +332,14 @@ window.Evaluation = {
     }
 
     this.COLUMNS.forEach(c => {
-      const val = direction === 'max' ? c.max : c.min
+      let val
+      switch (direction) {
+        case 'max': val = c.max; break
+        case 'min': val = c.min; break
+        case 'zero': val = 0; break
+        case 'minusone': val = -1; break
+        default: val = 0
+      }
       entry[c.key] = val
       const input = document.querySelector(`.eval-input-${c.key}[data-user="${userId}"]`)
       if (input) input.value = val
@@ -345,7 +363,7 @@ window.Evaluation = {
     const dayData = this.getEvaluation(this._dateKey)
     const total = dayData.reduce((s, e) => s + this.BASELINE_POINTS + this.calculateTotal(e), 0)
     const count = dayData.length
-    el.textContent = `📊 ${count} أعضاء — إجمالي النقاط: ${total} (أساس ${this.BASELINE_POINTS})`
+    el.textContent = `📊 ${count} أعضاء — إجمالي النقاط: ${total}`
   },
 
   saveDay() {
@@ -375,20 +393,17 @@ window.Evaluation = {
       }
     })
 
-    // Single sync with all changes — listener will recompute cumulativePoints
     Store._data.evaluation = all
     Store._data.dailyPoints = dailyPoints
     Store._sync()
 
-    // Direct Firebase writes for every saved entry
-    const fbEval = {}
-    const fbDP = {}
+    const allPaths = {}
     dayEntries.forEach(e => {
       const { userId, dateKey: dk, totalScore, saved, ...evalScores } = e
-      fbEval[`evaluation/${dateKey}/${userId}`] = { ...evalScores, totalScore, saved }
+      allPaths[`evaluation/${dateKey}/${userId}`] = { ...evalScores, totalScore, saved }
       const dp = dailyPoints.find(p => p.userId === userId && p.dateKey === dateKey)
       if (dp) {
-        fbDP[`dailyPoints/${dateKey}/${userId}`] = {
+        allPaths[`dailyPoints/${dateKey}/${userId}`] = {
           basePoints: dp.basePoints,
           evaluationScore: dp.evaluationScore ?? 0,
           manualBonus: dp.manualBonus ?? 0,
@@ -400,7 +415,6 @@ window.Evaluation = {
         }
       }
     })
-    const allPaths = { ...fbEval, ...fbDP }
     Object.entries(allPaths).forEach(([path, val]) => {
       Store.writePath(path, val)
     })

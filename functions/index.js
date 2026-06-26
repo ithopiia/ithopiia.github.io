@@ -3,7 +3,7 @@ const admin = require('firebase-admin')
 
 admin.initializeApp()
 
-const POINTS_PER_DAY = 10
+const POINTS_PER_DAY = 0
 const ROOT_PATH = 'ithopiia'
 
 function getTodayKey() {

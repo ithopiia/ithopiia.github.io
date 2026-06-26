@@ -18,18 +18,11 @@ window.Auth = {
             Store.push('users', profile)
           }
           this._currentUser = profile || null
-
         } else {
           this._currentUser = null
         }
         this._notify()
       })
-    } else {
-      const id = sessionStorage.getItem('ithopiia_session')
-      if (id) {
-        const users = Store.get('users') || []
-        this._currentUser = users.find(u => u.id === id) || null
-      }
     }
     return this._currentUser
   },
@@ -76,7 +69,13 @@ window.Auth = {
   hasCompleteProfile(user) {
     if (!user) return false
     if (user.role === 'admin' || user.role === 'member') return true
-    return !!(user.fullName && user.whatsapp && user.birthdate && user.gender)
+    return !!(
+      user.fullName &&
+      user.birthdate &&
+      user.gender &&
+      user.whatsapp &&
+      (user.attendedElKaraza === 'yes' || user.attendedElKaraza === 'no')
+    )
   },
 
   needsProfile() {
@@ -99,27 +98,10 @@ window.Auth = {
     return { ok: true }
   },
 
-  async loginLocal(name, gender, room) {
-    if (!name || !gender || !room) return { ok: false, error: 'يرجى ملء جميع الحقول.' }
-    const id = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)
-    const user = {
-      id, uid: id, fullName: name, gender, room,
-      status: 'approved', role: 'user', rooms: [],
-      cumulativePoints: 0,
-      createdAt: new Date().toISOString()
-    }
-    Store.push('users', user)
-    this._currentUser = user
-    sessionStorage.setItem('ithopiia_session', id)
-    this._notify()
-    return { ok: true, user }
-  },
-
   logout() {
     this._currentUser = null
     this._notify()
     if (CONFIG.useFirebase) firebase.auth().signOut()
-    sessionStorage.removeItem('ithopiia_session')
   },
 
   currentUser() { return this._currentUser },

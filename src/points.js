@@ -1,5 +1,4 @@
 
-
 const Points = {
   getTodayKey() {
     const d = new Date()

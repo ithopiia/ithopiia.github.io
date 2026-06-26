@@ -4,7 +4,6 @@ window.Admin = {
 
   render() {
     this.renderUsers()
-    this.renderSheet()
     this.renderNotesTab()
     this.renderLeaderboardTab()
     this.renderUserInfoTab()
@@ -32,8 +31,6 @@ window.Admin = {
           this.renderUsers()
         } else if (tabId === 'admin-tab-leaderboard') {
           this.renderLeaderboardTab()
-        } else if (tabId === 'tab-sheet') {
-          this.renderSheet()
         } else if (tabId === 'admin-tab-userinfo') {
           this.renderUserInfoTab()
         } else if (tabId === 'admin-tab-rooms') {
@@ -181,7 +178,7 @@ window.Admin = {
             ${userPoints.slice(0, 14).map(p => `
               <div class="info-item" style="font-size:0.82rem;padding:10px 12px">
                 <span class="info-label">${p.dateKey}</span>
-                <span style="color:var(--text-muted)">أساسي: ${p.basePoints || CONFIG.pointsPerDay}</span>
+                <span style="color:var(--text-muted)">أساسي: ${p.basePoints || 0}</span>
                 <span style="color:var(--text-muted)">تقيم: ${p.evaluationScore || 0}</span>
                 <span style="color:var(--text-muted)">يدوي: ${p.manualBonus || 0}</span>
                 <span class="info-value" style="font-size:0.85rem">= ${p.finalScore || 0}</span>
@@ -201,187 +198,6 @@ window.Admin = {
     const users = (Store.get('users') || []).filter(u => u.id !== id)
     Store.set('users', users)
     this.render()
-  },
-
-  renderSheet() {
-    const el = document.getElementById('tab-sheet')
-    const todayKey = Points.getTodayKey()
-    this._editingDateKey = this._editingDateKey || localStorage.getItem('ithopiia_sheetDate') || todayKey
-
-    const allPoints = Store.get('dailyPoints') || []
-    const dayEntries = allPoints.filter(p => p.dateKey === this._editingDateKey)
-    const users = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
-    const daySaved = dayEntries.length > 0 && dayEntries.every(p => p.saved)
-    const isToday = this._editingDateKey === todayKey
-    const inputsDisabled = !isToday && daySaved
-    const dayEnded = !isToday && daySaved
-
-    el.innerHTML = `
-      <div class="sheet-controls">
-        <div class="sheet-nav">
-          <label>التاريخ:</label>
-          <input type="date" id="sheet-date" value="${this._editingDateKey}" onchange="Admin.changeDate(this.value)">
-        </div>
-        <div class="sheet-status">
-          ${isToday ? '<span class="badge badge-success">اليوم الحالي — مفتوح دائمًا</span>' : (dayEnded ? '<span class="badge badge-warning">تم إنهاء اليوم</span>' : '<span class="badge" style="background:var(--accent)">غير محفوظ</span>')}
-        </div>
-      </div>
-      <div style="overflow-x:auto">
-        <table class="sheet-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>الاسم</th>
-              <th>الغرفة</th>
-              <th>النقاط الأساسية</th>
-              <th>مكافأة</th>
-              <th>المجموع</th>
-              <th>ملاحظات</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${users.map((u, i) => {
-              const entry = dayEntries.find(p => p.userId === u.id)
-              const base = entry ? entry.basePoints : CONFIG.pointsPerDay
-               const manualBonus = entry ? (entry.manualBonus ?? 0) : 0
-              const evaluationScore = entry ? (entry.evaluationScore ?? 0) : 0
-              const total = entry ? (entry.finalScore || base + manualBonus + evaluationScore) : base
-              const notes = entry ? (entry.adminNotes || '') : ''
-              return `
-                <tr>
-                  <td>${i + 1}</td>
-                  <td><span class="name-link" onclick="Admin.showUserProfile('${u.id}')">${u.fullName}</span></td>
-                  <td>${u.room || '-'}</td>
-                  <td class="cell-points">${isToday ? CONFIG.pointsPerDay : base}</td>
-                  <td><input type="number" class="sheet-bonus-input" data-user="${u.id}" value="${manualBonus}" ${inputsDisabled ? 'disabled' : ''} style="width:70px"></td>
-                  <td class="cell-total" id="sheet-total-${u.id}">${total}</td>
-                  <td><input type="text" class="sheet-notes-input" data-user="${u.id}" value="${notes}" ${inputsDisabled ? 'disabled' : ''} style="width:120px" placeholder="ملاحظات..."></td>
-                </tr>
-              `
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-      <div class="sheet-actions">
-        ${!isToday && !daySaved ? `<button class="btn-sm btn-primary" onclick="Admin.saveDay()">💾 حفظ اليوم</button>` : ''}
-        ${!isToday && daySaved ? `<button class="btn-sm btn-ghost" onclick="Admin.unlockDay()">🔓 فتح التحرير</button>` : ''}
-        <button class="btn-sm btn-ghost" onclick="Admin.changeDate('${todayKey}')">📅 اليوم</button>
-      </div>`
-    if (!inputsDisabled) this.bindSheetInputs()
-  },
-
-  bindSheetInputs() {
-    const table = document.querySelector('#tab-sheet .sheet-table')
-    if (!table) return
-    table.addEventListener('input', (e) => {
-      if (this._editingDateKey !== Points.getTodayKey()) return
-      const bonus = e.target.closest('.sheet-bonus-input')
-      const notes = e.target.closest('.sheet-notes-input')
-      if (!bonus && !notes) return
-      const userId = (bonus || notes).dataset.user
-      Store.debounce(`sheet_${this._editingDateKey}_${userId}`, () => {
-        this._autoSaveRow(userId)
-      }, 500)
-    })
-  },
-
-  saveDay() {
-    const dateKey = this._editingDateKey
-    const all = Store.get('dailyPoints') || []
-    const users = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
-    users.forEach(u => {
-      const manualBonus = parseInt(document.querySelector(`.sheet-bonus-input[data-user="${u.id}"]`)?.value) || 0
-      const notes = document.querySelector(`.sheet-notes-input[data-user="${u.id}"]`)?.value || ''
-      let entry = all.find(p => p.userId === u.id && p.dateKey === dateKey)
-      const base = entry ? entry.basePoints : CONFIG.pointsPerDay
-      if (entry) {
-        entry.manualBonus = manualBonus
-        entry.adminNotes = notes
-        entry.overwritten = true
-        entry.finalScore = base + (entry.evaluationScore || 0) + manualBonus
-        entry.saved = true
-      } else {
-        all.push({
-          userId: u.id, dateKey,
-          date: new Date().toISOString(),
-          basePoints: base,
-          evaluationScore: 0,
-          manualBonus: manualBonus,
-          overwritten: true,
-          finalScore: base + manualBonus,
-          adminNotes: notes,
-          saved: true,
-        })
-      }
-    })
-    Store.set('dailyPoints', all)
-    this.renderSheet()
-    this._autoRefresh()
-  },
-
-  _autoSaveRow(userId) {
-    const dateKey = this._editingDateKey
-    const manualBonus = parseInt(document.querySelector(`.sheet-bonus-input[data-user="${userId}"]`)?.value) || 0
-    const notes = document.querySelector(`.sheet-notes-input[data-user="${userId}"]`)?.value || ''
-    const users = Store.get('users') || []
-    const user = users.find(u => u.id === userId)
-    if (!user || user.createdAt && user.createdAt.split('T')[0] > dateKey) return
-    const all = Store.get('dailyPoints') || []
-    let entry = all.find(p => p.userId === userId && p.dateKey === dateKey)
-    if (entry) {
-      entry.manualBonus = manualBonus
-      entry.adminNotes = notes
-      entry.overwritten = true
-      entry.finalScore = CONFIG.pointsPerDay + (entry.evaluationScore || 0) + manualBonus
-      entry.saved = true
-    } else {
-      all.push({
-        userId, dateKey,
-        date: new Date().toISOString(),
-        basePoints: CONFIG.pointsPerDay,
-        evaluationScore: 0,
-        manualBonus: manualBonus,
-        overwritten: true,
-        finalScore: CONFIG.pointsPerDay + manualBonus,
-        adminNotes: notes,
-        saved: true,
-      })
-    }
-    Store.set('dailyPoints', all)
-
-    const finalScore = CONFIG.pointsPerDay + (entry ? (entry.evaluationScore || 0) : 0) + manualBonus
-    const totalEl = document.getElementById(`sheet-total-${userId}`)
-    if (totalEl) totalEl.textContent = finalScore
-
-    this._autoRefresh()
-  },
-
-  _autoRefresh() {
-    const active = document.querySelector('#view-admin .tab-content.active')?.id
-    if (active !== 'tab-sheet') {
-      if (active === 'tab-users') this.renderUsers()
-      else if (active === 'admin-tab-userinfo') this.renderUserInfoTab()
-      else if (active === 'admin-tab-leaderboard') this.renderLeaderboardTab()
-      else if (active === 'admin-tab-notes') this.renderNotesTab()
-      else if (active === 'admin-tab-rooms') this.renderRoomsTab()
-    }
-  },
-
-  changeDate(dateKey) {
-    this._editingDateKey = dateKey
-    localStorage.setItem('ithopiia_sheetDate', dateKey)
-    this.renderSheet()
-  },
-
-  unlockDay() {
-    if (!confirm('فتح اليوم سيسمح بالتعديل مرة أخرى. هل تريد المتابعة؟')) return
-    const dateKey = this._editingDateKey
-    const all = Store.get('dailyPoints') || []
-    all.forEach(p => {
-      if (p.dateKey === dateKey) p.saved = false
-    })
-    Store.set('dailyPoints', all)
-    this.renderSheet()
   },
 
   renderLeaderboardTab() {

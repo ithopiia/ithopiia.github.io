@@ -31,7 +31,7 @@ window.Dashboard = {
     const dailyPoints = Store.get('dailyPoints') || []
     const entry = dailyPoints.find(p => p.userId === user.id && p.dateKey === todayKey)
     if (!entry) return
-    const base = entry.basePoints || CONFIG.pointsPerDay
+    const base = entry.basePoints || 0
     const evalScore = entry.evaluationScore || 0
     const manualBonus = entry.manualBonus || 0
     const total = entry.finalScore || (base + evalScore + manualBonus)
@@ -83,7 +83,7 @@ window.Dashboard = {
       todayEntry = Points.ensureTodayPoints(user.id)
     }
 
-    const base = todayEntry.basePoints || CONFIG.pointsPerDay
+    const base = todayEntry.basePoints || 0
     const evalScore = todayEntry.evaluationScore || 0
     const manualBonus = todayEntry.manualBonus || 0
     const total = todayEntry.finalScore || (base + evalScore + manualBonus)
@@ -135,8 +135,8 @@ window.Dashboard = {
           <div class="stat-label">ترتيبك</div>
         </div>
         <div class="stat-card">
-          <div class="stat-value">${CONFIG.pointsPerDay}</div>
-          <div class="stat-label">النقاط اليومية</div>
+          <div class="stat-value">0</div>
+          <div class="stat-label">أساس اليوم</div>
         </div>
         <div class="stat-card">
           <div class="stat-value">${sorted.length}</div>

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ithopiia - نظام إدارة المجموعات الكنسية</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%236a9a9b'/><text x='16' y='23' font-size='20' text-anchor='middle' fill='white' font-family='sans-serif'>i</text></svg>">
-  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
   <div class="top-bar">
@@ -35,48 +35,29 @@
       <div id="auth-complete-profile" class="auth-form" style="display:none">
         <h2>أكمل ملفك الشخصي</h2>
         <label for="comp-name">الاسم الكامل</label>
-        <input type="text" id="comp-name" name="comp-name" placeholder="الاسم الكامل" autocomplete="name">
+        <input type="text" id="comp-name" name="comp-name" placeholder="الاسم الكامل" autocomplete="name" oninput="App.validateProfileForm()">
         <label for="comp-year">تاريخ الميلاد</label>
         <div class="date-selects">
-          <select id="comp-year" name="comp-year"><option value="">السنة</option></select>
-          <select id="comp-month" name="comp-month" style="display:none"><option value="">الشهر</option></select>
-          <select id="comp-day" name="comp-day" style="display:none"><option value="">اليوم</option></select>
+          <select id="comp-year" name="comp-year" onchange="App.validateProfileForm()"><option value="">السنة</option></select>
+          <select id="comp-month" name="comp-month" style="display:none" onchange="App.validateProfileForm()"><option value="">الشهر</option></select>
+          <select id="comp-day" name="comp-day" style="display:none" onchange="App.validateProfileForm()"><option value="">اليوم</option></select>
         </div>
         <label for="comp-elkaraza">الكرازة</label>
-        <select id="comp-elkaraza" name="comp-elkaraza">
+        <select id="comp-elkaraza" name="comp-elkaraza" onchange="App.validateProfileForm()">
           <option value="">هل حضرت الكرازة؟</option>
           <option value="no">لا</option>
           <option value="yes">نعم</option>
         </select>
         <label for="comp-gender">النوع</label>
-        <select id="comp-gender" name="comp-gender">
+        <select id="comp-gender" name="comp-gender" onchange="App.validateProfileForm()">
           <option value="">النوع</option>
           <option value="male">ذكر</option>
           <option value="female">أنثى</option>
         </select>
-        <label for="comp-whatsapp">رقم واتساب (اختياري)</label>
-        <input type="tel" id="comp-whatsapp" name="comp-whatsapp" placeholder="رقم واتساب (اختياري)">
-        <button id="comp-btn" class="btn btn-primary">حفظ</button>
+        <label for="comp-whatsapp">رقم واتساب</label>
+        <input type="tel" id="comp-whatsapp" name="comp-whatsapp" placeholder="رقم واتساب" oninput="App.validateProfileForm()">
+        <button id="comp-btn" class="btn btn-primary" disabled>حفظ</button>
         <div id="comp-error" class="auth-error"></div>
-      </div>
-
-      <div id="auth-local" class="auth-form" style="display:none">
-        <div class="divider"><span>أو</span></div>
-        <h2>دخول محلي</h2>
-        <label for="local-name">الاسم الكامل</label>
-        <input type="text" id="local-name" name="local-name" placeholder="الاسم الكامل" autocomplete="name">
-        <label for="local-gender">النوع</label>
-        <select id="local-gender" name="local-gender">
-          <option value="">اختر النوع</option>
-          <option value="male">ذكر</option>
-          <option value="female">أنثى</option>
-        </select>
-        <label for="local-room">الغرفة</label>
-        <select id="local-room" name="local-room">
-          <option value="">اختر الغرفة</option>
-        </select>
-        <button id="local-btn" class="btn btn-primary">دخول</button>
-        <div id="local-error" class="auth-error"></div>
       </div>
     </div>
   </div>
@@ -112,7 +93,6 @@
       <h2>لوحة المشرف</h2>
       <div class="tabs">
         <button class="tab-btn active" data-tab="tab-evaluation">📊 التقييم اليومي</button>
-        <button class="tab-btn" data-tab="tab-sheet">📋 إدارة اليوم</button>
         <button class="tab-btn" data-tab="tab-users">👥 المستخدمين</button>
         <button class="tab-btn" data-tab="admin-tab-notes">📝 ملاحظات</button>
         <button class="tab-btn" data-tab="admin-tab-leaderboard">🏆 المتصدرين</button>
@@ -120,7 +100,6 @@
         <button class="tab-btn" data-tab="admin-tab-rooms">🚪 الغرف</button>
       </div>
       <div id="tab-evaluation" class="tab-content active"></div>
-      <div id="tab-sheet" class="tab-content"></div>
       <div id="tab-users" class="tab-content"></div>
       <div id="admin-tab-notes" class="tab-content"></div>
       <div id="admin-tab-leaderboard" class="tab-content"></div>
@@ -134,14 +113,14 @@
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
   <script>firebase.initializeApp(CONFIG.firebase)</script>
-  <script src="src/store.js?v=7"></script>
-  <script src="src/auth.js?v=3"></script>
+  <script src="src/store.js?v=8"></script>
+  <script src="src/auth.js?v=4"></script>
   <script src="src/timer.js?v=3"></script>
-  <script src="src/points.js?v=3"></script>
-  <script src="src/evaluation.js?v=9"></script>
+  <script src="src/points.js?v=4"></script>
+  <script src="src/evaluation.js?v=10"></script>
   <script src="src/leaderboard.js?v=5"></script>
-  <script src="src/admin.js?v=8"></script>
+  <script src="src/admin.js?v=9"></script>
   <script src="src/dashboard.js?v=5"></script>
-  <script src="src/app.js?v=4"></script>
+  <script src="src/app.js?v=5"></script>
 </body>
 </html>

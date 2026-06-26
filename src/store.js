@@ -119,7 +119,7 @@ window.Store = {
 
       // Reactive running total: after every data change, recompute
       // cumulativePoints from all dailyPoints entries and write back.
-      if (remote.dailyPoints && remote.users && !this._recalculatingPts) {
+      if (remote.dailyPoints && remote.users && !this._recalculatingPts && this._authReady) {
         this._recalculatingPts = true
         this._recalcCumulativeFromRemote(remote).then(() => {
           this._recalculatingPts = false
@@ -146,7 +146,7 @@ window.Store = {
         if (localUser) localUser.cumulativePoints = total
       }
     }
-    if (Object.keys(updates).length > 0) {
+    if (Object.keys(updates).length > 0 && this._authReady) {
       await this._rootRef.update(updates)
       this._saveLocal()
       this._notify()
@@ -248,6 +248,7 @@ window.Store = {
   async _syncRTDB() {
     if (!CONFIG.useFirebase || !this._rootRef) return
     if (!this._authReady) { this._pendingSync = true; return }
+    try { await this._rootRef.once('value') } catch { return }
     try {
       const rtdb = this._buildRTDB()
       const writes = [

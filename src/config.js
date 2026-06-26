@@ -11,7 +11,7 @@ window.CONFIG = {
   useFirebase: true,
   adminEmails: ['admin@ithopiia.com', 'admin@hthopiia.com'],
   storageKey: 'ithopiia_data',
-  pointsPerDay: 10,
+  pointsPerDay: 0,
   countdownHours: 24,
   rooms: ['Shadow', 'Panto'],
   roomDifficulties: { Shadow: 'Medium', Panto: 'Medium' },

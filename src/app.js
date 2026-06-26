@@ -15,9 +15,7 @@ window.App = {
     document.getElementById('logout-btn')?.addEventListener('click', () => this.handleLogout())
     document.getElementById('google-auth-btn')?.addEventListener('click', () => this.handleGoogleSignIn())
     document.getElementById('comp-btn')?.addEventListener('click', () => this.handleCompleteProfile())
-    document.getElementById('local-btn')?.addEventListener('click', () => this.handleLocalLogin())
 
-    this.populateRooms()
     this.initDatePicker()
     this.render()
   },
@@ -59,15 +57,18 @@ window.App = {
     })
   },
 
-  populateRooms() {
-    const sel = document.getElementById('local-room')
-    if (!sel) return
-    sel.innerHTML = '<option value="">اختر الغرفة</option>'
-    CONFIG.rooms.forEach(r => {
-      const opt = document.createElement('option')
-      opt.value = r; opt.textContent = r
-      sel.appendChild(opt)
-    })
+  validateProfileForm() {
+    const name = document.getElementById('comp-name')?.value.trim()
+    const year = document.getElementById('comp-year')?.value
+    const month = document.getElementById('comp-month')?.value
+    const day = document.getElementById('comp-day')?.value
+    const elkaraza = document.getElementById('comp-elkaraza')?.value
+    const gender = document.getElementById('comp-gender')?.value
+    const whatsapp = document.getElementById('comp-whatsapp')?.value.trim()
+    const btn = document.getElementById('comp-btn')
+    if (!btn) return
+    const valid = !!(name && year && month && day && elkaraza && gender && whatsapp)
+    btn.disabled = !valid
   },
 
   handleLogout() {
@@ -115,24 +116,6 @@ window.App = {
     } else {
       errorEl.textContent = result.error
       btn.disabled = false; btn.textContent = 'حفظ'
-    }
-  },
-
-  async handleLocalLogin() {
-    const name = document.getElementById('local-name').value.trim()
-    const gender = document.getElementById('local-gender').value
-    const room = document.getElementById('local-room').value
-    const errorEl = document.getElementById('local-error')
-    errorEl.textContent = ''
-    if (!name || !gender || !room) { errorEl.textContent = 'يرجى ملء جميع الحقول.'; return }
-    const btn = document.getElementById('local-btn')
-    btn.disabled = true; btn.textContent = 'جارٍ...'
-    const res = await Auth.loginLocal(name, gender, room)
-    if (res.ok) {
-      this.render()
-    } else {
-      errorEl.textContent = res.error
-      btn.disabled = false; btn.textContent = 'دخول'
     }
   },
 
@@ -211,18 +194,14 @@ window.App = {
       document.getElementById('auth-local').style.display = 'none'
       const nameInput = document.getElementById('comp-name')
       if (nameInput && user.fullName) nameInput.value = user.fullName
+      setTimeout(() => this.validateProfileForm(), 100)
     } else {
       if (adminNavBtn) adminNavBtn.style.display = 'none'
       if (profileNavBtn) profileNavBtn.style.display = 'none'
       document.getElementById('view-auth')?.classList.add('active')
       document.getElementById('auth-complete-profile').style.display = 'none'
-      if (CONFIG.useFirebase) {
-        document.getElementById('auth-google').style.display = 'block'
-        document.getElementById('auth-local').style.display = 'none'
-      } else {
-        document.getElementById('auth-google').style.display = 'none'
-        document.getElementById('auth-local').style.display = 'block'
-      }
+      document.getElementById('auth-google').style.display = 'block'
+      document.getElementById('auth-local')?.style.display = 'none'
       document.getElementById('auth-error').textContent = ''
     }
   },
