@@ -337,7 +337,15 @@ window.Store = {
     Object.assign(users[idx], profileData)
     this._saveLocal()
     if (CONFIG.useFirebase && this._rootRef && this._authReady) {
-      await this._rootRef.child(`users/${uid}`).set(users[idx])
+      const allowed = {
+        fullName: profileData.fullName,
+        whatsapp: profileData.whatsapp,
+        birthdate: profileData.birthdate,
+        gender: profileData.gender,
+        attendedElKaraza: profileData.attendedElKaraza,
+        needsProfile: false
+      }
+      await this._rootRef.child(`users_data/${uid}`).set(allowed)
     }
     return users[idx]
   },
