@@ -7,17 +7,21 @@ window.Auth = {
     if (CONFIG.useFirebase) {
       this._unsubscribe = firebase.auth().onAuthStateChanged(authUser => {
         if (authUser) {
-          const users = Store.get('users') || []
+          let users = Store.get('users') || []
           let profile = users.find(u => u.uid === authUser.uid)
-          if (!profile && CONFIG.adminEmails.includes(authUser.email)) {
+          if (!profile) {
             profile = {
               id: authUser.uid, uid: authUser.uid, email: authUser.email,
-              fullName: 'Admin', status: 'approved', role: 'admin', rooms: [],
-              cumulativePoints: 0, createdAt: new Date().toISOString()
+              fullName: authUser.displayName || '',
+              status: 'approved',
+              role: CONFIG.adminEmails.includes(authUser.email) ? 'admin' : 'user',
+              rooms: [], cumulativePoints: 0,
+              needsProfile: true,
+              createdAt: new Date().toISOString()
             }
             Store.push('users', profile)
           }
-          this._currentUser = profile || null
+          this._currentUser = profile
         } else {
           this._currentUser = null
         }
@@ -85,7 +89,8 @@ window.Auth = {
 
   async completeProfile(data) {
     if (!this._currentUser) return { ok: false, error: 'لا يوجد مستخدم.' }
-    Store.update('users', u => u.id === this._currentUser.id, {
+    const uid = this._currentUser.id
+    Store.update('users', u => u.id === uid, {
       fullName: data.fullName,
       birthdate: data.birthdate || '',
       whatsapp: data.whatsapp || '',
@@ -93,7 +98,15 @@ window.Auth = {
       attendedElKaraza: data.attendedElKaraza,
       needsProfile: false
     })
-    this._currentUser = Store.get('users').find(u => u.id === this._currentUser.id) || this._currentUser
+    await Store.writePath(`users_data/${uid}/profile`, {
+      fullName: data.fullName,
+      birthdate: data.birthdate || '',
+      whatsapp: data.whatsapp || '',
+      gender: data.gender,
+      attendedElKaraza: data.attendedElKaraza,
+      needsProfile: false
+    })
+    this._currentUser = Store.get('users').find(u => u.id === uid) || this._currentUser
     this._notify()
     return { ok: true }
   },
