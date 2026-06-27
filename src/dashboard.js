@@ -1,5 +1,6 @@
 window.Dashboard = {
   _unsubscribe: null,
+  _lbPollInterval: null,
 
   render() {
     const user = Auth.currentUser()
@@ -12,9 +13,15 @@ window.Dashboard = {
     this.renderFeedback(user)
     this.renderLeaderboard()
     this.bindTabs()
+    this.updateLeaderboardTabVisibility()
 
     if (this._unsubscribe) this._unsubscribe()
     this._unsubscribe = Store.onChange(() => this.autoRefresh(user))
+
+    if (this._lbPollInterval) clearInterval(this._lbPollInterval)
+    this._lbPollInterval = setInterval(() => {
+      this.updateLeaderboardTabVisibility()
+    }, 3000)
   },
 
   autoRefresh(user) {
@@ -23,22 +30,7 @@ window.Dashboard = {
     this.renderLeaderboard()
     this.renderAccountInfo(user)
     this.renderFeedback(user)
-    this.updateClaimArea(user)
-  },
-
-  updateClaimArea(user) {
-    const todayKey = Points.getTodayKey()
-    const dailyPoints = Store.get('dailyPoints') || []
-    const entry = dailyPoints.find(p => p.userId === user.id && p.dateKey === todayKey)
-    if (!entry) return
-    const base = entry.basePoints || 0
-    const evalScore = entry.evaluationScore || 0
-    const manualBonus = entry.manualBonus || 0
-    const total = entry.finalScore || (base + evalScore + manualBonus)
-    const el = document.querySelector('#dash-claim-area .points-breakdown')
-    if (el) {
-      el.innerHTML = `<span>الأساسية: ${base}</span><span>+</span><span>تقيم: ${evalScore}</span><span>+</span><span>يدوي: ${manualBonus}</span><span>=</span><span class="points-total">${total}</span>`
-    }
+    this.renderClaimArea(user)
   },
 
   bindTabs() {
@@ -56,20 +48,19 @@ window.Dashboard = {
   renderUserInfo(user) {
     const el = document.getElementById('dash-user-info')
     const fresh = (Store.get('users') || []).find(u => u.id === user.id) || user
+    const showCumulative = Auth.isLeaderboardReleased()
     el.innerHTML = `
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-value">${fresh.fullName}</div>
           <div class="stat-label">الاسم</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-value">${fresh.room || '-'}</div>
-          <div class="stat-label">الغرفة</div>
-        </div>
+        ${showCumulative ? `
         <div class="stat-card">
           <div class="stat-value">${fresh.cumulativePoints || 0}</div>
           <div class="stat-label">إجمالي النقاط</div>
         </div>
+        ` : ''}
       </div>`
   },
 
@@ -83,25 +74,21 @@ window.Dashboard = {
       todayEntry = Points.ensureTodayPoints(user.id)
     }
 
-    const base = todayEntry.basePoints || 0
-    const evalScore = todayEntry.evaluationScore || 0
-    const manualBonus = todayEntry.manualBonus || 0
-    const total = todayEntry.finalScore || (base + evalScore + manualBonus)
+    const total = todayEntry.finalScore || 0
+
+    const remaining = Timer.getRemaining()
+    const timeStr = Timer.formatTime(remaining > 0 ? remaining : 0)
 
     el.innerHTML = `
-      <div class="stat-card">
-        <div class="stat-label">النقاط اليومية</div>
-        <div class="timer-display" id="dash-timer">${Timer.formatTime(Timer.getRemaining()) || '00:00:00'}</div>
-        <div class="points-breakdown">
-          <span>الأساسية: ${base}</span>
-          <span>+</span>
-          <span>تقيم: ${evalScore}</span>
-          <span>+</span>
-          <span>يدوي: ${manualBonus}</span>
-          <span>=</span>
-          <span class="points-total">${total}</span>
+      <div class="clock-card">
+        <div class="clock-glass">
+          <div class="clock-display" id="dash-timer">${timeStr}</div>
+          <div class="clock-unit">متبقي حتى نهاية اليوم</div>
         </div>
-        <div class="stat-label" style="color:var(--text-muted);font-size:13px">تمت الإضافة تلقائيًا</div>
+        <div class="clock-today-points">
+          <span class="clock-points-label">نقاط اليوم</span>
+          <span class="clock-points-value" id="dash-today-points">${total}</span>
+        </div>
       </div>`
 
     Timer.startDayTimer((remaining) => {
@@ -109,7 +96,7 @@ window.Dashboard = {
       if (timerEl) timerEl.textContent = Timer.formatTime(remaining)
     }, () => {
       const timerEl = document.getElementById('dash-timer')
-      if (timerEl) timerEl.textContent = 'انتهى اليوم'
+      if (timerEl) timerEl.textContent = '00:00:00'
     })
   },
 
@@ -126,17 +113,25 @@ window.Dashboard = {
     }
     const sorted = [...visibleUsers].sort((a, b) => (b.cumulativePoints || 0) - (a.cumulativePoints || 0))
     const rank = sorted.findIndex(u => u.id === user.id) + 1
+    const lbReleased = Auth.isLeaderboardReleased()
+
+    const todayKey = Points.getTodayKey()
+    const dailyPoints = Store.get('dailyPoints') || []
+    const todayEntry = dailyPoints.find(p => p.userId === user.id && p.dateKey === todayKey)
+    const todayPoints = todayEntry ? (todayEntry.finalScore || 0) : 0
 
     el.innerHTML = `
-      <h3>الترتيب</h3>
+      <h3>${lbReleased ? 'الترتيب' : 'الإحصائيات'}</h3>
       <div class="stats-grid">
+        ${lbReleased ? `
         <div class="stat-card">
           <div class="stat-value">${rank > 0 ? '#' + rank : '-'}</div>
           <div class="stat-label">ترتيبك</div>
         </div>
+        ` : ''}
         <div class="stat-card">
-          <div class="stat-value">0</div>
-          <div class="stat-label">أساس اليوم</div>
+          <div class="stat-value">${todayPoints}</div>
+          <div class="stat-label">نقاط اليوم</div>
         </div>
         <div class="stat-card">
           <div class="stat-value">${sorted.length}</div>
@@ -151,7 +146,7 @@ window.Dashboard = {
 
     const genderMap = { male: 'ذكر', female: 'أنثى' }
     const elkarazaMap = { yes: 'نعم', no: 'لا' }
-    const createdDate = fresh.createdAt ? new Date(fresh.createdAt).toLocaleDateString('ar-EG') : '-'
+    const createdDate = fresh.createdAt ? new Date(fresh.createdAt).toLocaleDateString('en-CA') : '-'
 
     const roleLabel = fresh.role === 'member' ? 'عضو لجنة' : fresh.role === 'admin' ? 'مشرف' : 'مستخدم'
 
@@ -173,10 +168,6 @@ window.Dashboard = {
           <div class="info-item">
             <span class="info-label">تاريخ الميلاد</span>
             <span class="info-value">${fresh.birthdate || '-'}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">الغرفة</span>
-            <span class="info-value">${fresh.room || '-'}</span>
           </div>
           <div class="info-item">
             <span class="info-label">الغرف التقييمية</span>
@@ -217,7 +208,7 @@ window.Dashboard = {
               <div class="feedback-meta">
                 <span class="feedback-author">${n.authorName}</span>
                 <span class="feedback-role">${n.authorRole === 'member' ? 'عضو لجنة' : 'مشرف'}</span>
-                <span class="feedback-date">${new Date(n.createdAt).toLocaleDateString('ar-EG')}</span>
+                <span class="feedback-date">${new Date(n.createdAt).toLocaleDateString('en-CA')}</span>
               </div>
               <div class="feedback-text">${n.text}</div>
             </div>
@@ -228,8 +219,31 @@ window.Dashboard = {
 
   renderLeaderboard() {
     const el = document.getElementById('dash-leaderboard-content')
+    const released = Auth.isLeaderboardReleased()
+    if (!released) {
+      el.innerHTML = '<div class="lb-locked"><div class="lb-lock-icon">🔒</div><p>لوحة المتصدرين غير متاحة حاليًا</p></div>'
+      return
+    }
     if (window.Leaderboard) {
       el.innerHTML = Leaderboard.renderDashboard()
+    }
+  },
+
+  updateLeaderboardTabVisibility() {
+    const released = Auth.isLeaderboardReleased()
+    const btn = document.getElementById('dash-lb-tab-btn')
+    if (!btn) return
+    btn.style.display = released ? '' : 'none'
+    if (!released) {
+      const tab = document.getElementById('dash-tab-leaderboard')
+      if (tab && tab.classList.contains('active')) {
+        document.querySelectorAll('#view-dashboard .tab-btn').forEach(b => b.classList.remove('active'))
+        document.querySelectorAll('#view-dashboard .tab-content').forEach(c => c.classList.remove('active'))
+        const firstTab = document.querySelector('#view-dashboard .tab-btn')
+        if (firstTab) firstTab.classList.add('active')
+        const firstContent = document.getElementById(firstTab?.dataset?.tab)
+        if (firstContent) firstContent.classList.add('active')
+      }
     }
   },
 

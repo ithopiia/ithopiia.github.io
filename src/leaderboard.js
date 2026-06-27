@@ -7,7 +7,7 @@ window.Leaderboard = {
       ${sorted.map((u, i) => `
         <div class="leaderboard-item ${u.id === currentUser?.id ? 'highlight' : ''}" data-name="${u.fullName.toLowerCase()}">
           <span class="rank">${i === 0 ? '#1' : i === 1 ? '#2' : i === 2 ? '#3' : '#' + (i + 1)}</span>
-          <span class="name">${canViewProfile ? `<span class="name-link" onclick="Admin.showUserProfile('${u.id}')">${u.fullName}</span>` : u.fullName} ${u.room ? '<span class="text-muted">(' + u.room + ')</span>' : ''}</span>
+          <span class="name">${canViewProfile ? `<span class="name-link" onclick="Admin.showUserProfile('${u.id}')">${u.fullName}</span>` : u.fullName}</span>
           <span class="points">${u.cumulativePoints || 0} نقطة</span>
         </div>
       `).join('')}

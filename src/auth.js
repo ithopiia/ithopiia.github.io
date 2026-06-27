@@ -164,6 +164,15 @@ window.Auth = {
     return this._currentUser && this._currentUser.role === 'admin'
   },
 
+  isLeaderboardReleased() {
+    const user = this._currentUser
+    if (!user) return false
+    if (user.role === 'admin' || user.role === 'member') return true
+    if (typeof Store === 'undefined' || !Store._data) return false
+    const until = Store.get('settings')?.leaderboardReleasedUntil
+    return until && Date.now() < until
+  },
+
   destroy() {
     this._detachUserListener()
     if (this._unsubscribe) this._unsubscribe()

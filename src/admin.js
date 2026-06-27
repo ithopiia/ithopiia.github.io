@@ -61,25 +61,14 @@ window.Admin = {
       </div>
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>الاسم</th><th>البريد الإلكتروني</th><th>الغرفة</th><th>النقاط</th><th>بونص اليوم</th><th>الحالة</th><th>النوع</th><th>الإجراء</th></tr></thead>
+          <thead><tr><th>الاسم</th><th>البريد الإلكتروني</th><th>النقاط</th><th>الحالة</th><th>النوع</th><th>الإجراء</th></tr></thead>
           <tbody id="admin-users-tbody">
             ${filtered.map(u => {
-              const todayKey = Evaluation ? Evaluation.getTodayKey() : ''
-              const todayDp = todayKey ? (Store.get('dailyPoints') || []).find(p => p.userId === u.id && p.dateKey === todayKey) : null
-              const bonusVal = todayDp ? (todayDp.manualBonus ?? 0) : 0
               return `
               <tr>
                 <td><span class="name-link" onclick="Admin.showUserProfile('${u.id}')">${u.fullName}</span></td>
                 <td>${u.email || '-'}</td>
-                <td>${u.room || '-'}</td>
                 <td>${u.cumulativePoints || 0}</td>
-                <td>
-                  <div class="stepper stepper-sm">
-                    <button class="stepper-btn stepper-down" data-admin-bonus="${u.id}" data-step="-1" aria-label="إنقاص">▼</button>
-                    <span class="stepper-value" id="admin-bonus-val-${u.id}">${bonusVal}</span>
-                    <button class="stepper-btn stepper-up" data-admin-bonus="${u.id}" data-step="1" aria-label="زيادة">▲</button>
-                  </div>
-                </td>
                 <td>${u.status === 'approved' ? 'مقبول' : u.status === 'rejected' ? 'مرفوض' : u.status || '-'}</td>
                 <td>${u.role === 'member' ? '👤 عضو' : 'مستخدم'}</td>
                 <td class="table-actions">
@@ -93,8 +82,6 @@ window.Admin = {
       </div>`
     const search = document.getElementById('admin-search')
     if (search && search.value) this.filterUsers()
-
-    this.bindAdminStepperEvents()
   },
 
   setUsersGender(gender) {
@@ -123,63 +110,6 @@ window.Admin = {
     document.querySelectorAll('#admin-users-tbody tr').forEach(tr => {
       const name = tr.children[0]?.textContent.toLowerCase() || ''
       tr.style.display = name.includes(q) ? '' : 'none'
-    })
-  },
-
-  bindAdminStepperEvents() {
-    const tbody = document.getElementById('admin-users-tbody')
-    if (!tbody) return
-
-    tbody.addEventListener('click', (e) => {
-      const btn = e.target.closest('.stepper-btn:not(:disabled)')
-      if (!btn) return
-      const userId = btn.dataset.adminBonus
-      const step = parseInt(btn.dataset.step)
-      if (!userId || !step) return
-
-      const todayKey = Evaluation ? Evaluation.getTodayKey() : ''
-      if (!todayKey) return
-
-      const dailyPoints = Store.get('dailyPoints') || []
-      let dp = dailyPoints.find(p => p.userId === userId && p.dateKey === todayKey)
-      if (!dp) {
-        dp = {
-          userId, dateKey: todayKey,
-          date: new Date().toISOString(),
-          basePoints: CONFIG.pointsPerDay ?? 0,
-          evaluationScore: 0,
-          manualBonus: 0,
-          overwritten: false,
-          finalScore: CONFIG.pointsPerDay ?? 0,
-          adminNotes: '',
-          saved: true,
-        }
-        dailyPoints.push(dp)
-      }
-
-      const current = dp.manualBonus ?? 0
-      const next = Math.max(-5, Math.min(5, current + step))
-      dp.manualBonus = next
-      const base = dp.overwritten ? dp.basePoints : (CONFIG.pointsPerDay ?? 0)
-      dp.finalScore = (base || 0) + (dp.evaluationScore || 0) + next
-
-      const valEl = document.getElementById(`admin-bonus-val-${userId}`)
-      if (valEl) valEl.textContent = next
-
-      Store.writePath(`dailyPoints/${todayKey}/${userId}`, {
-        basePoints: dp.basePoints,
-        evaluationScore: dp.evaluationScore ?? 0,
-        manualBonus: next,
-        finalScore: dp.finalScore,
-        overwritten: dp.overwritten ?? false,
-        adminNotes: dp.adminNotes ?? '',
-        saved: true,
-        date: dp.date ?? new Date().toISOString(),
-      })
-
-      if (window.Evaluation && window.Evaluation._syncCumulativeToFirebase) {
-        Evaluation._syncCumulativeToFirebase(userId)
-      }
     })
   },
 
@@ -227,12 +157,11 @@ window.Admin = {
           <div class="info-grid" style="margin-top:12px">
             <div class="info-item"><span class="info-label">البريد</span><span class="info-value">${user.email || '-'}</span></div>
             <div class="info-item"><span class="info-label">النوع</span><span class="info-value">${genderMap[user.gender] || user.gender || '-'}</span></div>
-            <div class="info-item"><span class="info-label">الغرفة</span><span class="info-value">${user.room || '-'}</span></div>
             <div class="info-item"><span class="info-label">الغرف التقييمية</span><span class="info-value">${userRoomNames}</span></div>
             <div class="info-item"><span class="info-label">تاريخ الميلاد</span><span class="info-value">${user.birthdate || '-'}</span></div>
             <div class="info-item"><span class="info-label">واتساب</span><span class="info-value">${user.whatsapp || '-'}</span></div>
             <div class="info-item"><span class="info-label">الكرازة</span><span class="info-value">${user.attendedElKaraza === 'yes' ? 'نعم' : user.attendedElKaraza === 'no' ? 'لا' : '-'}</span></div>
-            ${user.createdAt ? `<div class="info-item"><span class="info-label">تاريخ التسجيل</span><span class="info-value">${new Date(user.createdAt).toLocaleDateString('ar-EG')}</span></div>` : ''}
+            ${user.createdAt ? `<div class="info-item"><span class="info-label">تاريخ التسجيل</span><span class="info-value">${new Date(user.createdAt).toLocaleDateString('en-CA')}</span></div>` : ''}
           </div>
           ${userNotes.length > 0 ? `
             <h3 style="margin-top:16px;font-size:1rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:8px">الملاحظات</h3>
@@ -240,23 +169,28 @@ window.Admin = {
               <div class="feedback-item">
                 <div class="feedback-meta">
                   <span class="feedback-author">${n.authorName}</span>
-                  <span class="feedback-date">${new Date(n.createdAt).toLocaleDateString('ar-EG')}</span>
+                  <span class="feedback-date">${new Date(n.createdAt).toLocaleDateString('en-CA')}</span>
                 </div>
                 <div class="feedback-text" style="font-size:0.85rem">${n.text}</div>
               </div>
             `).join('')}
           ` : ''}
           ${userPoints.length > 0 ? `
-            <h3 style="margin-top:16px;font-size:1rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:8px">النقاط اليومية (آخر ١٤ يوم)</h3>
-            ${userPoints.slice(0, 14).map(p => `
-              <div class="info-item" style="font-size:0.82rem;padding:10px 12px">
-                <span class="info-label">${p.dateKey}</span>
-                <span style="color:var(--text-muted)">أساسي: ${p.basePoints || 0}</span>
-                <span style="color:var(--text-muted)">تقيم: ${p.evaluationScore || 0}</span>
-                <span style="color:var(--text-muted)">يدوي: ${p.manualBonus || 0}</span>
-                <span class="info-value" style="font-size:0.85rem">= ${p.finalScore || 0}</span>
+            <h3 style="margin-top:16px;font-size:1rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:8px">إحصائيات شاملة</h3>
+            <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr">
+              <div class="stat-card">
+                <div class="stat-value">${userPoints.filter(p => (p.manualBonus || 0) < 0).length}</div>
+                <div class="stat-label">عدد مرات التمينص</div>
               </div>
-            `).join('')}
+              <div class="stat-card">
+                <div class="stat-value">${userPoints.filter(p => (p.manualBonus || 0) > 0).length}</div>
+                <div class="stat-label">عدد مرات البونص</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${userPoints.filter(p => (p.finalScore || 0) <= 0).length}</div>
+                <div class="stat-label">عدد مرات التصفير</div>
+              </div>
+            </div>
           ` : ''}
         </div>
       </div>`
@@ -271,13 +205,64 @@ window.Admin = {
     Store.writePath(`users/${id}`, null)
   },
 
+  _lbTimerInterval: null,
+
   renderLeaderboardTab() {
     const el = document.getElementById('admin-tab-leaderboard')
-    if (window.Leaderboard) {
-      el.innerHTML = Leaderboard.renderAdmin()
-    } else {
-      el.innerHTML = '<p class="text-muted">لا توجد بيانات.</p>'
+    const currUser = Auth.currentUser()
+    const role = currUser?.role
+    const settings = Store.get('settings') || {}
+    const until = settings.leaderboardReleasedUntil
+    const isActive = until && Date.now() < until
+    const remaining = isActive ? Math.max(0, Math.floor((until - Date.now()) / 1000)) : 0
+
+    if (this._lbTimerInterval) clearInterval(this._lbTimerInterval)
+
+    el.innerHTML = `
+      <div class="sheet-controls" style="margin-bottom:16px">
+        <h3 style="font-size:1rem;color:var(--accent);margin-bottom:8px">التحكم في ظهور المتصدرين</h3>
+        <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:8px">
+          ${isActive
+            ? `🟢 المتصدرين مرئي للمستخدمين — الوقت المتبقي: <strong id="lb-countdown-admin">${Timer.formatTime(remaining)}</strong>`
+            : '🔴 المتصدرين مخفي عن المستخدمين'}
+        </p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <label style="font-size:0.85rem;color:var(--text-muted)">المدة (بالدقائق):</label>
+          <input type="number" id="lb-release-minutes" value="60" min="1" max="1440" style="width:80px;padding:8px">
+          <button class="btn-sm btn-primary" onclick="Admin.startLeaderboardCountdown()">${isActive ? 'إعادة تعيين' : 'بدء العد التنازلي'}</button>
+          ${isActive ? `<button class="btn-sm btn-danger" onclick="Admin.cancelLeaderboardRelease()">إلغاء</button>` : ''}
+        </div>
+      </div>
+      ${window.Leaderboard ? Leaderboard.renderAdmin() : '<p class="text-muted">لا توجد بيانات.</p>'}
+    `
+
+    if (isActive) {
+      this._lbTimerInterval = setInterval(() => {
+        const el2 = document.getElementById('lb-countdown-admin')
+        if (!el2) { clearInterval(this._lbTimerInterval); return }
+        const s = Math.max(0, Math.floor((until - Date.now()) / 1000))
+        el2.textContent = Timer.formatTime(s)
+        if (s <= 0) {
+          clearInterval(this._lbTimerInterval)
+          this.renderLeaderboardTab()
+        }
+      }, 1000)
     }
+  },
+
+  startLeaderboardCountdown() {
+    const minutes = parseInt(document.getElementById('lb-release-minutes')?.value || '60')
+    if (!minutes || minutes < 1) return
+    const durationMs = minutes * 60 * 1000
+    const until = Date.now() + durationMs
+    Store.writePath('settings/leaderboardReleasedUntil', until)
+    this.renderLeaderboardTab()
+  },
+
+  cancelLeaderboardRelease() {
+    Store.writePath('settings/leaderboardReleasedUntil', null)
+    if (this._lbTimerInterval) clearInterval(this._lbTimerInterval)
+    this.renderLeaderboardTab()
   },
 
   renderNotesTab() {
@@ -309,7 +294,7 @@ window.Admin = {
             <div class="feedback-item feedback-admin">
               <div class="feedback-meta">
                 <span class="feedback-author">إلى: ${n.targetUserName}</span>
-                <span class="feedback-date">${new Date(n.createdAt).toLocaleDateString('ar-EG')}</span>
+                <span class="feedback-date">${new Date(n.createdAt).toLocaleDateString('en-CA')}</span>
               </div>
               <div class="feedback-text">${n.text}</div>
               <button class="btn-sm btn-danger note-delete-btn" onclick="Admin.deleteNote('${n.id}')">حذف</button>
@@ -375,18 +360,17 @@ window.Admin = {
               <th>البريد</th>
               <th>النوع</th>
               <th>تاريخ الميلاد</th>
-              <th>الغرفة</th>
               <th>الغرف التقييمية</th>
               <th>واتساب</th>
               <th>الكرازة</th>
-              <th>النوع</th>
+              <th>الدور</th>
               <th>النقاط</th>
               <th>تاريخ التسجيل</th>
             </tr>
           </thead>
           <tbody id="userinfo-tbody">
             ${users.map(u => {
-              const created = u.createdAt ? new Date(u.createdAt).toLocaleDateString('ar-EG') : '-'
+              const created = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-CA') : '-'
               const userRoomNames = (u.rooms || []).map(id => {
                 const r = rooms.find(room => room.id === id)
                 return r ? r.name : id
@@ -397,7 +381,6 @@ window.Admin = {
                   <td>${u.email || '-'}</td>
                   <td>${genderMap[u.gender] || u.gender || '-'}</td>
                   <td>${u.birthdate || '-'}</td>
-                  <td>${u.room || '-'}</td>
                   <td>${userRoomNames}</td>
                   <td>${u.whatsapp || '-'}</td>
                   <td>${u.attendedElKaraza === 'yes' ? 'نعم' : u.attendedElKaraza === 'no' ? 'لا' : '-'}</td>

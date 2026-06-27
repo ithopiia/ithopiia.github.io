@@ -9,12 +9,12 @@
 </head>
 <body>
   <div class="top-bar">
-    <div class="brand">ithopiia</div>
     <div class="top-nav">
       <button id="admin-nav-btn" class="top-nav-btn" style="display:none" onclick="App.showAdmin()">لوحة المشرف</button>
       <button id="profile-nav-btn" class="top-nav-btn" style="display:none" onclick="App.showDashboard()">الملف الشخصي</button>
+      <button id="logout-btn" class="top-nav-btn" style="display:none">تسجيل الخروج</button>
     </div>
-    <button id="logout-btn" class="logout-btn" style="display:none">تسجيل الخروج</button>
+    <div class="brand">ITHOPIIA</div>
   </div>
 
 
@@ -74,7 +74,7 @@
         <button class="tab-btn active" data-tab="tab-dashboard">الملف الشخصي</button>
         <button class="tab-btn" data-tab="dash-tab-account">معلومات الحساب</button>
         <button class="tab-btn" data-tab="dash-tab-feedback">الملاحظات</button>
-        <button class="tab-btn" data-tab="dash-tab-leaderboard">المتصدرين</button>
+        <button class="tab-btn" id="dash-lb-tab-btn" data-tab="dash-tab-leaderboard">المتصدرين</button>
       </div>
       <div id="tab-dashboard" class="tab-content active">
         <div id="dash-user-info"></div>
