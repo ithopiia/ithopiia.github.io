@@ -1850,3 +1850,19 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
     white-space: nowrap;
   }
 }
+body::before {
+    content: "";
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40vw;
+    height: 40vw;
+    background-image: url('../img/icon.jpeg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.03;
+    z-index: -1;
+    pointer-events: none;
+}
