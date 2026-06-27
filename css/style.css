@@ -1415,7 +1415,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 }
 
 /* ===== MOBILE: EVAL TABLE → CARDS ===== */
-@media (max-width: 700px) {
+@media (max-width: 767px) {
   .eval-grid,
   .eval-grid thead,
   .eval-grid tbody,
@@ -1516,97 +1516,95 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   .sheet-controls { flex-direction: row; align-items: center; }
   .sheet-nav input { width: auto; }
 
-  /* ── Eval grid: compact card rows ── */
+  /* ── Eval grid: proper desktop table with labeled headers ── */
   .eval-grid-wrapper {
-    overflow-x: visible;
-    border: none;
-    border-radius: 0;
-    background: transparent;
-  }
-  .eval-grid { min-width: 0; }
-  .eval-grid thead { display: none; }
-  .eval-grid tbody { display: flex; flex-direction: column; gap: 8px; }
-  .eval-grid tr.eval-row {
-    display: flex;
-    align-items: center;
-    gap: 4px;
     overflow-x: auto;
-    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 6px 10px;
-    transition: border-color 0.15s, background 0.15s;
+    border-radius: var(--radius);
   }
-  .eval-grid tr.eval-row:hover {
-    border-color: var(--accent);
-    background: var(--accent-glow);
+  .eval-grid { min-width: 800px; }
+  .eval-grid thead { display: table-header-group; }
+  .eval-grid thead th {
+    background: #1a1010;
+    padding: 10px 8px;
+    font-weight: 700;
+    font-size: 0.72rem;
+    text-align: center;
+    white-space: nowrap;
+    border-bottom: 2px solid var(--border);
+    color: var(--accent);
+    position: sticky;
+    top: 0;
+    z-index: 2;
   }
+  .eval-grid thead th.col-name {
+    text-align: right;
+    padding-right: 14px;
+    min-width: 120px;
+  }
+  .eval-grid thead th.col-num { width: 32px; }
+  .eval-grid thead th.col-total { min-width: 55px; }
+  .eval-grid thead th.col-actions { min-width: 110px; }
+  .eval-grid thead th .col-label { display: block; font-size: 0.68rem; }
+  .eval-grid thead th .col-max { display: block; font-size: 0.6rem; color: var(--text-muted); margin-top: 1px; }
+
+  .eval-grid tbody { display: table-row-group; }
+  .eval-grid tr.eval-row { display: table-row; }
+
   .eval-grid tbody td {
-    border: none;
-    padding: 0;
-    background: transparent !important;
+    padding: 8px 6px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
     vertical-align: middle;
   }
   .eval-grid tbody td.col-num {
-    flex: 0 0 24px;
-    font-size: 0.7rem;
+    width: 32px;
     color: var(--text-muted);
-    text-align: center;
+    font-size: 0.75rem;
   }
   .eval-grid tbody td.col-name {
-    flex: 0 0 100px;
-    font-size: 0.78rem;
-    font-weight: 600;
     text-align: right;
-    position: static;
-    padding: 0;
-  }
-  .eval-grid tbody td.col-score {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    gap: 0;
+    font-weight: 600;
+    font-size: 0.82rem;
+    padding-right: 14px;
   }
   .eval-grid tbody td.col-total {
-    flex: 0 0 36px;
-    font-size: 0.78rem;
     font-weight: 800;
     color: var(--accent);
-    text-align: center;
+    font-size: 0.85rem;
   }
-  .eval-grid tbody td.col-actions {
-    flex: 0 0 100px;
-    min-width: 0;
+
+  /* Stepper: tight labeled block inside each cell */
+  .eval-grid tbody td.col-score .stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+  }
+  .eval-grid tbody td.col-score .stepper-btn {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    min-height: 26px;
+    padding: 0;
+    font-size: 0.65rem;
+  }
+  .eval-grid tbody td.col-score .stepper-value {
+    min-width: 22px;
+    height: 26px;
+    font-size: 0.75rem;
+    padding: 0 4px;
   }
   .eval-grid tbody td.col-actions .eval-smart-action {
     width: 100%;
-    min-width: 0;
-    padding: 4px 6px;
-    font-size: 0.7rem;
-    min-height: 28px;
-  }
-  .eval-grid tbody td.col-score .stepper { gap: 1px; }
-  .eval-grid tbody td.col-score .stepper-btn {
-    width: 24px;
-    height: 24px;
-    min-width: 24px;
-    min-height: 24px;
-    font-size: 0.6rem;
-    border-radius: 3px;
-  }
-  .eval-grid tbody td.col-score .stepper-btn:active {
-    transform: scale(0.90);
-  }
-  .eval-grid tbody td.col-score .stepper-value {
-    min-width: 18px;
-    height: 24px;
+    min-width: 100px;
+    padding: 6px 8px;
     font-size: 0.72rem;
-    padding: 0 2px;
+    min-height: 30px;
   }
-  .eval-grid tbody tr:nth-child(even),
-  .eval-grid tbody tr:nth-child(odd) {
-    background: var(--surface);
-  }
+
+  .eval-grid tbody tr:nth-child(even) td { background: #0d0808; }
+  .eval-grid tbody tr:nth-child(odd) td { background: #050303; }
+  .eval-grid tbody tr:hover td { background: #1a0e0e; }
 
   /* ── Room controls: compact desktop layout ── */
   .room-card { padding: 14px; }

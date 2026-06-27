@@ -95,20 +95,6 @@ window.Admin = {
     if (search && search.value) this.filterUsers()
 
     this.bindAdminStepperEvents()
-
-    // Danger zone: reset all points
-    const dangerZone = document.getElementById('admin-danger-zone')
-    if (!dangerZone) {
-      const dz = document.createElement('div')
-      dz.id = 'admin-danger-zone'
-      dz.style.cssText = 'margin-top:24px;padding:16px;border:2px dashed var(--danger,#e74c3c);border-radius:8px'
-      dz.innerHTML = `
-        <h3 style="color:var(--danger,#e74c3c);margin:0 0 8px">⚠️ منطقة الخطر</h3>
-        <p style="font-size:13px;margin:0 0 8px">سيؤدي هذا إلى تصفير جميع النقاط التراكمية وحذف سجلات النقاط اليومية والتقييم. لا يمكن التراجع.</p>
-        <button class="btn-sm btn-danger" onclick="Admin.resetAllPoints()">🔄 إعادة تعيين جميع النقاط إلى صفر</button>
-        <span id="reset-status" style="margin-left:12px;font-size:13px"></span>`
-      document.getElementById('tab-users').appendChild(dz)
-    }
   },
 
   setUsersGender(gender) {
@@ -283,24 +269,6 @@ window.Admin = {
   deleteUser(id) {
     if (!confirm('هل تريد حذف هذا المستخدم؟')) return
     Store.writePath(`users/${id}`, null)
-  },
-
-  async resetAllPoints() {
-    if (!confirm('هل أنت متأكد من إعادة تعيين جميع النقاط إلى صفر؟ سيؤدي هذا إلى حذف جميع النقاط اليومية وسجلات التقييم.')) return
-    if (!confirm('تأكيد نهائي: لا يمكن التراجع عن هذا الإجراء!')) return
-
-    const statusEl = document.getElementById('reset-status')
-    if (statusEl) statusEl.textContent = 'جارٍ التنفيذ...'
-
-    const users = Store.get('users') || []
-    const promises = users.map(u => Store.writePath(`users/${u.id}/cumulativePoints`, 0))
-    promises.push(Store.writePath('dailyPoints', {}))
-    promises.push(Store.writePath('evaluation', {}))
-    await Promise.all(promises)
-
-    if (statusEl) statusEl.textContent = '✅ تم التصفير بنجاح!'
-    setTimeout(() => { if (statusEl) statusEl.textContent = '' }, 3000)
-    this.render()
   },
 
   renderLeaderboardTab() {
