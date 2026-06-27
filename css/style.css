@@ -1853,7 +1853,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 body::before {
     content: "";
     position: fixed;
-    top: 50% !important;
+    top: 56% !important;
     left: 50% !important;
     transform: translate(-50%, -50%) !important;
     width: 85vw !important;
@@ -1863,7 +1863,7 @@ body::before {
     background-size: contain !important;
     background-repeat: no-repeat !important;
     background-position: center !important;
-    opacity: 0.16 !important;
+    opacity: 0.14 !important;
     z-index: -1 !important;
     pointer-events: none !important;
     backdrop-filter: none !important;
