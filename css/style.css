@@ -1856,13 +1856,21 @@ body::before {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 40vw;
-    height: 40vw;
+    width: 60vw;
+    height: 60vw;
     background-image: url('../img/icon.jpeg');
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    opacity: 0.03;
+    opacity: 0.08;
     z-index: -1;
     pointer-events: none;
+}
+
+.card, .container, .dashboard-box, .panel,
+.stat-card, .room-card, .lb-scheduler-card,
+.feedback-form, .modal-content {
+    background: rgba(18, 18, 18, 0.82) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
