@@ -1886,21 +1886,41 @@ section,
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
 }
 
+/* Navbar & Header Separation */
+.navbar, nav, .top-bar, .header-bar {
+    background: rgba(18, 20, 26, 0.92) !important;
+    border-bottom: 2px solid #bdc3c7 !important;
+}
+
+.sub-nav, .tab-bar, .nav-tabs {
+    background: rgba(22, 24, 30, 0.75) !important;
+    border-bottom: 1px solid rgba(189, 195, 199, 0.3) !important;
+}
+
+h1, h2, h3, .gold-text, th, .main-title {
+    color: #FFD700 !important;
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.2) !important;
+    font-weight: bold !important;
+}
+
 h1, h2, h3, .gold-text {
-    color: #f1c40f !important;
-    border-bottom: 1px solid rgba(241, 196, 15, 0.3);
+    border-bottom: 1px solid rgba(255, 215, 0, 0.3);
     padding-bottom: 6px;
 }
 
 .badge-gold, .score-count, .highlight-number {
-    color: #f1c40f !important;
+    color: #FFD700 !important;
     font-weight: bold !important;
 }
 
 th {
     background-color: rgba(22, 24, 30, 0.85) !important;
-    color: #f1c40f !important;
+    color: #FFD700 !important;
     border-bottom: 2px solid #bdc3c7 !important;
+}
+
+thead {
+    background-color: rgba(18, 20, 26, 0.90) !important;
 }
 
 td {
@@ -1919,4 +1939,22 @@ td {
     background: #bdc3c7 !important;
     color: #0b0c10 !important;
     box-shadow: 0 0 10px rgba(189, 195, 199, 0.4) !important;
+}
+
+.btn-success, .save-btn {
+    background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+}
+
+.btn-danger, .logout-btn {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+}
+
+.btn-info, .schedule-btn {
+    background: linear-gradient(135deg, #00d2ff 0%, #0066ff 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
 }
