@@ -1853,7 +1853,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 body::before {
     content: "";
     position: fixed;
-    top: 55% !important;
+    top: 62% !important;
     left: 50% !important;
     transform: translate(-50%, -50%) !important;
     width: 75vw !important;
@@ -1863,13 +1863,13 @@ body::before {
     background-size: contain !important;
     background-repeat: no-repeat !important;
     background-position: center !important;
-    opacity: 0.12 !important;
+    opacity: 0.14 !important;
     z-index: -1 !important;
     pointer-events: none !important;
 }
 
 body {
-    background-color: #090a0f !important;
+    background-color: #0b0c10 !important;
     color: #ffffff !important;
 }
 
@@ -1880,40 +1880,43 @@ div[class*="panel"],
 .table-responsive, 
 section,
 .table {
-    background: rgba(18, 20, 28, 0.92) !important;
-    border: 1px solid rgba(255, 255, 255, 0.07) !important;
-    border-radius: 12px !important;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.55) !important;
-}
-
-tr, td {
-    background: transparent !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    background: rgba(30, 33, 41, 0.65) !important;
+    border: 2px solid #bdc3c7 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
 }
 
 h1, h2, h3, .gold-text {
-    color: #f39c12 !important;
-    text-shadow: none !important;
+    color: #f1c40f !important;
+    border-bottom: 1px solid rgba(241, 196, 15, 0.3);
+    padding-bottom: 6px;
+}
+
+.badge-gold, .score-count, .highlight-number {
+    color: #f1c40f !important;
+    font-weight: bold !important;
 }
 
 th {
-    background-color: #161923 !important;
-    color: #f39c12 !important;
+    background-color: rgba(22, 24, 30, 0.85) !important;
+    color: #f1c40f !important;
+    border-bottom: 2px solid #bdc3c7 !important;
 }
 
 td {
-    color: #ffffff !important;
+    color: #e2e8f0 !important;
+    border-bottom: 1px solid rgba(189, 195, 199, 0.15) !important;
 }
 
 .btn-primary, button, .action-btn {
     background: transparent !important;
-    color: #ffffff !important;
-    border: 1px solid #ffffff !important;
-    border-radius: 8px !important;
-    transition: all 0.2s ease-in-out !important;
+    color: #bdc3c7 !important;
+    border: 1px solid #bdc3c7 !important;
+    transition: all 0.2s ease !important;
 }
 
 .btn-primary:hover, button:hover {
-    background: #ffffff !important;
-    color: #050608 !important;
+    background: #bdc3c7 !important;
+    color: #0b0c10 !important;
+    box-shadow: 0 0 10px rgba(189, 195, 199, 0.4) !important;
 }
