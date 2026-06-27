@@ -1,311 +1,125 @@
 window.Store = {
   _data: null,
   _db: null,
-  _rootRef: null,
   _listeners: [],
   _authReady: false,
-  _listening: false,
-  _pendingSync: false,
+  _initialLoadDone: false,
+  _recalculating: false,
+  _readyCount: 0,
   _debounceTimers: {},
-
-  async init() {
-    if (this._data) return
-    this._loadLocal()
-    if (CONFIG.useFirebase) {
-      try {
-        this._db = firebase.database()
-        this._rootRef = this._db.ref('ithopiia')
-        this._roomsRef = this._db.ref('ithopiia/rooms')
-        const snap = await Promise.race([
-          this._rootRef.once('value'),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
-        ])
-        if (snap.exists()) {
-          const remote = snap.val()
-          if (remote.users) this._data.users = Object.values(remote.users)
-          if (remote.dailyPoints) {
-            this._data.dailyPoints = []
-            Object.keys(remote.dailyPoints).forEach(dateKey => {
-              Object.keys(remote.dailyPoints[dateKey]).forEach(userId => {
-                this._data.dailyPoints.push({ userId, dateKey, ...remote.dailyPoints[dateKey][userId] })
-              })
-            })
-          }
-          if (remote.evaluation) {
-            this._data.evaluation = []
-            Object.keys(remote.evaluation).forEach(dateKey => {
-              Object.keys(remote.evaluation[dateKey]).forEach(userId => {
-                this._data.evaluation.push({ userId, dateKey, ...remote.evaluation[dateKey][userId] })
-              })
-            })
-          }
-          if (remote.settings) this._data.settings = remote.settings
-          if (remote.rooms) this._data.rooms = Object.values(remote.rooms)
-          if (remote.notes) {
-            this._data.notes = []
-            Object.keys(remote.notes).forEach(noteId => {
-              this._data.notes.push({ id: noteId, ...remote.notes[noteId] })
-            })
-          }
-        }
-        this._saveLocal()
-        this._authReady = true
-      } catch (e) {
-        if (e.code === 'PERMISSION_DENIED') {
-          this._authReady = false
-        } else {
-          CONFIG.useFirebase = false
-        }
-      }
-    }
-    this._migrateSavedFlag()
-  },
-
-  _listen() {
-    if (this._listening) return
-    this._listening = true
-    this._rootRef.on('value', snap => {
-      if (!snap.exists()) return
-      const remote = snap.val()
-      let changed = false
-      if (remote.users) {
-        const arr = Object.values(remote.users)
-        if (JSON.stringify(arr) !== JSON.stringify(this._data.users)) {
-          this._data.users = arr; changed = true
-        }
-      }
-      if (remote.dailyPoints) {
-        const arr = []
-        Object.keys(remote.dailyPoints).forEach(dateKey => {
-          Object.keys(remote.dailyPoints[dateKey]).forEach(userId => {
-            arr.push({ userId, dateKey, ...remote.dailyPoints[dateKey][userId] })
-          })
-        })
-        if (JSON.stringify(arr) !== JSON.stringify(this._data.dailyPoints)) {
-          this._data.dailyPoints = arr; changed = true
-        }
-      }
-      if (remote.evaluation) {
-        const arr = []
-        Object.keys(remote.evaluation).forEach(dateKey => {
-          Object.keys(remote.evaluation[dateKey]).forEach(userId => {
-            arr.push({ userId, dateKey, ...remote.evaluation[dateKey][userId] })
-          })
-        })
-        if (JSON.stringify(arr) !== JSON.stringify(this._data.evaluation)) {
-          this._data.evaluation = arr; changed = true
-        }
-      }
-      if (remote.settings) {
-        if (JSON.stringify(remote.settings) !== JSON.stringify(this._data.settings)) {
-          this._data.settings = remote.settings; changed = true
-        }
-      }
-      if (remote.notes) {
-        const arr = []
-        Object.keys(remote.notes).forEach(noteId => {
-          arr.push({ id: noteId, ...remote.notes[noteId] })
-        })
-        if (JSON.stringify(arr) !== JSON.stringify(this._data.notes)) {
-          this._data.notes = arr; changed = true
-        }
-      }
-      if (changed) { this._saveLocal(); this._notify() }
-
-      // Reactive running total: after every data change, recompute
-      // cumulativePoints from all dailyPoints entries and write back.
-      if (remote.dailyPoints && remote.users && !this._recalculatingPts && this._authReady) {
-        this._recalculatingPts = true
-        this._recalcCumulativeFromRemote(remote).then(() => {
-          this._recalculatingPts = false
-        }, () => {
-          this._recalculatingPts = false
-        })
-      }
-    })
-
-    // Dedicated real-time rooms listener — syncs instantly across devices
-    if (this._roomsRef) {
-      this._roomsRef.on('value', snap => {
-        if (!snap.exists()) {
-          if (this._data.rooms.length > 0) {
-            this._data.rooms = []
-            this._saveLocal()
-            this._notify()
-          }
-          return
-        }
-        const arr = Object.values(snap.val())
-        if (JSON.stringify(arr) !== JSON.stringify(this._data.rooms)) {
-          this._data.rooms = arr
-          this._saveLocal()
-          this._notify()
-        }
-      })
-    }
-  },
-
-  async _recalcCumulativeFromRemote(remote) {
-    const currentUser = Auth.currentUser()
-    const canWriteCumulative = currentUser && (currentUser.role === 'admin' || currentUser.role === 'member')
-    const userIds = Object.keys(remote.users)
-    const promises = []
-    for (const userId of userIds) {
-      let total = 0
-      for (const dateKey of Object.keys(remote.dailyPoints)) {
-        const entry = remote.dailyPoints[dateKey]?.[userId]
-        total += (entry?.finalScore ?? 0)
-      }
-      const current = remote.users[userId]?.cumulativePoints ?? 0
-      if (total !== current) {
-        const localUser = (this._data.users || []).find(u => u.id === userId)
-        if (localUser) localUser.cumulativePoints = total
-        if (canWriteCumulative) {
-          promises.push(this.writePath(`users/${userId}/cumulativePoints`, total))
-        }
-      }
-    }
-    if (promises.length > 0 && this._authReady) {
-      await Promise.all(promises)
-      this._saveLocal()
-      this._notify()
-    } else if (promises.length === 0) {
-      this._saveLocal()
-      this._notify()
-    }
-  },
-
-  _migrateSavedFlag() {
-    const dailyPoints = this._data.dailyPoints || []
-    dailyPoints.forEach(p => {
-      if (p.bonusPoints !== undefined && p.evaluationScore === undefined && p.manualBonus === undefined) {
-        p.evaluationScore = p.bonusPoints
-        delete p.bonusPoints
-      }
-      if (p.saved === false) {
-        p.saved = true
-        p.finalScore = (p.finalScore ?? p.basePoints ?? CONFIG.pointsPerDay) + (p.evaluationScore ?? 0) + (p.manualBonus ?? 0)
-      }
-    })
-    const users = this._data.users || []
-    let changed = false
-    users.forEach(u => {
-      const userPoints = dailyPoints.filter(p => p.userId === u.id && p.saved)
-      const total = userPoints.reduce((sum, p) => sum + (p.finalScore || 0), 0)
-      if (u.cumulativePoints !== total) {
-        u.cumulativePoints = total
-        changed = true
-      }
-    })
-    if (changed) this._saveLocal()
-  },
-
-  debounce(key, fn, delay) {
-    if (this._debounceTimers[key]) clearTimeout(this._debounceTimers[key])
-    this._debounceTimers[key] = setTimeout(() => {
-      delete this._debounceTimers[key]
-      fn()
-    }, delay)
-  },
-
-  _notify() {
-    this._listeners.forEach(fn => fn(this._data))
-  },
-
-  onChange(fn) {
-    this._listeners.push(fn)
-    return () => { this._listeners = this._listeners.filter(f => f !== fn) }
-  },
+  TOTAL_PATHS: 6,
 
   _defaults() {
     return { users: [], dailyPoints: [], evaluation: [], settings: {}, rooms: [], notes: [] }
   },
 
-  _loadLocal() {
-    try {
-      const raw = localStorage.getItem(CONFIG.storageKey)
-      this._data = raw ? JSON.parse(raw) : this._defaults()
-    } catch {
-      this._data = this._defaults()
-    }
-  },
-
-  _saveLocal() {
-    try { localStorage.setItem(CONFIG.storageKey, JSON.stringify(this._data)) } catch {}
-  },
-
-  _buildRTDB() {
-    const users = {}
-    this._data.users.forEach(u => { if (u.id) users[u.id] = u })
-    const dailyPoints = {}
-    this._data.dailyPoints.forEach(p => {
-      if (!p.dateKey || !p.userId) return
-      if (!dailyPoints[p.dateKey]) dailyPoints[p.dateKey] = {}
-      const { userId, dateKey, ...rest } = p
-      dailyPoints[p.dateKey][userId] = rest
-    })
-    const evaluation = {}
-    this._data.evaluation.forEach(e => {
-      if (!e.dateKey || !e.userId) return
-      if (!evaluation[e.dateKey]) evaluation[e.dateKey] = {}
-      const { userId, dateKey, ...rest } = e
-      evaluation[e.dateKey][userId] = rest
-    })
-    const rooms = {}
-    this._data.rooms.forEach(r => { if (r.id) rooms[r.id] = r })
-    const notes = {}
-    this._data.notes.forEach(n => { if (n.id) notes[n.id] = n })
-    return { users, dailyPoints, evaluation, settings: this._data.settings || {}, rooms, notes }
-  },
-
-  setAuthReady() {
-    this._authReady = true
-    if (this._rootRef) this._listen()
-    if (this._pendingSync) {
-      this._pendingSync = false
-      this._syncRTDB()
-    }
-  },
-
-  async _syncRTDB() {
-    if (!CONFIG.useFirebase || !this._rootRef) return
-    if (!this._authReady) { this._pendingSync = true; return }
-    const user = Auth.currentUser()
-    if (!user || user.needsProfile || !Auth.hasCompleteProfile(user)) return
-    try { await this._rootRef.once('value') } catch { return }
-    try {
-      const rtdb = this._buildRTDB()
-      const writes = [
-        this._rootRef.child('users').set(rtdb.users),
-        this._rootRef.child('dailyPoints').set(rtdb.dailyPoints),
-        this._rootRef.child('evaluation').set(rtdb.evaluation),
-        this._rootRef.child('rooms').set(rtdb.rooms),
-        this._rootRef.child('notes').set(rtdb.notes),
-      ]
-      if (Auth.isAdmin()) {
-        writes.push(this._rootRef.child('settings').set(rtdb.settings))
+  async init() {
+    if (this._data) return
+    this._data = this._defaults()
+    if (CONFIG.useFirebase) {
+      try {
+        this._db = firebase.database()
+        this._attachListeners()
+        this._authReady = true
+      } catch (e) {
+        CONFIG.useFirebase = false
       }
-      await Promise.all(writes)
-    } catch (e) {
-      if (e.code === 'PERMISSION_DENIED') return
-      console.warn('RTDB sync failed', e)
     }
   },
 
-  async writePath(path, value) {
-    if (!CONFIG.useFirebase || !this._rootRef) return
-    if (!this._authReady) return
-    try {
-      await this._rootRef.child(path).set(value)
-    } catch (e) {
-      if (e.code === 'PERMISSION_DENIED') return
-      console.warn('Direct FB write failed', path, e)
-    }
+  _pathRef(path) {
+    return this._db && this._db.ref('ithopiia/' + path)
   },
 
-  _sync() {
-    this._saveLocal()
-    if (CONFIG.useFirebase && this._rootRef) this._syncRTDB()
+  _attachListeners() {
+    const ready = () => {
+      this._readyCount++
+      if (this._readyCount === this.TOTAL_PATHS) {
+        this._initialLoadDone = true
+        this._notify()
+      }
+    }
+
+    this._pathRef('users').on('value', snap => {
+      this._data.users = snap.exists() ? Object.values(snap.val()) : []
+      if (this._initialLoadDone) this._notify()
+      else ready()
+    })
+
+    this._pathRef('rooms').on('value', snap => {
+      this._data.rooms = snap.exists() ? Object.values(snap.val()) : []
+      if (this._initialLoadDone) this._notify()
+      else ready()
+    })
+
+    this._pathRef('dailyPoints').on('value', snap => {
+      this._data.dailyPoints = []
+      if (snap.exists()) {
+        Object.keys(snap.val()).forEach(dateKey => {
+          Object.keys(snap.val()[dateKey]).forEach(userId => {
+            this._data.dailyPoints.push({ userId, dateKey, ...snap.val()[dateKey][userId] })
+          })
+        })
+      }
+      this._recalcCumulative()
+      if (this._initialLoadDone) this._notify()
+      else ready()
+    })
+
+    this._pathRef('evaluation').on('value', snap => {
+      this._data.evaluation = []
+      if (snap.exists()) {
+        Object.keys(snap.val()).forEach(dateKey => {
+          Object.keys(snap.val()[dateKey]).forEach(userId => {
+            this._data.evaluation.push({ userId, dateKey, ...snap.val()[dateKey][userId] })
+          })
+        })
+      }
+      if (this._initialLoadDone) this._notify()
+      else ready()
+    })
+
+    this._pathRef('settings').on('value', snap => {
+      this._data.settings = snap.exists() ? snap.val() : {}
+      if (this._initialLoadDone) this._notify()
+      else ready()
+    })
+
+    this._pathRef('notes').on('value', snap => {
+      this._data.notes = []
+      if (snap.exists()) {
+        Object.keys(snap.val()).forEach(noteId => {
+          this._data.notes.push({ id: noteId, ...snap.val()[noteId] })
+        })
+      }
+      if (this._initialLoadDone) this._notify()
+      else ready()
+    })
+  },
+
+  _recalcCumulative() {
+    if (this._recalculating) return
+    this._recalculating = true
+    const totals = {}
+    this._data.dailyPoints.forEach(p => {
+      if (p.saved) {
+        totals[p.userId] = (totals[p.userId] || 0) + (p.finalScore ?? 0)
+      }
+    })
+    const currentUser = (typeof Auth !== 'undefined' && Auth.currentUser) ? Auth.currentUser() : null
+    const canWrite = currentUser && (currentUser.role === 'admin' || currentUser.role === 'member')
+    let changed = false
+    this._data.users.forEach(u => {
+      const total = totals[u.id] || 0
+      if (u.cumulativePoints !== total) {
+        u.cumulativePoints = total
+        changed = true
+        if (canWrite) {
+          this.writePath(`users/${u.id}/cumulativePoints`, total)
+        }
+      }
+    })
+    this._recalculating = false
   },
 
   _resolve(obj, key) {
@@ -323,54 +137,100 @@ window.Store = {
     const { parent, prop } = this._resolve(this._data, key)
     return parent?.[prop]
   },
+
   set(key, val) {
-    const { parent, prop } = this._resolve(this._data, key)
-    parent[prop] = val
-    this._sync()
-  },
-  push(key, item) { this._data[key].push(item); this._sync() },
-  update(key, predicate, changes) {
-    const items = this._data[key]
-    const idx = items.findIndex(predicate)
-    if (idx !== -1) { Object.assign(items[idx], changes); this._sync(); return items[idx] }
-  },
-  async updateUserProfile(uid, data) {
-    const users = this._data.users || []
-    const idx = users.findIndex(u => u.id === uid)
-    if (idx === -1) return null
-    Object.assign(users[idx], data)
-    this._saveLocal()
-    if (CONFIG.useFirebase && this._rootRef && this._authReady) {
-      const { cumulativePoints, ...profileData } = users[idx]
-      await this._rootRef.child(`users/${uid}`).set(profileData)
-    }
-    return users[idx]
-  },
-  async saveProfileData(uid, profileData) {
-    const users = this._data.users || []
-    const idx = users.findIndex(u => u.id === uid)
-    if (idx === -1) return null
-    const existing = users[idx]
-    Object.assign(existing, profileData)
-    this._saveLocal()
-    if (CONFIG.useFirebase && this._rootRef && this._authReady) {
-      const authUser = firebase.auth().currentUser
-      const fullProfile = {
-        ...existing,
-        ...profileData,
-        needsProfile: false,
-        email: authUser?.email || existing.email || '',
-        role: existing.role || 'user',
-        status: existing.status || 'approved',
-        cumulativePoints: existing.cumulativePoints ?? 0,
-        createdAt: existing.createdAt || new Date().toISOString(),
+    const ref = this._pathRef(key)
+    if (!ref) return
+    if (Array.isArray(val)) {
+      const obj = {}
+      if (key === 'dailyPoints' || key === 'evaluation') {
+        val.forEach(item => {
+          if (!item.dateKey || !item.userId) return
+          if (!obj[item.dateKey]) obj[item.dateKey] = {}
+          const { userId, dateKey, ...rest } = item
+          obj[item.dateKey][userId] = rest
+        })
+      } else {
+        val.forEach(item => { if (item.id) obj[item.id] = item })
       }
-      await this._rootRef.child(`users/${uid}`).set(fullProfile)
+      ref.set(obj)
+    } else {
+      ref.set(val)
     }
-    return users[idx]
   },
+
+  push(key, item) {
+    if (key === 'evaluation' || key === 'dailyPoints') {
+      if (item.dateKey && item.userId) {
+        const { userId, dateKey, ...rest } = item
+        this.writePath(`${key}/${dateKey}/${userId}`, rest)
+      }
+    } else if (item.id) {
+      this.writePath(`${key}/${item.id}`, item)
+    }
+  },
+
+  update(key, predicate, changes) {
+    const item = (this._data[key] || []).find(predicate)
+    if (item) {
+      Object.assign(item, changes)
+      this.set(key, this._data[key])
+    }
+    return item
+  },
+
   remove(key, predicate) {
     this._data[key] = this._data[key].filter(predicate)
-    this._sync()
+    this.set(key, this._data[key])
+  },
+
+  async writePath(path, value) {
+    if (!this._db) return
+    try {
+      await this._pathRef(path).set(value)
+    } catch (e) {
+      if (e.code === 'PERMISSION_DENIED') return
+      console.warn('Firebase write failed', path, e)
+    }
+  },
+
+  debounce(key, fn, delay) {
+    if (this._debounceTimers[key]) clearTimeout(this._debounceTimers[key])
+    this._debounceTimers[key] = setTimeout(() => {
+      delete this._debounceTimers[key]
+      fn()
+    }, delay)
+  },
+
+  setAuthReady() {
+    // Listeners are always active from init()
+  },
+
+  async saveProfileData(uid, profileData) {
+    const user = (this._data.users || []).find(u => u.id === uid)
+    if (!user) return null
+    Object.assign(user, profileData)
+    const authUser = this._db && firebase.auth().currentUser
+    const fullProfile = {
+      ...user,
+      ...profileData,
+      needsProfile: false,
+      email: authUser?.email || user.email || '',
+      role: user.role || 'user',
+      status: user.status || 'approved',
+      cumulativePoints: user.cumulativePoints ?? 0,
+      createdAt: user.createdAt || new Date().toISOString(),
+    }
+    await this.writePath(`users/${uid}`, fullProfile)
+    return user
+  },
+
+  _notify() {
+    this._listeners.forEach(fn => fn(this._data))
+  },
+
+  onChange(fn) {
+    this._listeners.push(fn)
+    return () => { this._listeners = this._listeners.filter(f => f !== fn) }
   },
 }

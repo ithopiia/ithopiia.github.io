@@ -116,8 +116,7 @@ window.Admin = {
   },
 
   async toggleMemberRole(id) {
-    const users = Store.get('users') || []
-    const user = users.find(u => u.id === id)
+    const user = Store.get('users').find(u => u.id === id)
     if (!user) return
     let newRole
     if (user.role === 'member') {
@@ -127,10 +126,8 @@ window.Admin = {
       if (!confirm('ترقية هذا المستخدم إلى عضو؟ سيحصل على صلاحيات المشرف مع بقائه ظاهرًا في الموقع.')) return
       newRole = 'member'
     }
-    Store.update('users', u => u.id === id, { role: newRole })
-    if (CONFIG.useFirebase && Store._rootRef) {
-      await Store._rootRef.child(`users/${id}/role`).set(newRole)
-    }
+    user.role = newRole
+    await Store.writePath(`users/${id}/role`, newRole)
     this.renderUsers()
   },
 
@@ -181,9 +178,6 @@ window.Admin = {
 
       const valEl = document.getElementById(`admin-bonus-val-${userId}`)
       if (valEl) valEl.textContent = next
-
-      Store._data.dailyPoints = dailyPoints
-      Store._sync()
 
       Store.writePath(`dailyPoints/${todayKey}/${userId}`, {
         basePoints: dp.basePoints,
@@ -287,9 +281,7 @@ window.Admin = {
 
   deleteUser(id) {
     if (!confirm('هل تريد حذف هذا المستخدم؟')) return
-    const users = (Store.get('users') || []).filter(u => u.id !== id)
-    Store.set('users', users)
-    this.render()
+    Store.writePath(`users/${id}`, null)
   },
 
   async resetAllPoints() {
@@ -300,23 +292,10 @@ window.Admin = {
     if (statusEl) statusEl.textContent = 'جارٍ التنفيذ...'
 
     const users = Store.get('users') || []
-    users.forEach(u => { u.cumulativePoints = 0 })
-
-    const dailyPoints = Store.get('dailyPoints') || []
-    dailyPoints.length = 0
-
-    const evaluation = Store.get('evaluation') || []
-    evaluation.length = 0
-
-    Store._saveLocal()
-
-    if (CONFIG.useFirebase && Store._rootRef) {
-      const updates = {}
-      users.forEach(u => { updates[`users/${u.id}/cumulativePoints`] = 0 })
-      updates['dailyPoints'] = {}
-      updates['evaluation'] = {}
-      await Store._rootRef.update(updates)
-    }
+    const promises = users.map(u => Store.writePath(`users/${u.id}/cumulativePoints`, 0))
+    promises.push(Store.writePath('dailyPoints', {}))
+    promises.push(Store.writePath('evaluation', {}))
+    await Promise.all(promises)
 
     if (statusEl) statusEl.textContent = '✅ تم التصفير بنجاح!'
     setTimeout(() => { if (statusEl) statusEl.textContent = '' }, 3000)
@@ -373,9 +352,7 @@ window.Admin = {
 
   deleteNote(noteId) {
     if (!confirm('هل تريد حذف هذه الملاحظة؟')) return
-    const notes = Store.get('notes') || []
-    Store.set('notes', notes.filter(n => n.id !== noteId))
-    this.renderNotesTab()
+    Store.writePath(`notes/${noteId}`, null)
   },
 
   submitNote() {
@@ -397,8 +374,7 @@ window.Admin = {
       return
     }
     const target = (Store.get('users') || []).find(u => u.id === targetId)
-    const notes = Store.get('notes') || []
-    notes.push({
+    const note = {
       id: 'note_' + Date.now(),
       targetUserId: targetId,
       targetUserName: target ? target.fullName : '',
@@ -407,12 +383,11 @@ window.Admin = {
       authorRole: user.role || 'user',
       text: input.value.trim(),
       createdAt: new Date().toISOString(),
-    })
-    Store.set('notes', notes)
+    }
+    Store.writePath(`notes/${note.id}`, note)
     if (errorEl) errorEl.textContent = ''
     input.value = ''
     document.getElementById('admin-note-target').value = ''
-    this.renderNotesTab()
   },
 
   renderUserInfoTab() {
@@ -532,18 +507,15 @@ window.Admin = {
     const errorEl = document.getElementById('room-error')
     const name = input?.value.trim()
     if (!name) { if (errorEl) errorEl.textContent = 'يرجى إدخال اسم الغرفة.'; return }
-    const rooms = Store.get('rooms') || []
     const newRoom = {
       id: 'room_' + Date.now(),
       name,
       createdBy: Auth.currentUser()?.id,
       createdAt: new Date().toISOString(),
     }
+    const rooms = Store.get('rooms')
     rooms.push(newRoom)
-    Store.set('rooms', rooms)
-    if (CONFIG.useFirebase && Store._rootRef) {
-      Store.writePath(`rooms/${newRoom.id}`, newRoom)
-    }
+    Store.writePath(`rooms/${newRoom.id}`, newRoom)
     if (errorEl) errorEl.textContent = ''
     input.value = ''
     this.renderRoomsTab()
@@ -551,51 +523,37 @@ window.Admin = {
 
   deleteRoom(roomId) {
     if (!confirm('حذف الغرفة سيؤدي إلى إزالة جميع الأعضاء منها. هل تريد المتابعة؟')) return
-    const rooms = (Store.get('rooms') || []).filter(r => r.id !== roomId)
-    Store.set('rooms', rooms)
-    const users = Store.get('users') || []
+    const rooms = Store.get('rooms')
+    const idx = rooms.findIndex(r => r.id === roomId)
+    if (idx !== -1) rooms.splice(idx, 1)
+    Store.writePath(`rooms/${roomId}`, null)
+    const users = Store.get('users')
     users.forEach(u => {
       if ((u.rooms || []).includes(roomId)) {
         u.rooms = (u.rooms || []).filter(id => id !== roomId)
-        if (CONFIG.useFirebase && Store._rootRef) {
-          Store.writePath(`users/${u.id}/rooms`, u.rooms)
-        }
+        Store.writePath(`users/${u.id}/rooms`, u.rooms)
       }
     })
-    Store.set('users', users)
-    if (CONFIG.useFirebase && Store._rootRef) {
-      Store._rootRef.child(`rooms/${roomId}`).remove().catch(() => {})
-    }
-    this.renderRoomsTab()
   },
 
   addToRoom(roomId) {
     const sel = document.getElementById('room-add-select-' + roomId)
     const userId = sel?.value
     if (!userId) return
-    const users = Store.get('users') || []
-    const user = users.find(u => u.id === userId)
+    const user = Store.get('users').find(u => u.id === userId)
     if (user) {
       if (!user.rooms) user.rooms = []
       if (!user.rooms.includes(roomId)) user.rooms.push(roomId)
-      Store.set('users', users)
-      if (CONFIG.useFirebase && Store._rootRef) {
-        Store.writePath(`users/${userId}/rooms`, user.rooms)
-      }
+      Store.writePath(`users/${userId}/rooms`, user.rooms)
     }
-    this.renderRoomsTab()
+    sel.value = ''
   },
 
   removeFromRoom(roomId, userId) {
-    const users = Store.get('users') || []
-    const user = users.find(u => u.id === userId)
+    const user = Store.get('users').find(u => u.id === userId)
     if (user) {
       user.rooms = (user.rooms || []).filter(id => id !== roomId)
-      Store.set('users', users)
-      if (CONFIG.useFirebase && Store._rootRef) {
-        Store.writePath(`users/${userId}/rooms`, user.rooms)
-      }
+      Store.writePath(`users/${userId}/rooms`, user.rooms)
     }
-    this.renderRoomsTab()
   }
 }

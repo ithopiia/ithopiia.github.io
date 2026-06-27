@@ -28,8 +28,6 @@ const Points = {
       adminNotes: '',
       saved: true,
     }
-    Store.push('dailyPoints', entry)
-
     Store.writePath(`dailyPoints/${key}/${userId}`, {
       basePoints: entry.basePoints,
       evaluationScore: entry.evaluationScore,

@@ -34,10 +34,10 @@ window.Evaluation = {
   },
 
   getOrCreateEntry(userId, dateKey) {
-    const all = Store.get('evaluation') || []
+    const all = Store.get('evaluation')
     let entry = all.find(e => e.userId === userId && e.dateKey === dateKey)
     if (!entry) {
-      const newEntry = {
+      entry = {
         userId,
         dateKey,
         spiritual: 0,
@@ -51,8 +51,9 @@ window.Evaluation = {
         totalScore: 0,
         saved: false,
       }
-      Store.push('evaluation', newEntry)
-      return newEntry
+      all.push(entry)
+      Store.writePath(`evaluation/${dateKey}/${userId}`, { spiritual:0, exercises:0, moral:0, rehearsal:0, acting:0, movement:0, clothing:0, bonus:0, totalScore:0, saved:false })
+      return entry
     }
     return entry
   },
@@ -263,7 +264,6 @@ window.Evaluation = {
       this.updateStats()
 
       Store.debounce(`eval_${capturedDateKey}_${userId}`, () => {
-        Store.set('evaluation', all)
         this._applyAdjustment(userId, entry.totalScore, capturedDateKey, entry)
       }, 500)
     })
@@ -300,14 +300,13 @@ window.Evaluation = {
     this.updateStats()
 
     Store.debounce(`eval_${capturedDateKey}_${userId}`, () => {
-      Store.set('evaluation', all)
       this._applyAdjustment(userId, entry.totalScore, capturedDateKey, entry)
     }, 500)
   },
 
   _applyAdjustment(userId, adjustment, dateKey, evalEntry) {
     if (!dateKey) dateKey = this._dateKey
-    const dailyPoints = Store.get('dailyPoints') || []
+    const dailyPoints = Store.get('dailyPoints')
     let dp = dailyPoints.find(p => p.userId === userId && p.dateKey === dateKey)
     if (!dp) {
       dp = {
@@ -326,9 +325,6 @@ window.Evaluation = {
     dp.evaluationScore = adjustment
     dp.finalScore = this.BASELINE_POINTS + (adjustment || 0) + (dp.manualBonus || 0)
     dp.saved = true
-
-    Store._data.dailyPoints = dailyPoints
-    Store._sync()
 
     Store.writePath(`dailyPoints/${dateKey}/${userId}`, {
       basePoints: dp.basePoints,
@@ -398,7 +394,6 @@ window.Evaluation = {
     this.updateStats()
 
     Store.debounce(`eval_${capturedDateKey}_${userId}`, () => {
-      Store.set('evaluation', all)
       this._applyAdjustment(userId, entry.totalScore, capturedDateKey, entry)
     }, 500)
   },
@@ -439,10 +434,6 @@ window.Evaluation = {
       }
     })
 
-    Store._data.evaluation = all
-    Store._data.dailyPoints = dailyPoints
-    Store._sync()
-
     const allPaths = {}
     dayEntries.forEach(e => {
       const { userId, dateKey: dk, totalScore, saved, ...evalScores } = e
@@ -477,9 +468,13 @@ window.Evaluation = {
   unlockDay() {
     const dateKey = this._dateKey
     if (!confirm('فتح اليوم سيسمح بالتعديل مرة أخرى. هل تريد المتابعة؟')) return
-    const all = Store.get('evaluation') || []
-    all.forEach(e => { if (e.dateKey === dateKey) e.saved = false })
-    Store.set('evaluation', all)
+    const all = Store.get('evaluation')
+    all.forEach(e => {
+      if (e.dateKey === dateKey) {
+        e.saved = false
+        Store.writePath(`evaluation/${dateKey}/${e.userId}/saved`, false)
+      }
+    })
     this.render()
   },
 }
