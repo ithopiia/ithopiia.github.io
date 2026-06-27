@@ -1975,7 +1975,9 @@ td {
         margin-right: 0 !important;
     }
 
-    div[class*="notes-container"] button, .action-btn-container {
+    div[class*="notes-container"] textarea,
+    div[class*="notes-container"] button,
+    .action-btn-container {
         width: 100% !important;
         text-align: center !important;
         display: block !important;
@@ -1986,41 +1988,34 @@ td {
     }
 }
 
-div[class*="tabs-container"], .nav-tabs-wrapper {
-    display: flex !important;
-    overflow-x: auto !important;
-    white-space: nowrap !important;
-    padding-bottom: 8px !important;
-    gap: 8px !important;
-    -webkit-overflow-scrolling: touch;
-}
-
-div[class*="tabs-container"] a, .nav-tabs-wrapper button, .tab-item {
-    border: 2px solid #bdc3c7 !important;
-    color: #e2e8f0 !important;
-    background: rgba(30, 33, 41, 0.65) !important;
-    transition: all 0.2s ease-in-out !important;
-    position: relative;
-}
-
-div[class*="tabs-container"] a.active,
-.nav-tabs-wrapper button.active,
-.tab-item.active {
-    border-color: #FFD700 !important;
+.nav-tabs-wrapper .tab-item.active,
+.tabs-container a.active,
+[class*="tab"].active {
     color: #FFD700 !important;
-    background: rgba(255, 215, 0, 0.1) !important;
+    border-color: #FFD700 !important;
+    background: rgba(255, 215, 0, 0.08) !important;
     font-weight: bold !important;
-    box-shadow: 0 0 12px rgba(255, 215, 0, 0.35) !important;
+    position: relative;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.2) !important;
 }
 
-div[class*="tabs-container"] a.active::after,
-.tab-item.active::after {
+.nav-tabs-wrapper .tab-item.active::after,
+.tabs-container a.active::after,
+[class*="tab"].active::after {
     content: "";
     position: absolute;
     bottom: -2px;
-    left: 10%;
-    width: 80%;
+    left: 15%;
+    width: 70%;
     height: 3px;
     background-color: #FFD700 !important;
-    border-radius: 2px;
+    border-radius: 4px;
+}
+
+.nav-tabs-wrapper .tab-item:not(.active),
+.tabs-container a:not(.active),
+[class*="tab"]:not(.active) {
+    color: #bdc3c7 !important;
+    border: 1px solid rgba(189, 195, 199, 0.4) !important;
+    background: rgba(30, 33, 41, 0.65) !important;
 }
