@@ -264,7 +264,7 @@ window.Evaluation = {
 
       Store.debounce(`eval_${capturedDateKey}_${userId}`, () => {
         Store.set('evaluation', all)
-        this._applyAdjustment(userId, entry.totalScore, capturedDateKey)
+        this._applyAdjustment(userId, entry.totalScore, capturedDateKey, entry)
       }, 500)
     })
   },
@@ -301,11 +301,11 @@ window.Evaluation = {
 
     Store.debounce(`eval_${capturedDateKey}_${userId}`, () => {
       Store.set('evaluation', all)
-      this._applyAdjustment(userId, entry.totalScore, capturedDateKey)
+      this._applyAdjustment(userId, entry.totalScore, capturedDateKey, entry)
     }, 500)
   },
 
-  _applyAdjustment(userId, adjustment, dateKey) {
+  _applyAdjustment(userId, adjustment, dateKey, evalEntry) {
     if (!dateKey) dateKey = this._dateKey
     const dailyPoints = Store.get('dailyPoints') || []
     let dp = dailyPoints.find(p => p.userId === userId && p.dateKey === dateKey)
@@ -340,6 +340,26 @@ window.Evaluation = {
       saved: true,
       date: dp.date ?? new Date().toISOString(),
     })
+
+    if (evalEntry) {
+      const { userId: uid, dateKey: dk, totalScore, saved, ...evalScores } = evalEntry
+      Store.writePath(`evaluation/${dateKey}/${userId}`, { ...evalScores, totalScore, saved })
+    }
+
+    this._syncCumulativeToFirebase(userId)
+  },
+
+  _syncCumulativeToFirebase(userId) {
+    const dailyPoints = Store.get('dailyPoints') || []
+    const total = dailyPoints
+      .filter(p => p.userId === userId && p.saved)
+      .reduce((sum, p) => sum + (p.finalScore ?? 0), 0)
+    const users = Store.get('users') || []
+    const user = users.find(u => u.id === userId)
+    if (user) {
+      user.cumulativePoints = total
+      Store.writePath(`users/${userId}/cumulativePoints`, total)
+    }
   },
 
   fillRow(userId, direction) {
@@ -379,7 +399,7 @@ window.Evaluation = {
 
     Store.debounce(`eval_${capturedDateKey}_${userId}`, () => {
       Store.set('evaluation', all)
-      this._applyAdjustment(userId, entry.totalScore, capturedDateKey)
+      this._applyAdjustment(userId, entry.totalScore, capturedDateKey, entry)
     }, 500)
   },
 

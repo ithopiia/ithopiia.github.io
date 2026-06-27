@@ -1071,6 +1071,20 @@ textarea { resize: vertical; }
   color: var(--accent);
 }
 
+.stepper-sm .stepper-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 32px;
+  min-height: 32px;
+  font-size: 0.75rem;
+}
+
+.stepper-sm .stepper-value {
+  min-width: 24px;
+  height: 28px;
+  font-size: 0.82rem;
+}
+
 .eval-smart-action {
   width: 100%;
   min-width: 120px;

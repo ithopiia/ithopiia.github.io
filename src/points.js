@@ -29,6 +29,18 @@ const Points = {
       saved: true,
     }
     Store.push('dailyPoints', entry)
+
+    Store.writePath(`dailyPoints/${key}/${userId}`, {
+      basePoints: entry.basePoints,
+      evaluationScore: entry.evaluationScore,
+      manualBonus: entry.manualBonus,
+      finalScore: entry.finalScore,
+      overwritten: entry.overwritten,
+      adminNotes: entry.adminNotes,
+      saved: entry.saved,
+      date: entry.date,
+    })
+
     return entry
   },
 

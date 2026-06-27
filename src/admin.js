@@ -60,14 +60,25 @@ window.Admin = {
       </div>
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>الاسم</th><th>البريد الإلكتروني</th><th>الغرفة</th><th>النقاط</th><th>الحالة</th><th>النوع</th><th>الإجراء</th></tr></thead>
+          <thead><tr><th>الاسم</th><th>البريد الإلكتروني</th><th>الغرفة</th><th>النقاط</th><th>بونص اليوم</th><th>الحالة</th><th>النوع</th><th>الإجراء</th></tr></thead>
           <tbody id="admin-users-tbody">
-            ${filtered.map(u => `
+            ${filtered.map(u => {
+              const todayKey = Evaluation ? Evaluation.getTodayKey() : ''
+              const todayDp = todayKey ? (Store.get('dailyPoints') || []).find(p => p.userId === u.id && p.dateKey === todayKey) : null
+              const bonusVal = todayDp ? (todayDp.manualBonus ?? 0) : 0
+              return `
               <tr>
                 <td><span class="name-link" onclick="Admin.showUserProfile('${u.id}')">${u.fullName}</span></td>
                 <td>${u.email || '-'}</td>
                 <td>${u.room || '-'}</td>
                 <td>${u.cumulativePoints || 0}</td>
+                <td>
+                  <div class="stepper stepper-sm">
+                    <button class="stepper-btn stepper-down" data-admin-bonus="${u.id}" data-step="-1" aria-label="إنقاص">▼</button>
+                    <span class="stepper-value" id="admin-bonus-val-${u.id}">${bonusVal}</span>
+                    <button class="stepper-btn stepper-up" data-admin-bonus="${u.id}" data-step="1" aria-label="زيادة">▲</button>
+                  </div>
+                </td>
                 <td>${u.status === 'approved' ? 'مقبول' : u.status === 'rejected' ? 'مرفوض' : u.status || '-'}</td>
                 <td>${u.role === 'member' ? '👤 عضو' : 'مستخدم'}</td>
                 <td class="table-actions">
@@ -75,12 +86,14 @@ window.Admin = {
                   <button class="btn-sm btn-danger" onclick="Admin.deleteUser('${u.id}')">حذف</button>
                 </td>
               </tr>
-            `).join('')}
+            `}).join('')}
           </tbody>
         </table>
       </div>`
     const search = document.getElementById('admin-search')
     if (search && search.value) this.filterUsers()
+
+    this.bindAdminStepperEvents()
 
     // Danger zone: reset all points
     const dangerZone = document.getElementById('admin-danger-zone')
@@ -126,6 +139,66 @@ window.Admin = {
     document.querySelectorAll('#admin-users-tbody tr').forEach(tr => {
       const name = tr.children[0]?.textContent.toLowerCase() || ''
       tr.style.display = name.includes(q) ? '' : 'none'
+    })
+  },
+
+  bindAdminStepperEvents() {
+    const tbody = document.getElementById('admin-users-tbody')
+    if (!tbody) return
+
+    tbody.addEventListener('click', (e) => {
+      const btn = e.target.closest('.stepper-btn:not(:disabled)')
+      if (!btn) return
+      const userId = btn.dataset.adminBonus
+      const step = parseInt(btn.dataset.step)
+      if (!userId || !step) return
+
+      const todayKey = Evaluation ? Evaluation.getTodayKey() : ''
+      if (!todayKey) return
+
+      const dailyPoints = Store.get('dailyPoints') || []
+      let dp = dailyPoints.find(p => p.userId === userId && p.dateKey === todayKey)
+      if (!dp) {
+        dp = {
+          userId, dateKey: todayKey,
+          date: new Date().toISOString(),
+          basePoints: CONFIG.pointsPerDay ?? 0,
+          evaluationScore: 0,
+          manualBonus: 0,
+          overwritten: false,
+          finalScore: CONFIG.pointsPerDay ?? 0,
+          adminNotes: '',
+          saved: true,
+        }
+        dailyPoints.push(dp)
+      }
+
+      const current = dp.manualBonus ?? 0
+      const next = Math.max(-5, Math.min(5, current + step))
+      dp.manualBonus = next
+      const base = dp.overwritten ? dp.basePoints : (CONFIG.pointsPerDay ?? 0)
+      dp.finalScore = (base || 0) + (dp.evaluationScore || 0) + next
+
+      const valEl = document.getElementById(`admin-bonus-val-${userId}`)
+      if (valEl) valEl.textContent = next
+
+      Store._data.dailyPoints = dailyPoints
+      Store._sync()
+
+      Store.writePath(`dailyPoints/${todayKey}/${userId}`, {
+        basePoints: dp.basePoints,
+        evaluationScore: dp.evaluationScore ?? 0,
+        manualBonus: next,
+        finalScore: dp.finalScore,
+        overwritten: dp.overwritten ?? false,
+        adminNotes: dp.adminNotes ?? '',
+        saved: true,
+        date: dp.date ?? new Date().toISOString(),
+      })
+
+      if (window.Evaluation && window.Evaluation._syncCumulativeToFirebase) {
+        Evaluation._syncCumulativeToFirebase(userId)
+      }
     })
   },
 
@@ -238,12 +311,11 @@ window.Admin = {
     Store._saveLocal()
 
     if (CONFIG.useFirebase && Store._rootRef) {
-      const promises = users.map(u =>
-        Store._rootRef.child(`users/${u.id}/cumulativePoints`).set(0)
-      )
-      promises.push(Store._rootRef.child('dailyPoints').set({}))
-      promises.push(Store._rootRef.child('evaluation').set({}))
-      await Promise.all(promises)
+      const updates = {}
+      users.forEach(u => { updates[`users/${u.id}/cumulativePoints`] = 0 })
+      updates['dailyPoints'] = {}
+      updates['evaluation'] = {}
+      await Store._rootRef.update(updates)
     }
 
     if (statusEl) statusEl.textContent = '✅ تم التصفير بنجاح!'
