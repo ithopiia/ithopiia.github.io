@@ -1853,7 +1853,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 body::before {
     content: "";
     position: fixed;
-    top: 62% !important;
+    top: 58% !important;
     left: 50% !important;
     transform: translate(-50%, -50%) !important;
     width: 75vw !important;
