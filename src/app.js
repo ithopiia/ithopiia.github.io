@@ -160,6 +160,16 @@ window.App = {
   },
 
   render() {
+    if (!Auth.isInitialized()) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'))
+      document.getElementById('view-auth')?.classList.add('active')
+      document.getElementById('auth-google').style.display = 'none'
+      document.getElementById('auth-complete-profile').style.display = 'none'
+      const ae = document.getElementById('auth-error')
+      if (ae) ae.textContent = ''
+      return
+    }
+
     const user = Auth.currentUser()
     const role = user?.role
     const isApproved = user?.status === 'approved'
@@ -202,6 +212,7 @@ window.App = {
       if (adminNavBtn) adminNavBtn.style.display = 'none'
       if (profileNavBtn) profileNavBtn.style.display = 'none'
       document.getElementById('view-auth')?.classList.add('active')
+      document.getElementById('auth-loader').style.display = 'none'
       document.getElementById('auth-google').style.display = 'none'
       document.getElementById('auth-complete-profile').style.display = 'block'
       const nameInput = document.getElementById('comp-name')
@@ -211,6 +222,7 @@ window.App = {
       if (adminNavBtn) adminNavBtn.style.display = 'none'
       if (profileNavBtn) profileNavBtn.style.display = 'none'
       document.getElementById('view-auth')?.classList.add('active')
+      document.getElementById('auth-loader').style.display = 'none'
       document.getElementById('auth-complete-profile').style.display = 'none'
       document.getElementById('auth-google').style.display = 'block'
       document.getElementById('auth-error').textContent = ''

@@ -4,6 +4,7 @@ window.Auth = {
   _unsubscribe: null,
   _userRef: null,
   _userListener: null,
+  _isInitialized: false,
 
   init() {
     if (CONFIG.useFirebase) {
@@ -28,9 +29,12 @@ window.Auth = {
           this._attachUserListener(authUser.uid)
         } else {
           this._currentUser = null
+          this._isInitialized = true
+          this._notify()
         }
-        this._notify()
       })
+    } else {
+      this._isInitialized = true
     }
     return this._currentUser
   },
@@ -41,12 +45,18 @@ window.Auth = {
     const db = firebase.database()
     this._userRef = db.ref(`ithopiia/users/${uid}`)
     this._userListener = this._userRef.on('value', snap => {
-      if (snap.exists() && this._currentUser) {
-        const data = snap.val()
-        const roleChanged = data.role !== this._currentUser.role
-        const statusChanged = data.status !== this._currentUser.status
-        Object.assign(this._currentUser, data)
-        if (roleChanged || statusChanged) {
+      if (this._currentUser) {
+        if (snap.exists()) {
+          const data = snap.val()
+          const roleChanged = data.role !== this._currentUser.role
+          const statusChanged = data.status !== this._currentUser.status
+          Object.assign(this._currentUser, data)
+          if (roleChanged || statusChanged || !this._isInitialized) {
+            if (!this._isInitialized) this._isInitialized = true
+            this._notify()
+          }
+        } else if (!this._isInitialized) {
+          this._isInitialized = true
           this._notify()
         }
       }
@@ -67,9 +77,11 @@ window.Auth = {
 
   onAuth(fn) {
     this._listeners.push(fn)
-    if (this._currentUser !== undefined) fn(this._currentUser)
+    if (this._isInitialized) fn(this._currentUser)
     return () => { this._listeners = this._listeners.filter(f => f !== fn) }
   },
+
+  isInitialized() { return this._isInitialized },
 
   async signInWithGoogle() {
     if (!CONFIG.useFirebase) return { ok: false, error: 'Firebase غير متاح.' }
@@ -93,6 +105,7 @@ window.Auth = {
         Store.push('users', profile)
       }
       this._currentUser = profile
+      this._isInitialized = true
       this._attachUserListener(authUser.uid)
       this._notify()
       return { ok: true, user: profile }
