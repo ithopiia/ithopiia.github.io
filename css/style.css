@@ -1856,47 +1856,58 @@ body::before {
     top: 50% !important;
     left: 50% !important;
     transform: translate(-50%, -50%) !important;
-    width: 55vw !important;
+    width: 85vw !important;
     height: auto !important;
     aspect-ratio: 4/3;
     background-image: url('../img/icon.jpeg') !important;
     background-size: contain !important;
     background-repeat: no-repeat !important;
     background-position: center !important;
-    opacity: 0.15 !important;
+    opacity: 0.16 !important;
     z-index: -1 !important;
     pointer-events: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
 }
 
 body {
-    background-color: #0b0c0e !important;
-    color: #e2e8f0 !important;
+    background-color: #050608 !important;
+    color: #ffffff !important;
 }
 
-div[class*="card"], div[class*="container"], div[class*="panel"], .dashboard-box, .table-responsive, section {
-    background: rgba(18, 20, 24, 0.65) !important;
+div[class*="card"], 
+div[class*="container"], 
+div[class*="panel"], 
+.dashboard-box, 
+.table-responsive, 
+section,
+.table,
+tr,
+td {
+    background: transparent !important;
+    background-color: transparent !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-radius: 12px !important;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+    box-shadow: none !important;
+}
+
+h1, h2, h3, .title, th {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8) !important;
 }
 
 .btn-primary, button, .action-btn {
-    background: #1e222b !important;
+    background: transparent !important;
     color: #ffffff !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    box-shadow: none !important;
-    text-shadow: none !important;
+    border: 1px solid #ffffff !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease-in-out !important;
 }
 
 .btn-primary:hover, button:hover {
     background: #ffffff !important;
-    color: #000000 !important;
-    border-color: #ffffff !important;
-}
-
-h1, h2, h3, .gold-text {
-    color: #e5c158 !important;
-    text-shadow: none !important;
+    color: #050608 !important;
 }
