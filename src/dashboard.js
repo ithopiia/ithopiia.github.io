@@ -1,6 +1,7 @@
 window.Dashboard = {
   _unsubscribe: null,
   _lbPollInterval: null,
+  _lbVisibleUnsub: null,
 
   render() {
     const user = Auth.currentUser()
@@ -17,6 +18,26 @@ window.Dashboard = {
 
     if (this._unsubscribe) this._unsubscribe()
     this._unsubscribe = Store.onChange(() => this.autoRefresh(user))
+
+    if (this._lbVisibleUnsub) this._lbVisibleUnsub()
+    if (CONFIG.useFirebase) {
+      const db = firebase.database()
+      const visRef = db.ref('ithopiia/settings/leaderboard')
+      const cb = visRef.on('value', snap => {
+        if (!snap.exists()) return
+        const val = snap.val()
+        if (val.visible !== undefined) {
+          if (!Store._data.settings) Store._data.settings = {}
+          Store._data.settings.leaderboard = Store._data.settings.leaderboard || {}
+          Store._data.settings.leaderboard.visible = val.visible
+          this.updateLeaderboardTabVisibility()
+          this.renderLeaderboard()
+          this.renderStats(user)
+          this.renderUserInfo(user)
+        }
+      })
+      this._lbVisibleUnsub = () => visRef.off('value', cb)
+    }
 
     this._startLbReleaseTimer()
 
@@ -35,7 +56,8 @@ window.Dashboard = {
   _tickLbReleaseTimer() {
     const el = document.getElementById('lb-release-countdown')
     if (!el) return
-    const until = Store.get('settings')?.leaderboardReleasedUntil
+    const settings = Store.get('settings') || {}
+    const until = settings.leaderboard?.closeAt || settings.leaderboardReleasedUntil
     if (!until) { this.renderLeaderboard(); return }
     const s = Math.floor((until - Date.now()) / 1000)
     if (s <= 0) { this.renderLeaderboard(); return }
@@ -49,6 +71,7 @@ window.Dashboard = {
     this.renderAccountInfo(user)
     this.renderFeedback(user)
     this.renderClaimArea(user)
+    this.updateLeaderboardTabVisibility()
   },
 
   bindTabs() {
@@ -230,7 +253,8 @@ window.Dashboard = {
     const el = document.getElementById('dash-leaderboard-content')
     const released = Auth.isLeaderboardReleased()
     if (!released) {
-      const until = Store.get('settings')?.leaderboardReleasedUntil
+      const settings = Store.get('settings') || {}
+      const until = settings.leaderboard?.closeAt || settings.leaderboardReleasedUntil
       const hasSchedule = until && Date.now() < until
       if (hasSchedule) {
         const remaining = Math.floor((until - Date.now()) / 1000)

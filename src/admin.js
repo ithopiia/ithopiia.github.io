@@ -2,6 +2,8 @@ window.Admin = {
   _editingDateKey: null,
   _activeGenderUsers: 'all',
   _roomsStoreUnsub: null,
+  _lastLeaderboardState: null,
+  _schedulerLastVisible: undefined,
 
   render() {
     this.renderUsers()
@@ -210,6 +212,29 @@ window.Admin = {
 
   _schedTimerInterval: null,
 
+  _getLeaderboardState() {
+    if (this._lastLeaderboardState) return this._lastLeaderboardState
+    const settings = Store.get('settings') || {}
+    const lb = settings.leaderboard || {}
+    return {
+      openAt: lb.openAt || settings.leaderboardReleasedFrom || null,
+      closeAt: lb.closeAt || settings.leaderboardReleasedUntil || null,
+      forceOverride: lb.forceOverride || settings.leaderboardForceOverride || null,
+      mode: lb.mode || null,
+      visible: lb.visible !== undefined ? lb.visible : null
+    }
+  },
+
+  _computeVisible(state) {
+    const now = Date.now()
+    if (state.forceOverride === 'open') return true
+    if (state.forceOverride === 'closed') return false
+    if (state.openAt && state.closeAt) return now >= state.openAt && now < state.closeAt
+    if (state.openAt) return now >= state.openAt
+    if (state.closeAt) return now < state.closeAt
+    return false
+  },
+
   renderLeaderboardTab() {
     const el = document.getElementById('admin-tab-leaderboard')
     el.innerHTML = window.Leaderboard ? Leaderboard.renderAdmin() : '<p class="text-muted">لا توجد بيانات.</p>'
@@ -221,21 +246,12 @@ window.Admin = {
 
     if (this._schedTimerInterval) clearInterval(this._schedTimerInterval)
 
-    const settings = Store.get('settings') || {}
-    const override = settings.leaderboardForceOverride
-    const from = settings.leaderboardReleasedFrom
-    const until = settings.leaderboardReleasedUntil
-    const now = Date.now()
+    const state = this._getLeaderboardState()
+    const isVisible = this._computeVisible(state)
+    this._schedulerLastVisible = isVisible
 
-    let isVisible = false
-    if (override === 'open') isVisible = true
-    else if (override === 'closed') isVisible = false
-    else if (from && until) isVisible = now >= from && now < until
-    else if (from) isVisible = now >= from
-    else if (until) isVisible = now < until
-
-    const fromDate = from ? new Date(from) : new Date()
-    const untilDate = until ? new Date(until) : new Date(Date.now() + 3600000)
+    const fromDate = state.openAt ? new Date(state.openAt) : new Date()
+    const untilDate = state.closeAt ? new Date(state.closeAt) : new Date(Date.now() + 3600000)
 
     const fmtNum = n => String(n).padStart(2, '0')
 
@@ -254,7 +270,7 @@ window.Admin = {
         <div class="lb-scheduler-override">
           <button class="btn btn-success" onclick="Admin.forceOpenLeaderboard()">🔓 فتح الآن</button>
           <button class="btn btn-danger" onclick="Admin.forceCloseLeaderboard()">🔒 إغلاق الآن</button>
-          ${override ? '<button class="btn btn-ghost" onclick="Admin.clearLeaderboardOverride()">↩️ العودة للجدولة التلقائية</button>' : ''}
+          ${state.forceOverride ? '<button class="btn btn-ghost" onclick="Admin.clearLeaderboardOverride()">↩️ العودة للجدولة التلقائية</button>' : ''}
         </div>
         <hr>
         <div class="lb-dual-section">
@@ -317,24 +333,24 @@ window.Admin = {
     const statusEl = document.querySelector('#admin-tab-scheduler .lb-scheduler-status')
     if (!statusEl) { clearInterval(this._schedTimerInterval); return }
 
-    const settings = Store.get('settings') || {}
-    const override = settings.leaderboardForceOverride
-    const from = settings.leaderboardReleasedFrom
-    const until = settings.leaderboardReleasedUntil
+    const state = this._getLeaderboardState()
+    const isVisible = this._computeVisible(state)
     const now = Date.now()
 
-    let isVisible
-    if (override === 'open') isVisible = true
-    else if (override === 'closed') isVisible = false
-    else if (from && until) isVisible = now >= from && now < until
-    else if (from) isVisible = now >= from
-    else if (until) isVisible = now < until
-    else isVisible = false
+    if (this._schedulerLastVisible !== undefined && this._schedulerLastVisible !== isVisible) {
+      if (!state.forceOverride) {
+        Store.writePath('settings/leaderboard/visible', isVisible)
+      }
+      if (this._lastLeaderboardState) {
+        this._lastLeaderboardState.visible = isVisible
+      }
+    }
+    this._schedulerLastVisible = isVisible
 
     let nextChange = Infinity
-    if (!override) {
-      if (!isVisible && from && now < from) nextChange = from
-      if (isVisible && until && now < until) nextChange = until
+    if (!state.forceOverride) {
+      if (!isVisible && state.openAt && now < state.openAt) nextChange = state.openAt
+      if (isVisible && state.closeAt && now < state.closeAt) nextChange = state.closeAt
     }
 
     statusEl.className = 'lb-scheduler-status ' + (isVisible ? 'status-visible' : 'status-hidden')
@@ -373,32 +389,46 @@ window.Admin = {
     if (isNaN(openTime) || isNaN(closeTime)) return
     if (closeTime <= openTime) { alert('يجب أن يكون وقت القفل بعد وقت الفتح'); return }
 
-    Store.writePath('settings/leaderboardReleasedFrom', openTime)
-    Store.writePath('settings/leaderboardReleasedUntil', closeTime)
-    Store.writePath('settings/leaderboardForceOverride', null)
-    this._updateSchedulerStatus()
+    const now = Date.now()
+    const visible = now >= openTime && now < closeTime
+    const data = { openAt: openTime, closeAt: closeTime, forceOverride: null, mode: 'auto', visible }
+    this._lastLeaderboardState = data
+    Store.writePath('settings/leaderboard', data)
+    this.renderSchedulerTab()
   },
 
   clearLeaderboardSchedule() {
     if (!confirm('هل تريد إلغاء الجدولة بالكامل؟')) return
-    Store.writePath('settings/leaderboardReleasedFrom', null)
-    Store.writePath('settings/leaderboardReleasedUntil', null)
-    Store.writePath('settings/leaderboardForceOverride', null)
+    const data = { openAt: null, closeAt: null, forceOverride: null, mode: null, visible: false }
+    this._lastLeaderboardState = data
+    Store.writePath('settings/leaderboard', data)
     this.renderSchedulerTab()
   },
 
   forceOpenLeaderboard() {
-    Store.writePath('settings/leaderboardForceOverride', 'open')
+    const data = { forceOverride: 'open', mode: 'manual', visible: true }
+    this._lastLeaderboardState = data
+    Store.writePath('settings/leaderboard', data)
     this.renderSchedulerTab()
   },
 
   forceCloseLeaderboard() {
-    Store.writePath('settings/leaderboardForceOverride', 'closed')
+    const data = { forceOverride: 'closed', mode: 'manual', visible: false }
+    this._lastLeaderboardState = data
+    Store.writePath('settings/leaderboard', data)
     this.renderSchedulerTab()
   },
 
   clearLeaderboardOverride() {
-    Store.writePath('settings/leaderboardForceOverride', null)
+    const settings = Store.get('settings') || {}
+    const lb = settings.leaderboard || {}
+    const openAt = lb.openAt || settings.leaderboardReleasedFrom || null
+    const closeAt = lb.closeAt || settings.leaderboardReleasedUntil || null
+    const now = Date.now()
+    const visible = openAt && closeAt ? now >= openAt && now < closeAt : (openAt ? now >= openAt : (closeAt ? now < closeAt : false))
+    const data = { openAt, closeAt, forceOverride: null, mode: 'auto', visible }
+    this._lastLeaderboardState = data
+    Store.writePath('settings/leaderboard', data)
     this.renderSchedulerTab()
   },
 

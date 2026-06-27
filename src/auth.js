@@ -170,11 +170,13 @@ window.Auth = {
     if (user.role === 'admin' || user.role === 'member') return true
     if (typeof Store === 'undefined' || !Store._data) return false
     const settings = Store.get('settings') || {}
+    const lb = settings.leaderboard
+    if (lb && lb.visible !== undefined) return lb.visible
     const override = settings.leaderboardForceOverride
     if (override === 'open') return true
     if (override === 'closed') return false
-    const from = settings.leaderboardReleasedFrom
-    const until = settings.leaderboardReleasedUntil
+    const from = lb?.openAt || settings.leaderboardReleasedFrom
+    const until = lb?.closeAt || settings.leaderboardReleasedUntil
     const now = Date.now()
     if (from && until) return now >= from && now < until
     if (from) return now >= from
