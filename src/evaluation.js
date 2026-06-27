@@ -155,19 +155,17 @@ window.Evaluation = {
                     <tr data-user-id="${u.id}" class="eval-row">
                       <td class="col-num">${i + 1}</td>
                       <td class="col-name">${u.fullName}</td>
-                      ${this.COLUMNS.map(c => `
-                        <td class="col-score">
-                          <input type="number"
-                            class="eval-input eval-input-${c.key}"
-                            data-user="${u.id}"
-                            data-col="${c.key}"
-                            value="${entry ? (entry[c.key] ?? 0) : 0}"
-                            ${inputDisabled ? 'disabled' : ''}
-                            min="${c.min}" max="${c.max}"
-                            step="1"
-                            inputmode="numeric">
-                        </td>
-                      `).join('')}
+                      ${this.COLUMNS.map(c => {
+                        const val = entry ? (entry[c.key] ?? 0) : 0
+                        return `
+                        <td class="col-score" data-label="${c.label}">
+                          <div class="stepper ${inputDisabled ? 'stepper-disabled' : ''}">
+                            <button class="stepper-btn stepper-down" data-user="${u.id}" data-col="${c.key}" data-step="-1" ${inputDisabled ? 'disabled' : ''} aria-label="إنقاص">▼</button>
+                            <span class="stepper-value" id="stepper-val-${u.id}-${c.key}">${val}</span>
+                            <button class="stepper-btn stepper-up" data-user="${u.id}" data-col="${c.key}" data-step="1" ${inputDisabled ? 'disabled' : ''} aria-label="زيادة">▲</button>
+                          </div>
+                        </td>`
+                      }).join('')}
                       <td class="col-total eval-total" id="eval-total-${u.id}">${total}</td>
                       <td class="col-actions">
                         ${!inputDisabled ? `
@@ -224,40 +222,50 @@ window.Evaluation = {
     const grid = document.getElementById('eval-grid-table')
     if (!grid) return
 
-    grid.addEventListener('input', (e) => {
-      const input = e.target.closest('.eval-input')
-      if (!input) return
-      this.updateCell(input.dataset.user, input.dataset.col, input.value)
-    })
+    grid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.stepper-btn:not(:disabled)')
+      if (!btn) return
+      const userId = btn.dataset.user
+      const col = btn.dataset.col
+      const step = parseInt(btn.dataset.step)
+      if (!userId || !col || !step) return
 
-    grid.addEventListener('keydown', (e) => {
-      const navKeys = ['Tab', 'Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']
-      if (!navKeys.includes(e.key)) return
-      e.preventDefault()
-
-      const input = e.target.closest('.eval-input')
-      if (!input) return
-
-      const allInputs = Array.from(grid.querySelectorAll('.eval-input:not(:disabled)'))
-      const idx = allInputs.indexOf(input)
-      if (idx === -1) return
-
-      const cols = this.COLUMNS.length
-      let nextIdx = -1
-
-      switch (e.key) {
-        case 'Tab': nextIdx = e.shiftKey ? Math.max(0, idx - 1) : Math.min(allInputs.length - 1, idx + 1); break
-        case 'Enter':
-        case 'ArrowDown': nextIdx = Math.min(allInputs.length - 1, idx + cols); break
-        case 'ArrowUp': nextIdx = Math.max(0, idx - cols); break
-        case 'ArrowRight': nextIdx = Math.min(allInputs.length - 1, idx + 1); break
-        case 'ArrowLeft': nextIdx = Math.max(0, idx - 1); break
+      const capturedDateKey = this._dateKey
+      const all = Store.get('evaluation') || []
+      let entry = all.find(e => e.userId === userId && e.dateKey === capturedDateKey)
+      if (!entry) {
+        const newEntry = {
+          userId, dateKey: capturedDateKey,
+          spiritual: 0, exercises: 0, moral: 0,
+          rehearsal: 0, acting: 0, movement: 0, clothing: 0, bonus: 0,
+          totalScore: 0, saved: false,
+        }
+        all.push(newEntry)
+        entry = newEntry
       }
 
-      if (nextIdx >= 0 && nextIdx < allInputs.length) {
-        allInputs[nextIdx].focus()
-        allInputs[nextIdx].select()
-      }
+      const column = this.COLUMNS.find(c => c.key === col)
+      const minVal = column ? column.min : -1
+      const maxVal = column ? column.max : 1
+      const current = Number(entry[col]) || 0
+      let next = current + step
+      next = Math.max(minVal, Math.min(maxVal, next))
+
+      entry[col] = next
+      const total = this.calculateTotal(entry)
+      entry.totalScore = total
+
+      const valEl = document.getElementById(`stepper-val-${userId}-${col}`)
+      if (valEl) valEl.textContent = next
+
+      const totalEl = document.getElementById(`eval-total-${userId}`)
+      if (totalEl) totalEl.textContent = this.BASELINE_POINTS + total
+      this.updateStats()
+
+      Store.debounce(`eval_${capturedDateKey}_${userId}`, () => {
+        Store.set('evaluation', all)
+        this._applyAdjustment(userId, entry.totalScore, capturedDateKey)
+      }, 500)
     })
   },
 
@@ -283,6 +291,9 @@ window.Evaluation = {
 
     const total = this.calculateTotal(entry)
     entry.totalScore = total
+
+    const valEl = document.getElementById(`stepper-val-${userId}-${col}`)
+    if (valEl) valEl.textContent = entry[col]
 
     const totalEl = document.getElementById(`eval-total-${userId}`)
     if (totalEl) totalEl.textContent = this.BASELINE_POINTS + total
@@ -356,8 +367,8 @@ window.Evaluation = {
         default: val = 0
       }
       entry[c.key] = val
-      const input = document.querySelector(`.eval-input-${c.key}[data-user="${userId}"]`)
-      if (input) input.value = val
+      const valEl = document.getElementById(`stepper-val-${userId}-${c.key}`)
+      if (valEl) valEl.textContent = val
     })
 
     const total = this.calculateTotal(entry)

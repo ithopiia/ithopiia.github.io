@@ -1011,27 +1011,65 @@ textarea { resize: vertical; }
   min-width: 90px;
 }
 
-.eval-input {
-  width: 46px;
-  padding: 8px 4px;
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.stepper-disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.stepper-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
-  text-align: center;
-  font-size: 0.85rem;
-  font-weight: 600;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  font-size: 1rem;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+  user-select: none;
+  touch-action: manipulation;
 }
 
-.eval-input:focus {
-  outline: none;
+.stepper-btn:active {
+  transform: scale(0.92);
+}
+
+.stepper-btn:hover {
   border-color: var(--accent);
-  box-shadow: 0 0 8px var(--accent-glow);
-  background: var(--surface2);
+  color: var(--accent);
+  background: var(--accent-glow);
 }
 
-.eval-input:disabled { opacity: 0.25; }
+.stepper-btn:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.stepper-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 36px;
+  padding: 0 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent);
+}
 
 .eval-smart-action {
   width: 100%;
@@ -1246,12 +1284,6 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   .eval-grid thead th { padding: 12px 6px; font-size: 0.7rem; }
   .eval-grid thead th .col-label { font-size: 0.65rem; }
   .eval-grid thead th .col-max { font-size: 0.6rem; }
-  .eval-input {
-    width: 44px;
-    padding: 10px 2px;
-    font-size: 0.9rem;
-    min-height: 40px;
-  }
   .eval-grid tbody td {
     padding: 10px 6px;
     vertical-align: middle;
@@ -1274,6 +1306,18 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
     font-size: 0.9rem;
     font-weight: 800;
     min-width: 50px;
+  }
+
+  .stepper-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    font-size: 1.15rem;
+  }
+  .stepper-value {
+    min-width: 36px;
+    font-size: 1.05rem;
   }
 
   .info-item { padding: 12px; }
@@ -1305,6 +1349,100 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
     padding: 10px 12px;
     min-height: 40px;
     font-size: 0.8rem;
+  }
+}
+
+/* ===== MOBILE: EVAL TABLE → CARDS ===== */
+@media (max-width: 700px) {
+  .eval-grid,
+  .eval-grid thead,
+  .eval-grid tbody,
+  .eval-grid tr,
+  .eval-grid th,
+  .eval-grid td {
+    display: block;
+  }
+  .eval-grid thead {
+    display: none;
+  }
+  .eval-grid tr.eval-row {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 12px;
+    animation: fadeInUp 0.3s ease-out;
+  }
+  .eval-grid tbody td {
+    border: none;
+    padding: 6px 4px;
+  }
+  .eval-grid tbody td.col-num {
+    display: inline-block;
+    width: auto;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-left: 8px;
+  }
+  .eval-grid tbody td.col-name {
+    display: inline-block;
+    width: auto;
+    font-size: 0.9rem;
+    font-weight: 700;
+    position: static;
+    background: transparent;
+    padding: 0;
+  }
+  .eval-grid tbody td.col-name::before {
+    display: none;
+  }
+  .eval-grid tbody td.col-score {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .eval-grid tbody td.col-score::before {
+    content: attr(data-label);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .eval-grid tbody td.col-total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 1rem;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+  }
+  .eval-grid tbody td.col-total::before {
+    content: "المجموع";
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  .eval-grid tbody td.col-actions {
+    padding: 8px 0 0;
+  }
+  .eval-grid tbody td.col-actions::before {
+    content: "الإجراء";
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+  .eval-smart-action {
+    width: 100%;
+    min-width: 0;
+  }
+  .eval-grid-wrapper {
+    overflow-x: visible;
+    border: none;
+    border-radius: 0;
+    background: transparent;
   }
 }
 

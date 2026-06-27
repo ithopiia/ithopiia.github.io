@@ -139,7 +139,7 @@ window.Store = {
       let total = 0
       for (const dateKey of Object.keys(remote.dailyPoints)) {
         const entry = remote.dailyPoints[dateKey]?.[userId]
-        if (entry?.finalScore) total += entry.finalScore
+        total += (entry?.finalScore ?? 0)
       }
       const current = remote.users[userId]?.cumulativePoints ?? 0
       if (total !== current) {
@@ -169,7 +169,7 @@ window.Store = {
       }
       if (p.saved === false) {
         p.saved = true
-        p.finalScore = (p.finalScore || p.basePoints || CONFIG.pointsPerDay) + (p.evaluationScore || 0) + (p.manualBonus || 0)
+        p.finalScore = (p.finalScore ?? p.basePoints ?? CONFIG.pointsPerDay) + (p.evaluationScore ?? 0) + (p.manualBonus ?? 0)
       }
     })
     const users = this._data.users || []
