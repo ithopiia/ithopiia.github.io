@@ -335,18 +335,22 @@ window.Store = {
     const users = this._data.users || []
     const idx = users.findIndex(u => u.id === uid)
     if (idx === -1) return null
-    Object.assign(users[idx], profileData)
+    const existing = users[idx]
+    Object.assign(existing, profileData)
     this._saveLocal()
     if (CONFIG.useFirebase && this._rootRef && this._authReady) {
-      const allowed = {
-        fullName: profileData.fullName,
-        whatsapp: profileData.whatsapp,
-        birthdate: profileData.birthdate,
-        gender: profileData.gender,
-        attendedElKaraza: profileData.attendedElKaraza,
-        needsProfile: false
+      const authUser = firebase.auth().currentUser
+      const fullProfile = {
+        ...existing,
+        ...profileData,
+        needsProfile: false,
+        email: authUser?.email || existing.email || '',
+        role: existing.role || 'user',
+        status: existing.status || 'approved',
+        cumulativePoints: existing.cumulativePoints ?? 0,
+        createdAt: existing.createdAt || new Date().toISOString(),
       }
-      await this._rootRef.child(`users/${uid}`).set(allowed)
+      await this._rootRef.child(`users/${uid}`).set(fullProfile)
     }
     return users[idx]
   },

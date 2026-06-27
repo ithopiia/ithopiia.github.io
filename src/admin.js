@@ -88,16 +88,21 @@ window.Admin = {
     this.renderUsers()
   },
 
-  toggleMemberRole(id) {
+  async toggleMemberRole(id) {
     const users = Store.get('users') || []
     const user = users.find(u => u.id === id)
     if (!user) return
+    let newRole
     if (user.role === 'member') {
       if (!confirm('إلغاء صلاحيات العضو لهذا المستخدم؟')) return
-      Store.update('users', u => u.id === id, { role: 'user' })
+      newRole = 'user'
     } else {
       if (!confirm('ترقية هذا المستخدم إلى عضو؟ سيحصل على صلاحيات المشرف مع بقائه ظاهرًا في الموقع.')) return
-      Store.update('users', u => u.id === id, { role: 'member' })
+      newRole = 'member'
+    }
+    Store.update('users', u => u.id === id, { role: newRole })
+    if (CONFIG.useFirebase && Store._rootRef) {
+      await Store._rootRef.child(`users/${id}/role`).set(newRole)
     }
     this.renderUsers()
   },
