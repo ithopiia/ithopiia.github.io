@@ -10,9 +10,9 @@
 <body>
   <div class="top-bar">
     <div class="top-nav">
-      <button id="profile-nav-btn" class="top-nav-btn" style="display:none" onclick="App.showDashboard()">الملف الشخصي</button>
-      <button id="admin-nav-btn" class="top-nav-btn" style="display:none" onclick="App.showAdmin()">لوحة المشرف</button>
       <button id="logout-btn" class="top-nav-btn" style="display:none">تسجيل الخروج</button>
+      <button id="admin-nav-btn" class="top-nav-btn" style="display:none" onclick="App.showAdmin()">لوحة المشرف</button>
+      <button id="profile-nav-btn" class="top-nav-btn" style="display:none" onclick="App.showDashboard()">الملف الشخصي</button>
     </div>
     <div class="brand">ITHOPIIA</div>
   </div>
@@ -102,12 +102,14 @@
         <button class="tab-btn" data-tab="admin-tab-notes">📝 ملاحظات</button>
         <button class="tab-btn" data-tab="admin-tab-leaderboard">🏆 المتصدرين</button>
         <button class="tab-btn" data-tab="admin-tab-userinfo">ℹ️ المعلومات الشخصية</button>
+        <button class="tab-btn" data-tab="admin-tab-scheduler">⏰ جدولة الظهور</button>
         <button class="tab-btn" data-tab="admin-tab-rooms">🚪 الغرف</button>
       </div>
       <div id="tab-evaluation" class="tab-content active"></div>
       <div id="tab-users" class="tab-content"></div>
       <div id="admin-tab-notes" class="tab-content"></div>
       <div id="admin-tab-leaderboard" class="tab-content"></div>
+      <div id="admin-tab-scheduler" class="tab-content"></div>
       <div id="admin-tab-userinfo" class="tab-content"></div>
       <div id="admin-tab-rooms" class="tab-content"></div>
     </div>

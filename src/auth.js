@@ -169,8 +169,17 @@ window.Auth = {
     if (!user) return false
     if (user.role === 'admin' || user.role === 'member') return true
     if (typeof Store === 'undefined' || !Store._data) return false
-    const until = Store.get('settings')?.leaderboardReleasedUntil
-    return until && Date.now() < until
+    const settings = Store.get('settings') || {}
+    const override = settings.leaderboardForceOverride
+    if (override === 'open') return true
+    if (override === 'closed') return false
+    const from = settings.leaderboardReleasedFrom
+    const until = settings.leaderboardReleasedUntil
+    const now = Date.now()
+    if (from && until) return now >= from && now < until
+    if (from) return now >= from
+    if (until) return now < until
+    return false
   },
 
   destroy() {

@@ -7,6 +7,7 @@ window.Admin = {
     this.renderUsers()
     this.renderNotesTab()
     this.renderLeaderboardTab()
+    this.renderSchedulerTab()
     this.renderUserInfoTab()
     this.renderRoomsTab()
     this.bindTabs()
@@ -34,6 +35,8 @@ window.Admin = {
           this.renderLeaderboardTab()
         } else if (tabId === 'admin-tab-userinfo') {
           this.renderUserInfoTab()
+        } else if (tabId === 'admin-tab-scheduler') {
+          this.renderSchedulerTab()
         } else if (tabId === 'admin-tab-rooms') {
           this.renderRoomsTab()
         }
@@ -205,96 +208,198 @@ window.Admin = {
     Store.writePath(`users/${id}`, null)
   },
 
-  _lbTimerInterval: null,
-  _lbScheduleTimer: null,
+  _schedTimerInterval: null,
 
   renderLeaderboardTab() {
     const el = document.getElementById('admin-tab-leaderboard')
+    el.innerHTML = window.Leaderboard ? Leaderboard.renderAdmin() : '<p class="text-muted">لا توجد بيانات.</p>'
+  },
+
+  renderSchedulerTab() {
+    const el = document.getElementById('admin-tab-scheduler')
+    if (!el) return
+
+    if (this._schedTimerInterval) clearInterval(this._schedTimerInterval)
+
     const settings = Store.get('settings') || {}
+    const override = settings.leaderboardForceOverride
+    const from = settings.leaderboardReleasedFrom
     const until = settings.leaderboardReleasedUntil
-    const isActive = until && Date.now() < until
-    const remaining = isActive ? Math.max(0, Math.floor((until - Date.now()) / 1000)) : 0
+    const now = Date.now()
 
-    if (this._lbTimerInterval) clearInterval(this._lbTimerInterval)
-    if (this._lbScheduleTimer) clearInterval(this._lbScheduleTimer)
+    let isVisible = false
+    if (override === 'open') isVisible = true
+    else if (override === 'closed') isVisible = false
+    else if (from && until) isVisible = now >= from && now < until
+    else if (from) isVisible = now >= from
+    else if (until) isVisible = now < until
 
-    const now = new Date()
-    const defaultDate = now.toISOString().slice(0, 10)
-    const defaultHour = String(now.getHours()).padStart(2, '0')
-    const defaultMin = String(now.getMinutes()).padStart(2, '0')
-    const defaultSec = String(now.getSeconds()).padStart(2, '0')
+    const fromDate = from ? new Date(from) : new Date()
+    const untilDate = until ? new Date(until) : new Date(Date.now() + 3600000)
+
+    const fmtNum = n => String(n).padStart(2, '0')
 
     el.innerHTML = `
       <div class="lb-scheduler-card">
         <div class="lb-scheduler-header">
           <span class="lb-scheduler-icon">⏰</span>
-          <span>التحكم في ظهور المتصدرين</span>
+          <span>جدولة ظهور المتصدرين</span>
         </div>
-        <div class="lb-scheduler-status">
-          ${isActive
-            ? `<span class="lb-status-dot green"></span> المتصدرين مرئي للمستخدمين — الوقت المتبقي: <strong id="lb-countdown-admin">${Timer.formatTime(remaining)}</strong>`
-            : '<span class="lb-status-dot red"></span> المتصدرين مخفي عن المستخدمين'}
+        <div class="lb-scheduler-status ${isVisible ? 'status-visible' : 'status-hidden'}">
+          ${isVisible
+            ? '<span class="lb-status-dot green"></span> 🟢 المتصدرين <strong>مرئي</strong> للمستخدمين'
+            : '<span class="lb-status-dot red"></span> 🔴 المتصدرين <strong>مخفي</strong> عن المستخدمين'}
+          <span id="sched-countdown" class="sched-countdown"></span>
         </div>
-        <div class="lb-scheduler-fields">
-          <div class="lb-field-group">
-            <label class="lb-field-label">اليوم</label>
-            <input type="date" id="lb-sched-date" class="lb-input" value="${defaultDate}">
+        <div class="lb-scheduler-override">
+          <button class="btn btn-success" onclick="Admin.forceOpenLeaderboard()">🔓 فتح الآن</button>
+          <button class="btn btn-danger" onclick="Admin.forceCloseLeaderboard()">🔒 إغلاق الآن</button>
+          ${override ? '<button class="btn btn-ghost" onclick="Admin.clearLeaderboardOverride()">↩️ العودة للجدولة التلقائية</button>' : ''}
+        </div>
+        <hr>
+        <div class="lb-dual-section">
+          <h4>وقت الفتح التلقائي</h4>
+          <div class="lb-scheduler-fields">
+            <div class="lb-field-group">
+              <label class="lb-field-label">التاريخ</label>
+              <input type="date" id="lb-open-date" class="lb-input" value="${fmtNum(fromDate.getFullYear())}-${fmtNum(fromDate.getMonth() + 1)}-${fmtNum(fromDate.getDate())}">
+            </div>
+            <div class="lb-field-group">
+              <label class="lb-field-label">الساعة</label>
+              <input type="number" id="lb-open-hour" class="lb-input lb-input-narrow" value="${fmtNum(fromDate.getHours())}" min="0" max="23">
+            </div>
+            <div class="lb-field-group">
+              <label class="lb-field-label">الدقائق</label>
+              <input type="number" id="lb-open-minute" class="lb-input lb-input-narrow" value="${fmtNum(fromDate.getMinutes())}" min="0" max="59">
+            </div>
+            <div class="lb-field-group">
+              <label class="lb-field-label">الثواني</label>
+              <input type="number" id="lb-open-second" class="lb-input lb-input-narrow" value="${fmtNum(fromDate.getSeconds())}" min="0" max="59">
+            </div>
           </div>
-          <div class="lb-field-group">
-            <label class="lb-field-label">الساعة</label>
-            <input type="number" id="lb-sched-hour" class="lb-input lb-input-narrow" value="${defaultHour}" min="0" max="23">
-          </div>
-          <div class="lb-field-group">
-            <label class="lb-field-label">الدقائق</label>
-            <input type="number" id="lb-sched-minute" class="lb-input lb-input-narrow" value="${defaultMin}" min="0" max="59">
-          </div>
-          <div class="lb-field-group">
-            <label class="lb-field-label">الثواني</label>
-            <input type="number" id="lb-sched-second" class="lb-input lb-input-narrow" value="${defaultSec}" min="0" max="59">
+        </div>
+        <div class="lb-dual-section">
+          <h4>وقت القفل التلقائي</h4>
+          <div class="lb-scheduler-fields">
+            <div class="lb-field-group">
+              <label class="lb-field-label">التاريخ</label>
+              <input type="date" id="lb-close-date" class="lb-input" value="${fmtNum(untilDate.getFullYear())}-${fmtNum(untilDate.getMonth() + 1)}-${fmtNum(untilDate.getDate())}">
+            </div>
+            <div class="lb-field-group">
+              <label class="lb-field-label">الساعة</label>
+              <input type="number" id="lb-close-hour" class="lb-input lb-input-narrow" value="${fmtNum(untilDate.getHours())}" min="0" max="23">
+            </div>
+            <div class="lb-field-group">
+              <label class="lb-field-label">الدقائق</label>
+              <input type="number" id="lb-close-minute" class="lb-input lb-input-narrow" value="${fmtNum(untilDate.getMinutes())}" min="0" max="59">
+            </div>
+            <div class="lb-field-group">
+              <label class="lb-field-label">الثواني</label>
+              <input type="number" id="lb-close-second" class="lb-input lb-input-narrow" value="${fmtNum(untilDate.getSeconds())}" min="0" max="59">
+            </div>
           </div>
         </div>
         <div class="lb-scheduler-actions">
-          <button class="btn btn-primary" onclick="Admin.scheduleLeaderboard()">${isActive ? 'إعادة جدولة' : 'جدولة الظهور'}</button>
-          ${isActive ? `<button class="btn btn-ghost btn-danger-text" onclick="Admin.cancelLeaderboardRelease()">إلغاء الجدولة</button>` : ''}
+          <button class="btn btn-primary" onclick="Admin.saveLeaderboardSchedule()">💾 حفظ الجدولة</button>
+          <button class="btn btn-ghost btn-danger-text" onclick="Admin.clearLeaderboardSchedule()">🗑️ إلغاء الجدولة</button>
         </div>
-      </div>
-      ${window.Leaderboard ? Leaderboard.renderAdmin() : '<p class="text-muted">لا توجد بيانات.</p>'}
-    `
+      </div>`
 
-    if (isActive) {
-      this._lbTimerInterval = setInterval(() => {
-        const el2 = document.getElementById('lb-countdown-admin')
-        if (!el2) { clearInterval(this._lbTimerInterval); return }
-        const s = Math.max(0, Math.floor((until - Date.now()) / 1000))
-        el2.textContent = Timer.formatTime(s)
-        if (s <= 0) {
-          clearInterval(this._lbTimerInterval)
-          this.renderLeaderboardTab()
-        }
-      }, 1000)
+    this._startSchedulerTimer()
+  },
+
+  _startSchedulerTimer() {
+    if (this._schedTimerInterval) clearInterval(this._schedTimerInterval)
+    this._schedTimerInterval = setInterval(() => this._updateSchedulerStatus(), 1000)
+  },
+
+  _updateSchedulerStatus() {
+    const statusEl = document.querySelector('#admin-tab-scheduler .lb-scheduler-status')
+    if (!statusEl) { clearInterval(this._schedTimerInterval); return }
+
+    const settings = Store.get('settings') || {}
+    const override = settings.leaderboardForceOverride
+    const from = settings.leaderboardReleasedFrom
+    const until = settings.leaderboardReleasedUntil
+    const now = Date.now()
+
+    let isVisible
+    if (override === 'open') isVisible = true
+    else if (override === 'closed') isVisible = false
+    else if (from && until) isVisible = now >= from && now < until
+    else if (from) isVisible = now >= from
+    else if (until) isVisible = now < until
+    else isVisible = false
+
+    let nextChange = Infinity
+    if (!override) {
+      if (!isVisible && from && now < from) nextChange = from
+      if (isVisible && until && now < until) nextChange = until
     }
+
+    statusEl.className = 'lb-scheduler-status ' + (isVisible ? 'status-visible' : 'status-hidden')
+    statusEl.innerHTML = `
+      ${isVisible
+        ? '<span class="lb-status-dot green"></span> 🟢 المتصدرين <strong>مرئي</strong> للمستخدمين'
+        : '<span class="lb-status-dot red"></span> 🔴 المتصدرين <strong>مخفي</strong> عن المستخدمين'}
+      ${nextChange !== Infinity
+        ? `<span id="sched-countdown" class="sched-countdown"> — ${isVisible ? 'يغلق' : 'يفتح'} بعد ${Timer.formatTime(Math.floor((nextChange - now) / 1000))}</span>`
+        : ''}`
   },
 
-  scheduleLeaderboard() {
-    const dateVal = document.getElementById('lb-sched-date')?.value
-    const hour = parseInt(document.getElementById('lb-sched-hour')?.value)
-    const minute = parseInt(document.getElementById('lb-sched-minute')?.value)
-    const second = parseInt(document.getElementById('lb-sched-second')?.value)
-    if (!dateVal) return
-    const target = new Date(dateVal + 'T' +
-      String(hour != null ? hour : 0).padStart(2, '0') + ':' +
-      String(minute != null ? minute : 0).padStart(2, '0') + ':' +
-      String(second != null ? second : 0).padStart(2, '0'))
-    if (isNaN(target.getTime())) return
-    Store.writePath('settings/leaderboardReleasedUntil', target.getTime())
-    this.renderLeaderboardTab()
+  saveLeaderboardSchedule() {
+    const dateOpen = document.getElementById('lb-open-date')?.value
+    const hrOpen = parseInt(document.getElementById('lb-open-hour')?.value)
+    const minOpen = parseInt(document.getElementById('lb-open-minute')?.value)
+    const secOpen = parseInt(document.getElementById('lb-open-second')?.value)
+
+    const dateClose = document.getElementById('lb-close-date')?.value
+    const hrClose = parseInt(document.getElementById('lb-close-hour')?.value)
+    const minClose = parseInt(document.getElementById('lb-close-minute')?.value)
+    const secClose = parseInt(document.getElementById('lb-close-second')?.value)
+
+    if (!dateOpen || !dateClose) return
+
+    const openTime = new Date(dateOpen + 'T' +
+      String(hrOpen != null ? hrOpen : 0).padStart(2, '0') + ':' +
+      String(minOpen != null ? minOpen : 0).padStart(2, '0') + ':' +
+      String(secOpen != null ? secOpen : 0).padStart(2, '0')).getTime()
+
+    const closeTime = new Date(dateClose + 'T' +
+      String(hrClose != null ? hrClose : 0).padStart(2, '0') + ':' +
+      String(minClose != null ? minClose : 0).padStart(2, '0') + ':' +
+      String(secClose != null ? secClose : 0).padStart(2, '0')).getTime()
+
+    if (isNaN(openTime) || isNaN(closeTime)) return
+    if (closeTime <= openTime) { alert('يجب أن يكون وقت القفل بعد وقت الفتح'); return }
+
+    Store.writePath('settings/leaderboardReleasedFrom', openTime)
+    Store.writePath('settings/leaderboardReleasedUntil', closeTime)
+    Store.writePath('settings/leaderboardForceOverride', null)
+    this._updateSchedulerStatus()
   },
 
-  cancelLeaderboardRelease() {
+  clearLeaderboardSchedule() {
+    if (!confirm('هل تريد إلغاء الجدولة بالكامل؟')) return
+    Store.writePath('settings/leaderboardReleasedFrom', null)
     Store.writePath('settings/leaderboardReleasedUntil', null)
-    if (this._lbTimerInterval) clearInterval(this._lbTimerInterval)
-    if (this._lbScheduleTimer) clearInterval(this._lbScheduleTimer)
-    this.renderLeaderboardTab()
+    Store.writePath('settings/leaderboardForceOverride', null)
+    this.renderSchedulerTab()
+  },
+
+  forceOpenLeaderboard() {
+    Store.writePath('settings/leaderboardForceOverride', 'open')
+    this.renderSchedulerTab()
+  },
+
+  forceCloseLeaderboard() {
+    Store.writePath('settings/leaderboardForceOverride', 'closed')
+    this.renderSchedulerTab()
+  },
+
+  clearLeaderboardOverride() {
+    Store.writePath('settings/leaderboardForceOverride', null)
+    this.renderSchedulerTab()
   },
 
   renderNotesTab() {

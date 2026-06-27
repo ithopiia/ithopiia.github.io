@@ -290,6 +290,40 @@ textarea { resize: vertical; }
   border-color: transparent;
   background: none;
 }
+
+.lb-scheduler-override {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.lb-dual-section {
+  margin-bottom: 16px;
+}
+
+.lb-dual-section h4 {
+  font-size: 0.85rem;
+  color: var(--accent);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.sched-countdown {
+  font-size: 0.82rem;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  margin-right: 4px;
+}
+
+.lb-scheduler-status.status-visible {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.lb-scheduler-status.status-hidden {
+  color: var(--text-muted);
+}
 .btn-danger-text:hover {
   color: var(--red-hover);
   border-color: var(--red);
