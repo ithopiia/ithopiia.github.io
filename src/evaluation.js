@@ -24,6 +24,11 @@ window.Evaluation = {
     return `${d}/${m}/${y}`
   },
 
+  onDateChange(dateKey) {
+    this._dateKey = dateKey
+    this.render()
+  },
+
   getEvaluation(dateKey) {
     return (Store.get('evaluation') || []).filter(e => e.dateKey === dateKey)
   },
@@ -76,8 +81,12 @@ window.Evaluation = {
   },
 
   render(dateKey) {
-    if (!dateKey) dateKey = this.getTodayKey()
-    this._dateKey = dateKey
+    if (dateKey) {
+      this._dateKey = dateKey
+    } else if (!this._dateKey) {
+      this._dateKey = this.getTodayKey()
+    }
+    dateKey = this._dateKey
     const el = document.getElementById('tab-evaluation')
     if (!el) return
 
@@ -97,8 +106,11 @@ window.Evaluation = {
 
     el.innerHTML = `
       <div class="eval-header-section">
-        <div class="eval-date">📅 ${this.formatDate(dateKey)}</div>
-        <div class="eval-status">${isTodayKey
+        <div class="eval-date-picker">
+          <label style="font-size:14px;margin-left:8px">📅 اختر التاريخ:</label>
+          <input type="date" id="eval-date-input" value="${dateKey}" onchange="Evaluation.onDateChange(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card-bg);color:var(--text);font-size:14px">
+        </div>
+        <div class="eval-status" style="margin-top:8px">${isTodayKey
           ? '<span class="badge badge-success">اليوم الحالي — مفتوح دائمًا</span>'
           : (saved ? '<span class="badge badge-info">تم حفظ اليوم</span>' : '<span class="badge badge-success">إدخال التقييم</span>')}
         </div>
@@ -250,11 +262,12 @@ window.Evaluation = {
   },
 
   updateCell(userId, col, value) {
+    const capturedDateKey = this._dateKey
     const all = Store.get('evaluation') || []
-    let entry = all.find(e => e.userId === userId && e.dateKey === this._dateKey)
+    let entry = all.find(e => e.userId === userId && e.dateKey === capturedDateKey)
     if (!entry) {
       const newEntry = {
-        userId, dateKey: this._dateKey,
+        userId, dateKey: capturedDateKey,
         spiritual: 0, exercises: 0, moral: 0,
         rehearsal: 0, acting: 0, movement: 0, clothing: 0, bonus: 0,
         totalScore: 0, saved: false,
@@ -275,18 +288,19 @@ window.Evaluation = {
     if (totalEl) totalEl.textContent = this.BASELINE_POINTS + total
     this.updateStats()
 
-    Store.debounce(`eval_${this._dateKey}_${userId}`, () => {
+    Store.debounce(`eval_${capturedDateKey}_${userId}`, () => {
       Store.set('evaluation', all)
-      this._applyAdjustment(userId, entry.totalScore)
+      this._applyAdjustment(userId, entry.totalScore, capturedDateKey)
     }, 500)
   },
 
-  _applyAdjustment(userId, adjustment) {
+  _applyAdjustment(userId, adjustment, dateKey) {
+    if (!dateKey) dateKey = this._dateKey
     const dailyPoints = Store.get('dailyPoints') || []
-    let dp = dailyPoints.find(p => p.userId === userId && p.dateKey === this._dateKey)
+    let dp = dailyPoints.find(p => p.userId === userId && p.dateKey === dateKey)
     if (!dp) {
       dp = {
-        userId, dateKey: this._dateKey,
+        userId, dateKey,
         date: new Date().toISOString(),
         basePoints: this.BASELINE_POINTS,
         evaluationScore: 0,
@@ -305,7 +319,7 @@ window.Evaluation = {
     Store._data.dailyPoints = dailyPoints
     Store._sync()
 
-    Store.writePath(`dailyPoints/${this._dateKey}/${userId}`, {
+    Store.writePath(`dailyPoints/${dateKey}/${userId}`, {
       basePoints: dp.basePoints,
       evaluationScore: dp.evaluationScore,
       manualBonus: dp.manualBonus,
@@ -318,11 +332,12 @@ window.Evaluation = {
   },
 
   fillRow(userId, direction) {
+    const capturedDateKey = this._dateKey
     const all = Store.get('evaluation') || []
-    let entry = all.find(e => e.userId === userId && e.dateKey === this._dateKey)
+    let entry = all.find(e => e.userId === userId && e.dateKey === capturedDateKey)
     if (!entry) {
       const newEntry = {
-        userId, dateKey: this._dateKey,
+        userId, dateKey: capturedDateKey,
         spiritual: 0, exercises: 0, moral: 0,
         rehearsal: 0, acting: 0, movement: 0, clothing: 0, bonus: 0,
         totalScore: 0, saved: false,
@@ -351,9 +366,9 @@ window.Evaluation = {
     if (totalEl) totalEl.textContent = this.BASELINE_POINTS + total
     this.updateStats()
 
-    Store.debounce(`eval_${this._dateKey}_${userId}`, () => {
+    Store.debounce(`eval_${capturedDateKey}_${userId}`, () => {
       Store.set('evaluation', all)
-      this._applyAdjustment(userId, entry.totalScore)
+      this._applyAdjustment(userId, entry.totalScore, capturedDateKey)
     }, 500)
   },
 
