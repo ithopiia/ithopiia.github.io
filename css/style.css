@@ -194,6 +194,108 @@ textarea { resize: vertical; }
   font-size: 0.95rem;
 }
 
+.lb-countdown-until {
+  font-size: 0.85rem;
+  color: var(--accent);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+}
+
+/* === LB Scheduler Card === */
+.lb-scheduler-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+}
+
+.lb-scheduler-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+
+.lb-scheduler-icon { font-size: 1.2rem; }
+
+.lb-scheduler-status {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lb-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.lb-status-dot.green { background: #4caf50; }
+.lb-status-dot.red { background: #f44336; }
+
+.lb-scheduler-fields {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 14px;
+}
+
+.lb-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lb-field-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.lb-input {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.9rem;
+  direction: ltr;
+  text-align: center;
+}
+
+.lb-input-narrow {
+  width: 64px;
+}
+
+.lb-scheduler-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-danger-text {
+  color: var(--red);
+  border-color: transparent;
+  background: none;
+}
+.btn-danger-text:hover {
+  color: var(--red-hover);
+  border-color: var(--red);
+  background: rgba(138, 58, 58, 0.1);
+}
+
 /* ===== BUTTONS ===== */
 .btn {
   display: inline-flex;

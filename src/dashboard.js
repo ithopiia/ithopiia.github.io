@@ -18,10 +18,28 @@ window.Dashboard = {
     if (this._unsubscribe) this._unsubscribe()
     this._unsubscribe = Store.onChange(() => this.autoRefresh(user))
 
+    this._startLbReleaseTimer()
+
     if (this._lbPollInterval) clearInterval(this._lbPollInterval)
     this._lbPollInterval = setInterval(() => {
       this.updateLeaderboardTabVisibility()
-    }, 3000)
+      this._tickLbReleaseTimer()
+    }, 1000)
+  },
+
+  _startLbReleaseTimer() {
+    if (this._lbReleaseTimer) clearInterval(this._lbReleaseTimer)
+    this._lbReleaseTimer = null
+  },
+
+  _tickLbReleaseTimer() {
+    const el = document.getElementById('lb-release-countdown')
+    if (!el) return
+    const until = Store.get('settings')?.leaderboardReleasedUntil
+    if (!until) { this.renderLeaderboard(); return }
+    const s = Math.floor((until - Date.now()) / 1000)
+    if (s <= 0) { this.renderLeaderboard(); return }
+    el.textContent = Timer.formatTime(s)
   },
 
   autoRefresh(user) {
@@ -115,11 +133,6 @@ window.Dashboard = {
     const rank = sorted.findIndex(u => u.id === user.id) + 1
     const lbReleased = Auth.isLeaderboardReleased()
 
-    const todayKey = Points.getTodayKey()
-    const dailyPoints = Store.get('dailyPoints') || []
-    const todayEntry = dailyPoints.find(p => p.userId === user.id && p.dateKey === todayKey)
-    const todayPoints = todayEntry ? (todayEntry.finalScore || 0) : 0
-
     el.innerHTML = `
       <h3>${lbReleased ? 'الترتيب' : 'الإحصائيات'}</h3>
       <div class="stats-grid">
@@ -129,10 +142,6 @@ window.Dashboard = {
           <div class="stat-label">ترتيبك</div>
         </div>
         ` : ''}
-        <div class="stat-card">
-          <div class="stat-value">${todayPoints}</div>
-          <div class="stat-label">نقاط اليوم</div>
-        </div>
         <div class="stat-card">
           <div class="stat-value">${sorted.length}</div>
           <div class="stat-label">إجمالي الأعضاء</div>
@@ -221,7 +230,14 @@ window.Dashboard = {
     const el = document.getElementById('dash-leaderboard-content')
     const released = Auth.isLeaderboardReleased()
     if (!released) {
-      el.innerHTML = '<div class="lb-locked"><div class="lb-lock-icon">🔒</div><p>لوحة المتصدرين غير متاحة حاليًا</p></div>'
+      const until = Store.get('settings')?.leaderboardReleasedUntil
+      const hasSchedule = until && Date.now() < until
+      if (hasSchedule) {
+        const remaining = Math.floor((until - Date.now()) / 1000)
+        el.innerHTML = `<div class="lb-locked"><div class="lb-lock-icon">🔒</div><p>لوحة المتصدرين غير متاحة حاليًا</p><div class="lb-countdown-until">متاح خلال <span id="lb-release-countdown">${Timer.formatTime(remaining)}</span></div></div>`
+      } else {
+        el.innerHTML = '<div class="lb-locked"><div class="lb-lock-icon">🔒</div><p>لوحة المتصدرين غير متاحة حاليًا</p></div>'
+      }
       return
     }
     if (window.Leaderboard) {
@@ -246,6 +262,8 @@ window.Dashboard = {
       }
     }
   },
+
+  _lbReleaseTimer: null,
 
   _getUserRoomNames(user) {
     const rooms = Store.get('rooms') || []

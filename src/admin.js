@@ -206,31 +206,56 @@ window.Admin = {
   },
 
   _lbTimerInterval: null,
+  _lbScheduleTimer: null,
 
   renderLeaderboardTab() {
     const el = document.getElementById('admin-tab-leaderboard')
-    const currUser = Auth.currentUser()
-    const role = currUser?.role
     const settings = Store.get('settings') || {}
     const until = settings.leaderboardReleasedUntil
     const isActive = until && Date.now() < until
     const remaining = isActive ? Math.max(0, Math.floor((until - Date.now()) / 1000)) : 0
 
     if (this._lbTimerInterval) clearInterval(this._lbTimerInterval)
+    if (this._lbScheduleTimer) clearInterval(this._lbScheduleTimer)
+
+    const now = new Date()
+    const defaultDate = now.toISOString().slice(0, 10)
+    const defaultHour = String(now.getHours()).padStart(2, '0')
+    const defaultMin = String(now.getMinutes()).padStart(2, '0')
+    const defaultSec = String(now.getSeconds()).padStart(2, '0')
 
     el.innerHTML = `
-      <div class="sheet-controls" style="margin-bottom:16px">
-        <h3 style="font-size:1rem;color:var(--accent);margin-bottom:8px">التحكم في ظهور المتصدرين</h3>
-        <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:8px">
+      <div class="lb-scheduler-card">
+        <div class="lb-scheduler-header">
+          <span class="lb-scheduler-icon">⏰</span>
+          <span>التحكم في ظهور المتصدرين</span>
+        </div>
+        <div class="lb-scheduler-status">
           ${isActive
-            ? `🟢 المتصدرين مرئي للمستخدمين — الوقت المتبقي: <strong id="lb-countdown-admin">${Timer.formatTime(remaining)}</strong>`
-            : '🔴 المتصدرين مخفي عن المستخدمين'}
-        </p>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <label style="font-size:0.85rem;color:var(--text-muted)">المدة (بالدقائق):</label>
-          <input type="number" id="lb-release-minutes" value="60" min="1" max="1440" style="width:80px;padding:8px">
-          <button class="btn-sm btn-primary" onclick="Admin.startLeaderboardCountdown()">${isActive ? 'إعادة تعيين' : 'بدء العد التنازلي'}</button>
-          ${isActive ? `<button class="btn-sm btn-danger" onclick="Admin.cancelLeaderboardRelease()">إلغاء</button>` : ''}
+            ? `<span class="lb-status-dot green"></span> المتصدرين مرئي للمستخدمين — الوقت المتبقي: <strong id="lb-countdown-admin">${Timer.formatTime(remaining)}</strong>`
+            : '<span class="lb-status-dot red"></span> المتصدرين مخفي عن المستخدمين'}
+        </div>
+        <div class="lb-scheduler-fields">
+          <div class="lb-field-group">
+            <label class="lb-field-label">اليوم</label>
+            <input type="date" id="lb-sched-date" class="lb-input" value="${defaultDate}">
+          </div>
+          <div class="lb-field-group">
+            <label class="lb-field-label">الساعة</label>
+            <input type="number" id="lb-sched-hour" class="lb-input lb-input-narrow" value="${defaultHour}" min="0" max="23">
+          </div>
+          <div class="lb-field-group">
+            <label class="lb-field-label">الدقائق</label>
+            <input type="number" id="lb-sched-minute" class="lb-input lb-input-narrow" value="${defaultMin}" min="0" max="59">
+          </div>
+          <div class="lb-field-group">
+            <label class="lb-field-label">الثواني</label>
+            <input type="number" id="lb-sched-second" class="lb-input lb-input-narrow" value="${defaultSec}" min="0" max="59">
+          </div>
+        </div>
+        <div class="lb-scheduler-actions">
+          <button class="btn btn-primary" onclick="Admin.scheduleLeaderboard()">${isActive ? 'إعادة جدولة' : 'جدولة الظهور'}</button>
+          ${isActive ? `<button class="btn btn-ghost btn-danger-text" onclick="Admin.cancelLeaderboardRelease()">إلغاء الجدولة</button>` : ''}
         </div>
       </div>
       ${window.Leaderboard ? Leaderboard.renderAdmin() : '<p class="text-muted">لا توجد بيانات.</p>'}
@@ -250,18 +275,25 @@ window.Admin = {
     }
   },
 
-  startLeaderboardCountdown() {
-    const minutes = parseInt(document.getElementById('lb-release-minutes')?.value || '60')
-    if (!minutes || minutes < 1) return
-    const durationMs = minutes * 60 * 1000
-    const until = Date.now() + durationMs
-    Store.writePath('settings/leaderboardReleasedUntil', until)
+  scheduleLeaderboard() {
+    const dateVal = document.getElementById('lb-sched-date')?.value
+    const hour = parseInt(document.getElementById('lb-sched-hour')?.value)
+    const minute = parseInt(document.getElementById('lb-sched-minute')?.value)
+    const second = parseInt(document.getElementById('lb-sched-second')?.value)
+    if (!dateVal) return
+    const target = new Date(dateVal + 'T' +
+      String(hour != null ? hour : 0).padStart(2, '0') + ':' +
+      String(minute != null ? minute : 0).padStart(2, '0') + ':' +
+      String(second != null ? second : 0).padStart(2, '0'))
+    if (isNaN(target.getTime())) return
+    Store.writePath('settings/leaderboardReleasedUntil', target.getTime())
     this.renderLeaderboardTab()
   },
 
   cancelLeaderboardRelease() {
     Store.writePath('settings/leaderboardReleasedUntil', null)
     if (this._lbTimerInterval) clearInterval(this._lbTimerInterval)
+    if (this._lbScheduleTimer) clearInterval(this._lbScheduleTimer)
     this.renderLeaderboardTab()
   },
 
