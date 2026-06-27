@@ -146,7 +146,7 @@ window.Store = {
         const localUser = (this._data.users || []).find(u => u.id === userId)
         if (localUser) localUser.cumulativePoints = total
         if (canWriteCumulative) {
-          promises.push(this.writePath(`users_data/${userId}/cumulativePoints`, total))
+          promises.push(this.writePath(`users/${userId}/cumulativePoints`, total))
         }
       }
     }
@@ -327,7 +327,7 @@ window.Store = {
     this._saveLocal()
     if (CONFIG.useFirebase && this._rootRef && this._authReady) {
       const { cumulativePoints, ...profileData } = users[idx]
-      await this._rootRef.child(`users_data/${uid}`).set(profileData)
+      await this._rootRef.child(`users/${uid}`).set(profileData)
     }
     return users[idx]
   },
@@ -346,7 +346,7 @@ window.Store = {
         attendedElKaraza: profileData.attendedElKaraza,
         needsProfile: false
       }
-      await this._rootRef.child(`users_data/${uid}`).set(allowed)
+      await this._rootRef.child(`users/${uid}`).set(allowed)
     }
     return users[idx]
   },
