@@ -2,10 +2,13 @@ window.Auth = {
   _currentUser: null,
   _listeners: [],
   _unsubscribe: null,
+  _userRef: null,
+  _userListener: null,
 
   init() {
     if (CONFIG.useFirebase) {
       this._unsubscribe = firebase.auth().onAuthStateChanged(authUser => {
+        this._detachUserListener()
         if (authUser) {
           let users = Store.get('users') || []
           let profile = users.find(u => u.uid === authUser.uid)
@@ -22,6 +25,7 @@ window.Auth = {
             Store.push('users', profile)
           }
           this._currentUser = profile
+          this._attachUserListener(authUser.uid)
         } else {
           this._currentUser = null
         }
@@ -29,6 +33,32 @@ window.Auth = {
       })
     }
     return this._currentUser
+  },
+
+  _attachUserListener(uid) {
+    this._detachUserListener()
+    if (!CONFIG.useFirebase) return
+    const db = firebase.database()
+    this._userRef = db.ref(`ithopiia/users/${uid}`)
+    this._userListener = this._userRef.on('value', snap => {
+      if (snap.exists() && this._currentUser) {
+        const data = snap.val()
+        const roleChanged = data.role !== this._currentUser.role
+        const statusChanged = data.status !== this._currentUser.status
+        Object.assign(this._currentUser, data)
+        if (roleChanged || statusChanged) {
+          this._notify()
+        }
+      }
+    })
+  },
+
+  _detachUserListener() {
+    if (this._userRef && this._userListener) {
+      this._userRef.off('value', this._userListener)
+    }
+    this._userRef = null
+    this._userListener = null
   },
 
   _notify() {
@@ -63,6 +93,7 @@ window.Auth = {
         Store.push('users', profile)
       }
       this._currentUser = profile
+      this._attachUserListener(authUser.uid)
       this._notify()
       return { ok: true, user: profile }
     } catch (e) {
@@ -110,6 +141,7 @@ window.Auth = {
   },
 
   logout() {
+    this._detachUserListener()
     this._currentUser = null
     this._notify()
     if (CONFIG.useFirebase) firebase.auth().signOut()
@@ -130,6 +162,7 @@ window.Auth = {
   },
 
   destroy() {
+    this._detachUserListener()
     if (this._unsubscribe) this._unsubscribe()
   }
 }

@@ -162,6 +162,7 @@ window.App = {
   render() {
     const user = Auth.currentUser()
     const role = user?.role
+    const isApproved = user?.status === 'approved'
     const logoutBtn = document.getElementById('logout-btn')
     const adminNavBtn = document.getElementById('admin-nav-btn')
     const profileNavBtn = document.getElementById('profile-nav-btn')
@@ -171,13 +172,13 @@ window.App = {
 
     const savedView = localStorage.getItem('ithopiia_activeView')
 
-    if (user && role === 'admin') {
+    if (user && role === 'admin' && isApproved) {
       if (adminNavBtn) adminNavBtn.style.display = 'none'
       if (profileNavBtn) profileNavBtn.style.display = 'none'
       document.getElementById('view-admin')?.classList.add('active')
       Admin.render()
       setTimeout(() => this._restoreTab('admin'), 50)
-    } else if (user && role === 'member' && !Auth.needsProfile()) {
+    } else if (user && role === 'member' && isApproved && !Auth.needsProfile()) {
       if (savedView === 'admin') {
         if (adminNavBtn) adminNavBtn.style.display = 'none'
         if (profileNavBtn) profileNavBtn.style.display = ''
