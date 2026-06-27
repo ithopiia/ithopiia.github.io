@@ -326,7 +326,8 @@ window.Store = {
     Object.assign(users[idx], data)
     this._saveLocal()
     if (CONFIG.useFirebase && this._rootRef && this._authReady) {
-      await this._rootRef.child(`users/${uid}`).set(users[idx])
+      const { cumulativePoints, ...profileData } = users[idx]
+      await this._rootRef.child(`users_data/${uid}`).set(profileData)
     }
     return users[idx]
   },
