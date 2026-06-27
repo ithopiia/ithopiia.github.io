@@ -533,13 +533,17 @@ window.Admin = {
     const name = input?.value.trim()
     if (!name) { if (errorEl) errorEl.textContent = 'يرجى إدخال اسم الغرفة.'; return }
     const rooms = Store.get('rooms') || []
-    rooms.push({
+    const newRoom = {
       id: 'room_' + Date.now(),
       name,
       createdBy: Auth.currentUser()?.id,
       createdAt: new Date().toISOString(),
-    })
+    }
+    rooms.push(newRoom)
     Store.set('rooms', rooms)
+    if (CONFIG.useFirebase && Store._rootRef) {
+      Store.writePath(`rooms/${newRoom.id}`, newRoom)
+    }
     if (errorEl) errorEl.textContent = ''
     input.value = ''
     this.renderRoomsTab()
@@ -553,9 +557,15 @@ window.Admin = {
     users.forEach(u => {
       if ((u.rooms || []).includes(roomId)) {
         u.rooms = (u.rooms || []).filter(id => id !== roomId)
+        if (CONFIG.useFirebase && Store._rootRef) {
+          Store.writePath(`users/${u.id}/rooms`, u.rooms)
+        }
       }
     })
     Store.set('users', users)
+    if (CONFIG.useFirebase && Store._rootRef) {
+      Store._rootRef.child(`rooms/${roomId}`).remove().catch(() => {})
+    }
     this.renderRoomsTab()
   },
 
@@ -569,6 +579,9 @@ window.Admin = {
       if (!user.rooms) user.rooms = []
       if (!user.rooms.includes(roomId)) user.rooms.push(roomId)
       Store.set('users', users)
+      if (CONFIG.useFirebase && Store._rootRef) {
+        Store.writePath(`users/${userId}/rooms`, user.rooms)
+      }
     }
     this.renderRoomsTab()
   },
@@ -579,6 +592,9 @@ window.Admin = {
     if (user) {
       user.rooms = (user.rooms || []).filter(id => id !== roomId)
       Store.set('users', users)
+      if (CONFIG.useFirebase && Store._rootRef) {
+        Store.writePath(`users/${userId}/rooms`, user.rooms)
+      }
     }
     this.renderRoomsTab()
   }

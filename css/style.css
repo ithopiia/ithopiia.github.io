@@ -1467,7 +1467,95 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   .stats-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
   .sheet-controls { flex-direction: row; align-items: center; }
   .sheet-nav input { width: auto; }
-  .eval-grid thead th { padding: 14px 10px; font-size: 0.78rem; }
-  .eval-grid thead th .col-label { font-size: 0.72rem; }
-  .eval-grid thead th .col-max { font-size: 0.65rem; }
+
+  /* ── Eval grid: compact card rows ── */
+  .eval-grid-wrapper {
+    overflow-x: visible;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+  .eval-grid { min-width: 0; }
+  .eval-grid thead { display: none; }
+  .eval-grid tbody { display: flex; flex-direction: column; gap: 8px; }
+  .eval-grid tr.eval-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .eval-grid tr.eval-row:hover {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+  .eval-grid tbody td {
+    border: none;
+    padding: 0;
+    background: transparent !important;
+    vertical-align: middle;
+  }
+  .eval-grid tbody td.col-num {
+    flex: 0 0 24px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+  .eval-grid tbody td.col-name {
+    flex: 0 0 120px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: right;
+    position: static;
+    padding: 0;
+  }
+  .eval-grid tbody td.col-score {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+  .eval-grid tbody td.col-total {
+    flex: 0 0 44px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--accent);
+    text-align: center;
+  }
+  .eval-grid tbody td.col-actions {
+    flex: 0 0 120px;
+    min-width: 0;
+  }
+  .eval-grid tbody td.col-actions .eval-smart-action {
+    width: 100%;
+    min-width: 0;
+    padding: 4px 6px;
+    font-size: 0.7rem;
+    min-height: 28px;
+  }
+  .eval-grid tbody td.col-score .stepper { gap: 1px; }
+  .eval-grid tbody td.col-score .stepper-btn {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    font-size: 0.6rem;
+    border-radius: 3px;
+  }
+  .eval-grid tbody td.col-score .stepper-btn:active {
+    transform: scale(0.90);
+  }
+  .eval-grid tbody td.col-score .stepper-value {
+    min-width: 18px;
+    height: 24px;
+    font-size: 0.72rem;
+    padding: 0 2px;
+  }
+  .eval-grid tbody tr:nth-child(even),
+  .eval-grid tbody tr:nth-child(odd) {
+    background: var(--surface);
+  }
 }
