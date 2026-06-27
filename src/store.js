@@ -15,6 +15,7 @@ window.Store = {
       try {
         this._db = firebase.database()
         this._rootRef = this._db.ref('ithopiia')
+        this._roomsRef = this._db.ref('ithopiia/rooms')
         const snap = await Promise.race([
           this._rootRef.once('value'),
           new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
@@ -100,12 +101,6 @@ window.Store = {
           this._data.settings = remote.settings; changed = true
         }
       }
-      if (remote.rooms) {
-        const arr = Object.values(remote.rooms)
-        if (JSON.stringify(arr) !== JSON.stringify(this._data.rooms)) {
-          this._data.rooms = arr; changed = true
-        }
-      }
       if (remote.notes) {
         const arr = []
         Object.keys(remote.notes).forEach(noteId => {
@@ -128,6 +123,26 @@ window.Store = {
         })
       }
     })
+
+    // Dedicated real-time rooms listener — syncs instantly across devices
+    if (this._roomsRef) {
+      this._roomsRef.on('value', snap => {
+        if (!snap.exists()) {
+          if (this._data.rooms.length > 0) {
+            this._data.rooms = []
+            this._saveLocal()
+            this._notify()
+          }
+          return
+        }
+        const arr = Object.values(snap.val())
+        if (JSON.stringify(arr) !== JSON.stringify(this._data.rooms)) {
+          this._data.rooms = arr
+          this._saveLocal()
+          this._notify()
+        }
+      })
+    }
   },
 
   async _recalcCumulativeFromRemote(remote) {

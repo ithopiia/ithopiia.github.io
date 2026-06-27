@@ -1481,11 +1481,12 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
   .eval-grid tr.eval-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
+    overflow-x: auto;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 6px 12px;
+    padding: 6px 10px;
     transition: border-color 0.15s, background 0.15s;
   }
   .eval-grid tr.eval-row:hover {
@@ -1505,8 +1506,8 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
     text-align: center;
   }
   .eval-grid tbody td.col-name {
-    flex: 0 0 120px;
-    font-size: 0.8rem;
+    flex: 0 0 100px;
+    font-size: 0.78rem;
     font-weight: 600;
     text-align: right;
     position: static;
@@ -1519,14 +1520,14 @@ hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
     gap: 0;
   }
   .eval-grid tbody td.col-total {
-    flex: 0 0 44px;
-    font-size: 0.85rem;
+    flex: 0 0 36px;
+    font-size: 0.78rem;
     font-weight: 800;
     color: var(--accent);
     text-align: center;
   }
   .eval-grid tbody td.col-actions {
-    flex: 0 0 120px;
+    flex: 0 0 100px;
     min-width: 0;
   }
   .eval-grid tbody td.col-actions .eval-smart-action {
