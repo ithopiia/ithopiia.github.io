@@ -1,6 +1,7 @@
 window.Admin = {
   _editingDateKey: null,
   _activeGenderUsers: 'all',
+  _roomsStoreUnsub: null,
 
   render() {
     this.renderUsers()
@@ -457,6 +458,15 @@ window.Admin = {
     const rooms = Store.get('rooms') || []
     const allUsers = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
 
+    if (!this._roomsStoreUnsub) {
+      this._roomsStoreUnsub = Store.onChange(() => {
+        const tab = document.getElementById('admin-tab-rooms')
+        if (tab && tab.classList.contains('active')) {
+          this.renderRoomsTab()
+        }
+      })
+    }
+
     el.innerHTML = `
       <h3>إدارة الغرف</h3>
       <div class="room-form">
@@ -534,6 +544,7 @@ window.Admin = {
         Store.writePath(`users/${u.id}/rooms`, u.rooms)
       }
     })
+    this.renderRoomsTab()
   },
 
   addToRoom(roomId) {
@@ -547,6 +558,7 @@ window.Admin = {
       Store.writePath(`users/${userId}/rooms`, user.rooms)
     }
     sel.value = ''
+    this.renderRoomsTab()
   },
 
   removeFromRoom(roomId, userId) {
@@ -555,5 +567,6 @@ window.Admin = {
       user.rooms = (user.rooms || []).filter(id => id !== roomId)
       Store.writePath(`users/${userId}/rooms`, user.rooms)
     }
+    this.renderRoomsTab()
   }
 }
