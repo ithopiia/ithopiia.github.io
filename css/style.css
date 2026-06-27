@@ -2019,3 +2019,43 @@ td {
     border: 1px solid rgba(189, 195, 199, 0.4) !important;
     background: rgba(30, 33, 41, 0.65) !important;
 }
+
+div:has(> textarea[placeholder*="اكتب الملاحظة"]) {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    width: 100% !important;
+}
+
+.submit-btn, [class*="send"] {
+    align-self: flex-end !important;
+    width: auto !important;
+    padding: 8px 24px !important;
+}
+
+@media (max-width: 768px) {
+    .submit-btn, [class*="send"] {
+        width: 100% !important;
+        align-self: stretch !important;
+    }
+}
+
+.table-responsive-evaluation,
+div:has(> table) {
+    width: 100% !important;
+    overflow-x: auto !important;
+    display: block !important;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+}
+
+table {
+    min-width: 800px !important;
+    border-collapse: collapse !important;
+}
+
+th, td {
+    padding: 12px 8px !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+}
