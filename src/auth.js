@@ -11,21 +11,15 @@ window.Auth = {
       this._unsubscribe = firebase.auth().onAuthStateChanged(authUser => {
         this._detachUserListener()
         if (authUser) {
-          let users = Store.get('users') || []
-          let profile = users.find(u => u.uid === authUser.uid)
-          if (!profile) {
-            profile = {
-              id: authUser.uid, uid: authUser.uid, email: authUser.email,
-              fullName: authUser.displayName || '',
-              status: 'approved',
-              role: CONFIG.adminEmails.includes(authUser.email) ? 'admin' : 'user',
-              rooms: [], cumulativePoints: 0,
-              needsProfile: true,
-              createdAt: new Date().toISOString()
-            }
-            Store.push('users', profile)
+          this._currentUser = {
+            id: authUser.uid, uid: authUser.uid, email: authUser.email,
+            fullName: authUser.displayName || '',
+            status: 'approved',
+            role: CONFIG.adminEmails.includes(authUser.email) ? 'admin' : 'user',
+            rooms: [], cumulativePoints: 0,
+            needsProfile: true,
+            createdAt: new Date().toISOString()
           }
-          this._currentUser = profile
           this._attachUserListener(authUser.uid)
         } else {
           this._currentUser = null
@@ -45,20 +39,22 @@ window.Auth = {
     const db = firebase.database()
     this._userRef = db.ref(`ithopiia/users/${uid}`)
     this._userListener = this._userRef.on('value', snap => {
-      if (this._currentUser) {
-        if (snap.exists()) {
-          const data = snap.val()
-          const roleChanged = data.role !== this._currentUser.role
-          const statusChanged = data.status !== this._currentUser.status
-          Object.assign(this._currentUser, data)
-          if (roleChanged || statusChanged || !this._isInitialized) {
-            if (!this._isInitialized) this._isInitialized = true
-            this._notify()
-          }
-        } else if (!this._isInitialized) {
+      if (!this._currentUser) return
+      if (snap.exists()) {
+        const data = snap.val()
+        data.needsProfile = false
+        const roleChanged = data.role !== this._currentUser.role
+        const statusChanged = data.status !== this._currentUser.status
+        Object.assign(this._currentUser, data)
+        if (!this._isInitialized) {
           this._isInitialized = true
+        }
+        if (roleChanged || statusChanged || this._isInitialized) {
           this._notify()
         }
+      } else if (!this._isInitialized) {
+        this._isInitialized = true
+        this._notify()
       }
     })
   },
@@ -89,26 +85,19 @@ window.Auth = {
       const provider = new firebase.auth.GoogleAuthProvider()
       const result = await firebase.auth().signInWithPopup(provider)
       const authUser = result.user
-      const users = Store.get('users') || []
-      let profile = users.find(u => u.uid === authUser.uid)
-      if (!profile) {
-        const isAdminEmail = CONFIG.adminEmails.includes(authUser.email)
-        profile = {
+      if (!this._currentUser) {
+        this._currentUser = {
           id: authUser.uid, uid: authUser.uid, email: authUser.email,
           fullName: authUser.displayName || 'User',
           status: 'approved',
-          role: isAdminEmail ? 'admin' : 'user', rooms: [],
-          cumulativePoints: 0,
+          role: CONFIG.adminEmails.includes(authUser.email) ? 'admin' : 'user',
+          rooms: [], cumulativePoints: 0,
           needsProfile: true,
           createdAt: new Date().toISOString()
         }
-        Store.push('users', profile)
+        this._attachUserListener(authUser.uid)
       }
-      this._currentUser = profile
-      this._isInitialized = true
-      this._attachUserListener(authUser.uid)
-      this._notify()
-      return { ok: true, user: profile }
+      return { ok: true, user: this._currentUser }
     } catch (e) {
       return { ok: false, error: e.message || 'فشل تسجيل الدخول عبر Google.' }
     }
@@ -128,7 +117,8 @@ window.Auth = {
 
   needsProfile() {
     if (!this._currentUser) return false
-    return this._currentUser.needsProfile || !this.hasCompleteProfile(this._currentUser)
+    if (this._currentUser.role === 'admin' || this._currentUser.role === 'member') return false
+    return this._currentUser.needsProfile === true
   },
 
   async completeProfile(data) {

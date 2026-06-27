@@ -188,7 +188,7 @@ window.App = {
       document.getElementById('view-admin')?.classList.add('active')
       Admin.render()
       setTimeout(() => this._restoreTab('admin'), 50)
-    } else if (user && role === 'member' && isApproved && !Auth.needsProfile()) {
+    } else if (user && role === 'member' && isApproved) {
       if (savedView === 'admin') {
         if (adminNavBtn) adminNavBtn.style.display = 'none'
         if (profileNavBtn) profileNavBtn.style.display = ''

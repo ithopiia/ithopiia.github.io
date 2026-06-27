@@ -207,8 +207,11 @@ window.Store = {
   },
 
   async saveProfileData(uid, profileData) {
-    const user = (this._data.users || []).find(u => u.id === uid)
-    if (!user) return null
+    let user = (this._data.users || []).find(u => u.id === uid)
+    if (!user) {
+      user = { id: uid, uid }
+      this._data.users.push(user)
+    }
     Object.assign(user, profileData)
     const authUser = this._db && firebase.auth().currentUser
     const fullProfile = {
