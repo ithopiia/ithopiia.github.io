@@ -618,8 +618,13 @@ textarea { resize: vertical; }
 
 .tab-btn:hover { color: var(--accent); background: var(--accent-glow); border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
 .tab-btn.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
+  color: #FFD700 !important;
+  border: 2px solid #FFD700 !important;
+  background: rgba(45, 49, 57, 0.85) !important;
+  font-weight: bold !important;
+  transform: translateY(-2px);
+  transition: all 0.2s ease-in-out;
+  border-radius: var(--radius-sm);
 }
 
 /* ===== DASHBOARD ===== */
@@ -1471,8 +1476,15 @@ textarea { resize: vertical; }
   transition: all 0.2s;
 }
 
-.filter-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
-.filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.filter-btn:hover { border-color: #FFD700; color: #FFD700; background: var(--accent-glow); }
+.filter-btn.active {
+  color: #FFD700 !important;
+  border: 2px solid #FFD700 !important;
+  background: rgba(45, 49, 57, 0.85) !important;
+  font-weight: bold !important;
+  transform: translateY(-2px);
+  transition: all 0.2s ease-in-out;
+}
 
 .eval-footer {
   display: flex;
@@ -2062,25 +2074,14 @@ td {
 
 .nav-tabs-wrapper .tab-item.active,
 .tabs-container a.active,
+.stats-card.active,
 [class*="tab"].active {
     color: #FFD700 !important;
-    border-color: #FFD700 !important;
-    background: rgba(30, 33, 41, 0.75) !important;
-    position: relative;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important;
-}
-
-.nav-tabs-wrapper .tab-item.active::after,
-.tabs-container a.active::after,
-[class*="tab"].active::after {
-    content: "";
-    position: absolute;
-    bottom: -2px;
-    left: 15%;
-    width: 70%;
-    height: 3px;
-    background-color: #FFD700 !important;
-    border-radius: 4px;
+    border: 2px solid #FFD700 !important;
+    background: rgba(45, 49, 57, 0.85) !important;
+    font-weight: bold !important;
+    transform: translateY(-2px);
+    transition: all 0.2s ease-in-out;
 }
 
 .nav-tabs-wrapper .tab-item:not(.active),
@@ -2133,9 +2134,12 @@ th, td {
 
 /* ===== STATS TIMELINE ===== */
 .stat-card-active {
-  border-color: var(--accent) !important;
-  box-shadow: 0 4px 20px rgba(106, 154, 155, 0.3) !important;
+  color: #FFD700 !important;
+  border: 2px solid #FFD700 !important;
+  background: rgba(45, 49, 57, 0.85) !important;
+  font-weight: bold !important;
   transform: translateY(-2px);
+  transition: all 0.2s ease-in-out;
 }
 
 .stats-timeline {
