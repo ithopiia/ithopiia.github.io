@@ -139,6 +139,32 @@ window.Admin = {
       return r ? r.name : id
     }).join(', ') || '-'
 
+    const allUsers = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
+    const ranked = [...allUsers].sort((a, b) => (b.cumulativePoints || 0) - (a.cumulativePoints || 0))
+    const currentRank = ranked.findIndex(u => u.id === userId) + 1
+
+    const months = Points.getMonths()
+    let prevMonth = null
+    let prevMonthRank = null
+    if (months.length > 1) {
+      prevMonth = months[1]
+      const prevStandings = Points.getMonthlyLeaderboard(prevMonth)
+        .filter(s => allUsers.some(u => u.id === s.userId))
+      const prevIdx = prevStandings.findIndex(s => s.userId === userId)
+      prevMonthRank = prevIdx >= 0 ? prevIdx + 1 : null
+    }
+
+    let rankChange = null
+    let rankColor = ''
+    if (prevMonthRank && currentRank > 0) {
+      const diff = prevMonthRank - currentRank
+      if (diff > 0) { rankChange = `▲ +${diff}`; rankColor = 'var(--green)' }
+      else if (diff < 0) { rankChange = `▼ ${diff}`; rankColor = '#f44336' }
+      else { rankChange = '―'; rankColor = 'var(--text-muted)' }
+    }
+
+    const prevLabel = prevMonth ? Points.getMonthName(prevMonth) + ' ' + prevMonth.split('-')[0] : null
+
     const overlay = document.createElement('div')
     overlay.className = 'modal-overlay'
     overlay.innerHTML = `
@@ -159,6 +185,20 @@ window.Admin = {
               <div class="stat-label">أيام مسجلة</div>
             </div>
           </div>
+          ${currentRank > 0 ? `
+          <div class="rank-history-line" style="margin-top:12px;text-align:center;padding:10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border)">
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px">ترتيبه كان كذا وأصبح كذا</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap">
+              <span style="font-size:0.85rem;color:var(--text-muted)">الحالي:</span>
+              <span style="font-size:1.3rem;font-weight:700;color:var(--accent)">#${currentRank}</span>
+              ${prevMonthRank ? `
+              <span style="color:var(--text-muted)">|</span>
+              <span style="font-size:0.85rem;color:var(--text-muted)">السابق (${prevLabel}):</span>
+              <span style="font-size:1.1rem;font-weight:600">#${prevMonthRank}</span>
+              <span style="font-size:1.1rem;font-weight:700;color:${rankColor}">${rankChange}</span>
+              ` : '<span style="font-size:0.8rem;color:var(--text-muted)">(لا توجد بيانات سابقة)</span>'}
+            </div>
+          </div>` : ''}
           <div class="info-grid" style="margin-top:12px">
             <div class="info-item"><span class="info-label">البريد</span><span class="info-value">${user.email || '-'}</span></div>
             <div class="info-item"><span class="info-label">النوع</span><span class="info-value">${genderMap[user.gender] || user.gender || '-'}</span></div>

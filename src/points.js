@@ -132,6 +132,50 @@ const Points = {
     this.ensureTodayPoints(userId)
     return { ok: true }
   },
+
+  getMonths() {
+    const all = Store.get('dailyPoints') || []
+    const months = new Set()
+    all.forEach(p => {
+      if (p.saved && p.dateKey) {
+        months.add(p.dateKey.substring(0, 7))
+      }
+    })
+    return Array.from(months).sort().reverse()
+  },
+
+  getMonthlyPoints(userId, yearMonth) {
+    const all = Store.get('dailyPoints') || []
+    return all
+      .filter(p => p.userId === userId && p.saved && p.dateKey && p.dateKey.startsWith(yearMonth))
+      .reduce((sum, p) => sum + (p.finalScore ?? 0), 0)
+  },
+
+  getMonthlyLeaderboard(yearMonth, genderFilter) {
+    let users = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
+    if (genderFilter) {
+      users = users.filter(u => u.gender === genderFilter)
+    }
+    const standings = users.map(u => ({
+      userId: u.id,
+      fullName: u.fullName,
+      gender: u.gender,
+      total: this.getMonthlyPoints(u.id, yearMonth),
+      rooms: u.rooms,
+    }))
+    standings.sort((a, b) => b.total - a.total)
+    return standings.map((s, i) => ({ ...s, rank: i + 1 }))
+  },
+
+  getMonthName(yearMonth) {
+    const names = {
+      '01': 'يناير', '02': 'فبراير', '03': 'مارس', '04': 'إبريل',
+      '05': 'مايو', '06': 'يونيو', '07': 'يوليو', '08': 'أغسطس',
+      '09': 'سبتمبر', '10': 'أكتوبر', '11': 'نوفمبر', '12': 'ديسمبر'
+    }
+    const m = yearMonth.split('-')[1]
+    return names[m] || m
+  },
 }
 
 window.Points = Points

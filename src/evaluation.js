@@ -74,9 +74,9 @@ window.Evaluation = {
     if (!val) return
     switch (val) {
       case 'bonus': this.fillRow(userId, 'max'); break
-      case 'penalty': this.fillRow(userId, 'min'); break
+      case 'reduce': this.fillRow(userId, 'reduce'); break
       case 'neutral': this.fillRow(userId, 'zero'); break
-      case 'minusone': this.fillRow(userId, 'minusone'); break
+      case 'normal': this.fillRow(userId, 'normal'); break
     }
     sel.value = ''
   },
@@ -173,9 +173,9 @@ window.Evaluation = {
                           <select class="eval-smart-action" data-user="${u.id}" onchange="Evaluation.onSmartAction(this, '${u.id}')">
                             <option value="">تطبيق تلقائي</option>
                             <option value="bonus">تقفيل بونص (+11)</option>
-                            <option value="penalty">تصفير عقاب (-11)</option>
+                            <option value="reduce">تصغير عقاب (9)</option>
                             <option value="neutral">تثبيت محايد (0)</option>
-                            <option value="minusone">خصم موحد (-1)</option>
+                            <option value="normal">تقفيل عادي (10)</option>
                           </select>
                         ` : ''}
                       </td>
@@ -375,12 +375,18 @@ window.Evaluation = {
 
     this.COLUMNS.forEach(c => {
       let val
-      switch (direction) {
-        case 'max': val = c.max; break
-        case 'min': val = c.min; break
-        case 'zero': val = 0; break
-        case 'minusone': val = -1; break
-        default: val = 0
+      if (direction === 'reduce') {
+        val = c.key === 'bonus' ? -1 : c.max
+      } else if (direction === 'normal') {
+        val = c.key === 'bonus' ? 0 : c.max
+      } else {
+        switch (direction) {
+          case 'max': val = c.max; break
+          case 'min': val = c.min; break
+          case 'zero': val = 0; break
+          case 'minusone': val = -1; break
+          default: val = 0
+        }
       }
       entry[c.key] = val
       const valEl = document.getElementById(`stepper-val-${userId}-${c.key}`)

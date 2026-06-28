@@ -896,6 +896,78 @@ textarea { resize: vertical; }
   }
 }
 
+.lb-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.lb-filter-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.lb-month-select {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.9rem;
+  min-width: 160px;
+  cursor: pointer;
+}
+
+.lb-month-select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.lb-month-section {
+  margin-bottom: 20px;
+}
+
+.lb-month-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--border);
+}
+
+.lb-badge {
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.lb-badge-gold {
+  background: rgba(255, 215, 0, 0.15);
+  color: #ffd700;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.lb-badge-danger {
+  background: rgba(244, 67, 54, 0.15);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+.lb-highest {
+  border-color: rgba(255, 215, 0, 0.3) !important;
+}
+
+.lb-lowest {
+  border-color: rgba(244, 67, 54, 0.3) !important;
+}
+
 /* ===== ADMIN USERS TABLE ===== */
 .table-wrapper {
   overflow-x: auto;
