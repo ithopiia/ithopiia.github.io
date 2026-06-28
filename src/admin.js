@@ -247,7 +247,15 @@ window.Admin = {
 
   _selectStatTab(tab) {
     Admin._activeStatTab = tab
+    const modalBody = document.querySelector('.modal-overlay .modal-body')
+    const savedScroll = modalBody ? modalBody.scrollTop : 0
     if (Admin._renderCurrentProfile) Admin._renderCurrentProfile()
+    requestAnimationFrame(() => {
+      const newBody = document.querySelector('.modal-overlay .modal-body')
+      if (newBody) newBody.scrollTop = savedScroll > 0 ? savedScroll : 0
+      const timeline = document.querySelector('.modal-overlay .stats-timeline')
+      if (timeline) timeline.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
   },
 
   _renderTimeline(activeTab, penaltyDates, bonusDates, zeroDates, userPoints) {
