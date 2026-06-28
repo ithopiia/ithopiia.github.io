@@ -11,7 +11,6 @@ window.Dashboard = {
     this.renderClaimArea(user)
     this.renderStats(user)
     this.renderAccountInfo(user)
-    this.renderFeedback(user)
     this.renderLeaderboard()
     this.bindTabs()
     this.updateLeaderboardTabVisibility()
@@ -69,7 +68,6 @@ window.Dashboard = {
     this.renderStats(user)
     this.renderLeaderboard()
     this.renderAccountInfo(user)
-    this.renderFeedback(user)
     this.renderClaimArea(user)
     this.updateLeaderboardTabVisibility()
   },
@@ -221,30 +219,6 @@ window.Dashboard = {
             <span class="info-label">الدور</span>
             <span class="info-value">${roleLabel}</span>
           </div>
-        </div>
-      </div>`
-  },
-
-  renderFeedback(user) {
-    const el = document.getElementById('dash-feedback')
-    const notes = Store.get('notes') || []
-    const aboutUser = notes.filter(n => n.targetUserId === user.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-
-    el.innerHTML = `
-      <div class="feedback-section">
-        <div class="feedback-list">
-          <h3>الملاحظات عنك</h3>
-          ${aboutUser.length === 0 ? '<p class="text-muted" style="font-size:13px">لا توجد ملاحظات بعد.</p>' : ''}
-          ${aboutUser.map(n => `
-            <div class="feedback-item feedback-admin">
-              <div class="feedback-meta">
-                <span class="feedback-author">${n.authorName}</span>
-                <span class="feedback-role">${n.authorRole === 'member' ? 'عضو لجنة' : 'مشرف'}</span>
-                <span class="feedback-date">${new Date(n.createdAt).toLocaleDateString('en-CA')}</span>
-              </div>
-              <div class="feedback-text">${n.text}</div>
-            </div>
-          `).join('')}
         </div>
       </div>`
   },

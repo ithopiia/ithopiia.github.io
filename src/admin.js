@@ -124,60 +124,46 @@ window.Admin = {
     const user = (Store.get('users') || []).find(u => u.id === userId)
     if (!user) return
 
-    const dailyPoints = Store.get('dailyPoints') || []
-    const userPoints = dailyPoints.filter(p => p.userId === userId && p.saved)
-      .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
-
-    const notes = Store.get('notes') || []
-    const userNotes = notes.filter(n => n.targetUserId === userId)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-
-    const genderMap = { male: 'ذكر', female: 'أنثى' }
-    const rooms = Store.get('rooms') || []
-    const userRoomNames = (user.rooms || []).map(id => {
-      const r = rooms.find(room => room.id === id)
-      return r ? r.name : id
-    }).join(', ') || '-'
-
-    const allUsers = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
-    const ranked = [...allUsers].sort((a, b) => (b.cumulativePoints || 0) - (a.cumulativePoints || 0))
-    const currentRank = ranked.findIndex(u => u.id === userId) + 1
-
-    const months = Points.getMonths()
-    let prevMonth = null
-    let prevMonthRank = null
-    if (months.length > 1) {
-      prevMonth = months[1]
-      const prevStandings = Points.getMonthlyLeaderboard(prevMonth)
-        .filter(s => allUsers.some(u => u.id === s.userId))
-      const prevIdx = prevStandings.findIndex(s => s.userId === userId)
-      prevMonthRank = prevIdx >= 0 ? prevIdx + 1 : null
-    }
-
-    let rankChange = null
-    let rankColor = ''
-    if (prevMonthRank && currentRank > 0) {
-      const diff = prevMonthRank - currentRank
-      if (diff > 0) { rankChange = `▲ +${diff}`; rankColor = 'var(--green)' }
-      else if (diff < 0) { rankChange = `▼ ${diff}`; rankColor = '#f44336' }
-      else { rankChange = '―'; rankColor = 'var(--text-muted)' }
-    }
-
-    const prevLabel = prevMonth ? Points.getMonthName(prevMonth) + ' ' + prevMonth.split('-')[0] : null
-
     const overlay = document.createElement('div')
     overlay.className = 'modal-overlay'
-    overlay.innerHTML = `
+
+    const renderModal = () => {
+      const freshUser = (Store.get('users') || []).find(u => u.id === userId) || user
+      const dailyPoints = Store.get('dailyPoints') || []
+      const userPoints = dailyPoints.filter(p => p.userId === userId && p.saved)
+        .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
+
+      const notes = Store.get('notes') || []
+      const userNotes = notes.filter(n => n.targetUserId === userId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+
+      const genderMap = { male: 'ذكر', female: 'أنثى' }
+      const rooms = Store.get('rooms') || []
+      const userRoomNames = (freshUser.rooms || []).map(id => {
+        const r = rooms.find(room => room.id === id)
+        return r ? r.name : id
+      }).join(', ') || '-'
+
+      const currentRank = freshUser.currentRank ?? Store.getUserRank(userId)
+      const previousRank = freshUser.previousRank
+
+      const prevLabel = previousRank ? 'السابق' : null
+
+      const penaltyDates = userPoints.filter(p => (p.manualBonus || 0) < 0).map(p => p.dateKey).reverse()
+      const bonusDates = userPoints.filter(p => (p.manualBonus || 0) > 0).map(p => p.dateKey).reverse()
+      const zeroDates = userPoints.filter(p => (p.finalScore || 0) <= 0).map(p => p.dateKey).reverse()
+
+      overlay.innerHTML = `
       <div class="modal-content">
         <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
         <div class="modal-header">
-          <h2>${user.fullName}</h2>
-          <span class="badge" style="background:var(--accent);color:#000">${user.role === 'member' ? 'عضو لجنة' : 'مستخدم'}</span>
+          <h2>${freshUser.fullName}</h2>
+          <span class="badge" style="background:var(--accent);color:#000">${freshUser.role === 'member' ? 'عضو لجنة' : 'مستخدم'}</span>
         </div>
         <div class="modal-body">
           <div class="stats-grid" style="grid-template-columns:1fr 1fr">
             <div class="stat-card">
-              <div class="stat-value">${user.cumulativePoints || 0}</div>
+              <div class="stat-value" id="modal-cumulative-${userId}">${freshUser.cumulativePoints || 0}</div>
               <div class="stat-label">إجمالي النقاط</div>
             </div>
             <div class="stat-card">
@@ -187,29 +173,30 @@ window.Admin = {
           </div>
           ${currentRank > 0 ? `
           <div class="rank-history-line" style="margin-top:12px;text-align:center;padding:10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border)">
-            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px">ترتيبه كان كذا وأصبح كذا</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px">تحديث الترتيب</div>
             <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap">
               <span style="font-size:0.85rem;color:var(--text-muted)">الحالي:</span>
               <span style="font-size:1.3rem;font-weight:700;color:var(--accent)">#${currentRank}</span>
-              ${prevMonthRank ? `
+              ${previousRank != null && previousRank !== currentRank ? `
               <span style="color:var(--text-muted)">|</span>
-              <span style="font-size:0.85rem;color:var(--text-muted)">السابق (${prevLabel}):</span>
-              <span style="font-size:1.1rem;font-weight:600">#${prevMonthRank}</span>
-              <span style="font-size:1.1rem;font-weight:700;color:${rankColor}">${rankChange}</span>
-              ` : '<span style="font-size:0.8rem;color:var(--text-muted)">(لا توجد بيانات سابقة)</span>'}
+              <span style="color:var(--accent);font-size:0.95rem;font-weight:600">ترتيبه كان #${previousRank} وأصبح #${currentRank}</span>
+              ` : previousRank != null ? `
+              <span style="color:var(--text-muted)">|</span>
+              <span style="color:var(--accent);font-size:0.95rem;font-weight:600">ترتيبه #${currentRank}</span>
+              ` : '<span style="font-size:0.8rem;color:var(--text-muted)">(لا تبيانات سابقة)</span>'}
             </div>
           </div>` : ''}
           <div class="info-grid" style="margin-top:12px">
-            <div class="info-item"><span class="info-label">البريد</span><span class="info-value">${user.email || '-'}</span></div>
-            <div class="info-item"><span class="info-label">النوع</span><span class="info-value">${genderMap[user.gender] || user.gender || '-'}</span></div>
+            <div class="info-item"><span class="info-label">البريد</span><span class="info-value">${freshUser.email || '-'}</span></div>
+            <div class="info-item"><span class="info-label">النوع</span><span class="info-value">${genderMap[freshUser.gender] || freshUser.gender || '-'}</span></div>
             <div class="info-item"><span class="info-label">الغرف التقييمية</span><span class="info-value">${userRoomNames}</span></div>
-            <div class="info-item"><span class="info-label">تاريخ الميلاد</span><span class="info-value">${user.birthdate || '-'}</span></div>
-            <div class="info-item"><span class="info-label">واتساب</span><span class="info-value">${user.whatsapp || '-'}</span></div>
-            <div class="info-item"><span class="info-label">الكرازة</span><span class="info-value">${user.attendedElKaraza === 'yes' ? 'نعم' : user.attendedElKaraza === 'no' ? 'لا' : '-'}</span></div>
-            ${user.createdAt ? `<div class="info-item"><span class="info-label">تاريخ التسجيل</span><span class="info-value">${new Date(user.createdAt).toLocaleDateString('en-CA')}</span></div>` : ''}
+            <div class="info-item"><span class="info-label">تاريخ الميلاد</span><span class="info-value">${freshUser.birthdate || '-'}</span></div>
+            <div class="info-item"><span class="info-label">واتساب</span><span class="info-value">${freshUser.whatsapp || '-'}</span></div>
+            <div class="info-item"><span class="info-label">الكرازة</span><span class="info-value">${freshUser.attendedElKaraza === 'yes' ? 'نعم' : freshUser.attendedElKaraza === 'no' ? 'لا' : '-'}</span></div>
+            ${freshUser.createdAt ? `<div class="info-item"><span class="info-label">تاريخ التسجيل</span><span class="info-value">${new Date(freshUser.createdAt).toLocaleDateString('en-CA')}</span></div>` : ''}
           </div>
           ${userNotes.length > 0 ? `
-            <h3 style="margin-top:16px;font-size:1rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:8px">الملاحظات</h3>
+            <h3 style="margin-top:16px;font-size:1rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:8px">الملاحظات المكتوبة من كل الليدرز عليه</h3>
             ${userNotes.map(n => `
               <div class="feedback-item">
                 <div class="feedback-meta">
@@ -220,27 +207,37 @@ window.Admin = {
               </div>
             `).join('')}
           ` : ''}
-          ${userPoints.length > 0 ? `
-            <h3 style="margin-top:16px;font-size:1rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:8px">إحصائيات شاملة</h3>
-            <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr">
-              <div class="stat-card">
-                <div class="stat-value">${userPoints.filter(p => (p.manualBonus || 0) < 0).length}</div>
-                <div class="stat-label">عدد مرات التمينص</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">${userPoints.filter(p => (p.manualBonus || 0) > 0).length}</div>
-                <div class="stat-label">عدد مرات البونص</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">${userPoints.filter(p => (p.finalScore || 0) <= 0).length}</div>
-                <div class="stat-label">عدد مرات التصفير</div>
-              </div>
+          <h3 style="margin-top:16px;font-size:1rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:8px">إحصائيات شاملة</h3>
+          <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr">
+            <div class="stat-card">
+              <div class="stat-value">${penaltyDates.length}</div>
+              <div class="stat-label">عدد مرات التمينص</div>
+              ${penaltyDates.length > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;max-height:80px;overflow-y:auto">${penaltyDates.map(d => `<div>أخذ تمنيص في يوم ${d}</div>`).join('')}</div>` : ''}
             </div>
-          ` : ''}
+            <div class="stat-card">
+              <div class="stat-value">${bonusDates.length}</div>
+              <div class="stat-label">عدد مرات البونص</div>
+              ${bonusDates.length > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;max-height:80px;overflow-y:auto">${bonusDates.map(d => `<div>أخذ بونص في يوم ${d}</div>`).join('')}</div>` : ''}
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${zeroDates.length}</div>
+              <div class="stat-label">عدد مرات التصفير</div>
+              ${zeroDates.length > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;max-height:80px;overflow-y:auto">${zeroDates.map(d => `<div>أخذ صفر في يوم ${d}</div>`).join('')}</div>` : ''}
+            </div>
+          </div>
         </div>
       </div>`
+    }
+
+    renderModal()
+
+    const unsub = Store.onChange(() => renderModal())
+
     overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) overlay.remove()
+      if (e.target === overlay) {
+        unsub()
+        overlay.remove()
+      }
     })
     document.body.appendChild(overlay)
   },

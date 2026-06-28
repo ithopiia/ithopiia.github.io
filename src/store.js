@@ -119,7 +119,38 @@ window.Store = {
         }
       }
     })
+    if (changed) {
+      this._updateRanks(canWrite)
+    } else if (this._data.users.some(u => u.currentRank == null)) {
+      this._updateRanks(canWrite)
+    }
     this._recalculating = false
+  },
+
+  _updateRanks(canWrite) {
+    const ranked = (this._data.users || [])
+      .filter(u => u.status === 'approved' && u.role !== 'admin')
+      .sort((a, b) => (b.cumulativePoints || 0) - (a.cumulativePoints || 0))
+    ranked.forEach((u, i) => {
+      const newRank = i + 1
+      if (u.currentRank !== newRank || u.currentRank == null) {
+        const oldCurr = u.currentRank
+        u.previousRank = oldCurr ?? null
+        u.currentRank = newRank
+        if (canWrite) {
+          this.writePath(`users/${u.id}/previousRank`, oldCurr ?? null)
+          this.writePath(`users/${u.id}/currentRank`, newRank)
+        }
+      }
+    })
+  },
+
+  getUserRank(userId) {
+    const users = (this._data.users || [])
+      .filter(u => u.status === 'approved' && u.role !== 'admin')
+      .sort((a, b) => (b.cumulativePoints || 0) - (a.cumulativePoints || 0))
+    const idx = users.findIndex(u => u.id === userId)
+    return idx >= 0 ? idx + 1 : null
   },
 
   _resolve(obj, key) {
