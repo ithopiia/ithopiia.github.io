@@ -208,22 +208,22 @@ window.Admin = {
             `).join('')}
           ` : ''}
           <h3 style="margin-top:16px;font-size:1rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:8px">إحصائيات شاملة</h3>
-          <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr">
-            <div class="stat-card">
+          <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr;cursor:pointer">
+            <div class="stat-card ${Admin._activeStatTab === 'penalty' ? 'stat-card-active' : ''}" onclick="Admin._selectStatTab('penalty')">
               <div class="stat-value">${penaltyDates.length}</div>
               <div class="stat-label">عدد مرات التمينص</div>
-              ${penaltyDates.length > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;max-height:80px;overflow-y:auto">${penaltyDates.map(d => `<div>أخذ تمنيص في يوم ${d}</div>`).join('')}</div>` : ''}
             </div>
-            <div class="stat-card">
+            <div class="stat-card ${Admin._activeStatTab === 'bonus' ? 'stat-card-active' : ''}" onclick="Admin._selectStatTab('bonus')">
               <div class="stat-value">${bonusDates.length}</div>
               <div class="stat-label">عدد مرات البونص</div>
-              ${bonusDates.length > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;max-height:80px;overflow-y:auto">${bonusDates.map(d => `<div>أخذ بونص في يوم ${d}</div>`).join('')}</div>` : ''}
             </div>
-            <div class="stat-card">
+            <div class="stat-card ${Admin._activeStatTab === 'zero' ? 'stat-card-active' : ''}" onclick="Admin._selectStatTab('zero')">
               <div class="stat-value">${zeroDates.length}</div>
               <div class="stat-label">عدد مرات التصفير</div>
-              ${zeroDates.length > 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px;max-height:80px;overflow-y:auto">${zeroDates.map(d => `<div>أخذ صفر في يوم ${d}</div>`).join('')}</div>` : ''}
             </div>
+          </div>
+          <div class="stats-timeline" id="stats-timeline-${userId}">
+            ${Admin._renderTimeline(Admin._activeStatTab, penaltyDates, bonusDates, zeroDates, userPoints)}
           </div>
         </div>
       </div>`
@@ -231,15 +231,63 @@ window.Admin = {
 
     renderModal()
 
+    Admin._renderCurrentProfile = renderModal
+
     const unsub = Store.onChange(() => renderModal())
 
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
+        Admin._renderCurrentProfile = null
         unsub()
         overlay.remove()
       }
     })
     document.body.appendChild(overlay)
+  },
+
+  _selectStatTab(tab) {
+    Admin._activeStatTab = tab
+    if (Admin._renderCurrentProfile) Admin._renderCurrentProfile()
+  },
+
+  _renderTimeline(activeTab, penaltyDates, bonusDates, zeroDates, userPoints) {
+    if (activeTab === 'penalty' && penaltyDates.length > 0) {
+      return penaltyDates.map(d => `
+        <div class="timeline-item">
+          <div class="timeline-marker timeline-marker-penalty"></div>
+          <div class="timeline-content">
+            <div class="timeline-date">${d}</div>
+            <div class="timeline-desc">تمنص</div>
+          </div>
+        </div>
+      `).join('')
+    }
+    if (activeTab === 'bonus' && bonusDates.length > 0) {
+      return bonusDates.map(d => `
+        <div class="timeline-item">
+          <div class="timeline-marker timeline-marker-bonus"></div>
+          <div class="timeline-content">
+            <div class="timeline-date">${d}</div>
+            <div class="timeline-desc">بونص</div>
+          </div>
+        </div>
+      `).join('')
+    }
+    if (activeTab === 'zero' && zeroDates.length > 0) {
+      return zeroDates.map(d => {
+        const dp = userPoints.find(p => p.dateKey === d)
+        const reason = dp && dp.zeroReason ? dp.zeroReason : ''
+        return `
+        <div class="timeline-item">
+          <div class="timeline-marker timeline-marker-zero"></div>
+          <div class="timeline-content">
+            <div class="timeline-date">${d}</div>
+            <div class="timeline-desc">${reason ? `${reason}` : 'تصفير'}</div>
+          </div>
+        </div>`
+      }).join('')
+    }
+    return '<p class="text-muted" style="text-align:center;padding:16px">اختر إحدى الإحصائيات أعلاه</p>'
   },
 
   deleteUser(id) {

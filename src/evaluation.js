@@ -1,6 +1,7 @@
 window.Evaluation = {
   _dateKey: null,
   _activeGender: 'male',
+  _pendingZeroReason: null,
   BASELINE_POINTS: 0,
 
   COLUMNS: [
@@ -69,9 +70,20 @@ window.Evaluation = {
       + (Number(entry.bonus) || 0)
   },
 
+  _promptZeroReason(userId) {
+    const user = (Store.get('users') || []).find(u => u.id === userId)
+    const name = user ? user.fullName : userId
+    return prompt(`اكتب سبب التصفير للعضو: ${name}`)
+  },
+
   onSmartAction(sel, userId) {
     const val = sel.value
     if (!val) return
+    if (val === 'neutral') {
+      const reason = this._promptZeroReason(userId)
+      if (reason === null || reason.trim() === '') { sel.value = ''; return }
+      this._pendingZeroReason = reason.trim()
+    }
     switch (val) {
       case 'bonus': this.fillRow(userId, 'max'); break
       case 'reduce': this.fillRow(userId, 'reduce'); break
@@ -326,6 +338,16 @@ window.Evaluation = {
     dp.finalScore = this.BASELINE_POINTS + (adjustment || 0) + (dp.manualBonus || 0)
     dp.saved = true
 
+    if (dp.finalScore <= 0) {
+      if (this._pendingZeroReason) {
+        dp.zeroReason = this._pendingZeroReason
+        this._pendingZeroReason = null
+      } else if (!dp.zeroReason) {
+        const reason = this._promptZeroReason(userId)
+        if (reason && reason.trim()) dp.zeroReason = reason.trim()
+      }
+    }
+
     Store.writePath(`dailyPoints/${dateKey}/${userId}`, {
       basePoints: dp.basePoints,
       evaluationScore: dp.evaluationScore,
@@ -333,6 +355,7 @@ window.Evaluation = {
       finalScore: dp.finalScore,
       overwritten: dp.overwritten ?? false,
       adminNotes: dp.adminNotes ?? '',
+      zeroReason: dp.zeroReason ?? '',
       saved: true,
       date: dp.date ?? new Date().toISOString(),
     })
@@ -453,6 +476,7 @@ window.Evaluation = {
           finalScore: dp.finalScore,
           overwritten: dp.overwritten ?? false,
           adminNotes: dp.adminNotes ?? '',
+          zeroReason: dp.zeroReason ?? '',
           saved: true,
           date: dp.date ?? new Date().toISOString(),
         }
