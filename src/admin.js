@@ -456,6 +456,23 @@ window.Admin = {
         : ''}`
   },
 
+  saveLeaderboardSettings(data) {
+    const user = Auth.currentUser()
+    const role = user?.role
+
+    if (role === 'user') {
+      if (data.forceOverride === 'open') window.leaderboardManualOverride = 'open'
+      else if (data.forceOverride === 'closed') window.leaderboardManualOverride = 'closed'
+      else window.leaderboardManualOverride = null
+      if (!Store._data.settings) Store._data.settings = {}
+      Store._data.settings.leaderboard = { ...(Store._data.settings.leaderboard || {}), ...data }
+      if (typeof forceLeaderboardSync === 'function') forceLeaderboardSync()
+      return
+    }
+
+    Store.writePath('settings/leaderboard', data)
+  },
+
   saveLeaderboardSchedule() {
     const dateOpen = document.getElementById('lb-open-date')?.value
     const hrOpen = parseInt(document.getElementById('lb-open-hour')?.value)
@@ -486,7 +503,7 @@ window.Admin = {
     const visible = now >= openTime && now < closeTime
     const data = { openAt: openTime, closeAt: closeTime, forceOverride: null, mode: 'auto', visible }
     this._lastLeaderboardState = data
-    Store.writePath('settings/leaderboard', data)
+    this.saveLeaderboardSettings(data)
     this.renderSchedulerTab()
     this._notifyDashboard()
   },
@@ -495,7 +512,7 @@ window.Admin = {
     if (!confirm('هل تريد إلغاء الجدولة بالكامل؟')) return
     const data = { openAt: null, closeAt: null, forceOverride: null, mode: null, visible: false }
     this._lastLeaderboardState = data
-    Store.writePath('settings/leaderboard', data)
+    this.saveLeaderboardSettings(data)
     this.renderSchedulerTab()
     this._notifyDashboard()
   },
@@ -503,7 +520,7 @@ window.Admin = {
   forceOpenLeaderboard() {
     const data = { forceOverride: 'open', mode: 'manual', visible: true }
     this._lastLeaderboardState = data
-    Store.writePath('settings/leaderboard', data)
+    this.saveLeaderboardSettings(data)
     this.renderSchedulerTab()
     this._notifyDashboard()
   },
@@ -511,7 +528,7 @@ window.Admin = {
   forceCloseLeaderboard() {
     const data = { forceOverride: 'closed', mode: 'manual', visible: false }
     this._lastLeaderboardState = data
-    Store.writePath('settings/leaderboard', data)
+    this.saveLeaderboardSettings(data)
     this.renderSchedulerTab()
     this._notifyDashboard()
   },
@@ -525,7 +542,7 @@ window.Admin = {
     const visible = openAt && closeAt ? now >= openAt && now < closeAt : (openAt ? now >= openAt : (closeAt ? now < closeAt : false))
     const data = { openAt, closeAt, forceOverride: null, mode: 'auto', visible }
     this._lastLeaderboardState = data
-    Store.writePath('settings/leaderboard', data)
+    this.saveLeaderboardSettings(data)
     this.renderSchedulerTab()
     this._notifyDashboard()
   },

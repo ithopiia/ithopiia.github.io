@@ -3,6 +3,8 @@ function checkGlobalLockStatus() {
   const settings = (Store.get('settings') || {})
   const lb = settings.leaderboard || {}
 
+  if (window.leaderboardManualOverride === 'open') return true
+  if (window.leaderboardManualOverride === 'closed') return false
   if (lb.forceOverride === 'open') return true
   if (lb.forceOverride === 'closed') return false
 
