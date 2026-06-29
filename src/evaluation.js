@@ -1,7 +1,6 @@
 window.Evaluation = {
   _dateKey: null,
   _activeGender: 'male',
-  _pendingZeroReason: null,
   BASELINE_POINTS: 0,
 
   COLUMNS: [
@@ -70,58 +69,9 @@ window.Evaluation = {
       + (Number(entry.bonus) || 0)
   },
 
-  _promptZeroReason(userId) {
-    const user = (Store.get('users') || []).find(u => u.id === userId)
-    const name = user ? user.fullName : userId
-    return new Promise((resolve) => {
-      const overlay = document.createElement('div')
-      overlay.className = 'modal-overlay'
-      overlay.style.zIndex = '10000'
-      overlay.innerHTML = `
-        <div class="modal-content zero-reason-modal">
-          <div class="modal-header">
-            <h2>سبب التصفير</h2>
-            <button class="modal-close" id="zero-reason-close">✕</button>
-          </div>
-          <div class="modal-body">
-            <p style="margin-bottom:12px;color:var(--text-muted)">ما هو سبب تصفير هذا الشخص؟</p>
-            <p style="margin-bottom:16px;font-weight:600">${name}</p>
-            <textarea id="zero-reason-input" placeholder="اكتب سبب التصفير..." rows="3" style="width:100%;margin-bottom:12px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);resize:vertical"></textarea>
-            <div style="display:flex;gap:10px;justify-content:flex-end">
-              <button class="btn btn-primary" id="zero-reason-confirm" style="padding:10px 20px;font-size:0.9rem">تأكيد</button>
-              <button class="btn btn-ghost" id="zero-reason-cancel" style="padding:10px 20px;font-size:0.9rem">إلغاء</button>
-            </div>
-            <div id="zero-reason-error" class="auth-error" style="margin-top:8px"></div>
-          </div>
-        </div>`
-      document.body.appendChild(overlay)
-      const input = overlay.querySelector('#zero-reason-input')
-      const confirm = () => {
-        const text = input.value.trim()
-        if (!text) {
-          overlay.querySelector('#zero-reason-error').textContent = 'يرجى كتابة سبب التصفير'
-          return
-        }
-        overlay.remove()
-        resolve(text)
-      }
-      const cancel = () => { overlay.remove(); resolve(null) }
-      overlay.querySelector('#zero-reason-confirm').addEventListener('click', confirm)
-      overlay.querySelector('#zero-reason-cancel').addEventListener('click', cancel)
-      overlay.querySelector('#zero-reason-close').addEventListener('click', cancel)
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel() })
-      setTimeout(() => input.focus(), 100)
-    })
-  },
-
-  async onSmartAction(sel, userId) {
+  onSmartAction(sel, userId) {
     const val = sel.value
     if (!val) return
-    if (val === 'neutral') {
-      const reason = await this._promptZeroReason(userId)
-      if (!reason) { sel.value = ''; return }
-      this._pendingZeroReason = reason
-    }
     switch (val) {
       case 'bonus': this.fillRow(userId, 'max'); break
       case 'reduce': this.fillRow(userId, 'reduce'); break
@@ -132,7 +82,6 @@ window.Evaluation = {
   },
 
   render(dateKey) {
-    this._pendingZeroReason = null
     if (dateKey) {
       this._dateKey = dateKey
     } else if (!this._dateKey) {
@@ -228,6 +177,7 @@ window.Evaluation = {
                             <option value="neutral">تثبيت محايد (0)</option>
                             <option value="normal">تقفيل عادي (10)</option>
                           </select>
+                          <input class="zero-reason-input" data-user-id="${u.id}" placeholder="اكتب سبب التصفير هنا..." value="${entry?.zeroReason || ''}">
                         ` : ''}
                       </td>
                     </tr>
@@ -378,9 +328,10 @@ window.Evaluation = {
     dp.saved = true
 
     if (dp.finalScore <= 0) {
-      if (this._pendingZeroReason) {
-        dp.zeroReason = this._pendingZeroReason
-        this._pendingZeroReason = null
+      const input = document.querySelector(`input.zero-reason-input[data-user-id="${userId}"]`)
+      const reason = input ? input.value.trim() : ''
+      if (reason) {
+        dp.zeroReason = reason
       } else if (!dp.zeroReason) {
         dp.zeroReason = ''
       }
@@ -489,10 +440,9 @@ window.Evaluation = {
       const isZero = this.BASELINE_POINTS + (e.totalScore || 0) <= 0
       let reason = ''
       if (isZero) {
-        reason = this._pendingZeroReason || (existing?.zeroReason) || ''
-        if (this._pendingZeroReason && !existing?.zeroReason) {
-          if (existing) existing.zeroReason = this._pendingZeroReason
-        }
+        const input = document.querySelector(`input.zero-reason-input[data-user-id="${e.userId}"]`)
+        reason = input ? input.value.trim() : (existing?.zeroReason || '')
+        if (reason && existing) existing.zeroReason = reason
       }
       if (!existing) {
         dailyPoints.push({
@@ -539,7 +489,6 @@ window.Evaluation = {
       setTimeout(() => { notice.style.display = 'none' }, 5000)
     }
 
-    this._pendingZeroReason = null
     this.render()
   },
 
