@@ -1,3 +1,44 @@
+function checkGlobalLockStatus() {
+  const now = Date.now()
+  const settings = (Store.get('settings') || {})
+  const lb = settings.leaderboard || {}
+
+  if (lb.forceOverride === 'open') return true
+  if (lb.forceOverride === 'closed') return false
+
+  const legacyOverride = settings.leaderboardForceOverride
+  if (legacyOverride === 'open') return true
+  if (legacyOverride === 'closed') return false
+
+  const openAt = lb.openAt || settings.leaderboardReleasedFrom
+  const closeAt = lb.closeAt || settings.leaderboardReleasedUntil
+  if (openAt && closeAt) return now >= openAt && now < closeAt
+  if (openAt) return now >= openAt
+  if (closeAt) return now < closeAt
+
+  if (lb.visible !== undefined) return lb.visible
+  return false
+}
+
+function forceLeaderboardSync() {
+  const user = Auth.currentUser()
+  if (!user) return
+  const isOpen = user.role === 'admin' || user.role === 'member' || checkGlobalLockStatus()
+
+  const wrapper = document.querySelector('.lb-locked-overlay-wrapper')
+
+  if (isOpen) {
+    if (wrapper) wrapper.remove()
+    if (typeof Dashboard?.renderLeaderboard === 'function') {
+      Dashboard.renderLeaderboard()
+    }
+  } else {
+    if (!wrapper && typeof Dashboard?.renderLeaderboard === 'function') {
+      Dashboard.renderLeaderboard()
+    }
+  }
+}
+
 window.Dashboard = {
   _unsubscribe: null,
   _lbPollInterval: null,

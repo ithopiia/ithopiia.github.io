@@ -12,6 +12,9 @@ window.App = {
         }
       }
       this.render()
+      setTimeout(() => {
+        if (typeof forceLeaderboardSync === 'function') forceLeaderboardSync()
+      }, 50)
     })
 
     document.getElementById('logout-btn')?.addEventListener('click', () => this.handleLogout())
