@@ -171,16 +171,27 @@ window.Auth = {
     if (typeof Store === 'undefined' || !Store._data) return false
     const settings = Store.get('settings') || {}
     const lb = settings.leaderboard
-    if (lb && lb.visible !== undefined) return lb.visible
-    const override = settings.leaderboardForceOverride
-    if (override === 'open') return true
-    if (override === 'closed') return false
+
+    // 1. Manual override is the source of truth
+    if (lb?.forceOverride === 'open') return true
+    if (lb?.forceOverride === 'closed') return false
+
+    // 2. Legacy manual override (pre-leaderboard object path)
+    const legacyOverride = settings.leaderboardForceOverride
+    if (legacyOverride === 'open') return true
+    if (legacyOverride === 'closed') return false
+
+    // 3. Auto-schedule evaluation against real-time clock
     const from = lb?.openAt || settings.leaderboardReleasedFrom
     const until = lb?.closeAt || settings.leaderboardReleasedUntil
     const now = Date.now()
     if (from && until) return now >= from && now < until
     if (from) return now >= from
     if (until) return now < until
+
+    // 4. Fallback to legacy visible flag (may be stale)
+    if (lb && lb.visible !== undefined) return lb.visible
+
     return false
   },
 
