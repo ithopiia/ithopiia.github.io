@@ -488,6 +488,7 @@ window.Admin = {
     this._lastLeaderboardState = data
     Store.writePath('settings/leaderboard', data)
     this.renderSchedulerTab()
+    this._notifyDashboard()
   },
 
   clearLeaderboardSchedule() {
@@ -496,6 +497,7 @@ window.Admin = {
     this._lastLeaderboardState = data
     Store.writePath('settings/leaderboard', data)
     this.renderSchedulerTab()
+    this._notifyDashboard()
   },
 
   forceOpenLeaderboard() {
@@ -503,6 +505,7 @@ window.Admin = {
     this._lastLeaderboardState = data
     Store.writePath('settings/leaderboard', data)
     this.renderSchedulerTab()
+    this._notifyDashboard()
   },
 
   forceCloseLeaderboard() {
@@ -510,6 +513,7 @@ window.Admin = {
     this._lastLeaderboardState = data
     Store.writePath('settings/leaderboard', data)
     this.renderSchedulerTab()
+    this._notifyDashboard()
   },
 
   clearLeaderboardOverride() {
@@ -523,6 +527,15 @@ window.Admin = {
     this._lastLeaderboardState = data
     Store.writePath('settings/leaderboard', data)
     this.renderSchedulerTab()
+    this._notifyDashboard()
+  },
+
+  _notifyDashboard() {
+    const dv = document.getElementById('view-dashboard')
+    if (!dv || !dv.classList.contains('active')) return
+    if (window.Dashboard && typeof Dashboard.updateLeaderboardLockState === 'function') {
+      Dashboard.updateLeaderboardLockState()
+    }
   },
 
   renderNotesTab() {

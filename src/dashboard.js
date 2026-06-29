@@ -16,7 +16,7 @@ window.Dashboard = {
     this.updateLeaderboardTabVisibility()
 
     if (this._unsubscribe) this._unsubscribe()
-    this._unsubscribe = Store.onChange(() => this.autoRefresh(user))
+    this._unsubscribe = Store.onChange(() => this.autoRefresh(Auth.currentUser()))
 
     if (this._lbVisibleUnsub) this._lbVisibleUnsub()
     if (CONFIG.useFirebase) {
@@ -25,15 +25,13 @@ window.Dashboard = {
       const cb = visRef.on('value', snap => {
         if (!snap.exists()) return
         const val = snap.val()
-        if (val.visible !== undefined) {
-          if (!Store._data.settings) Store._data.settings = {}
-          Store._data.settings.leaderboard = Store._data.settings.leaderboard || {}
-          Store._data.settings.leaderboard.visible = val.visible
-          this.updateLeaderboardTabVisibility()
-          this.renderLeaderboard()
-          this.renderStats(user)
-          this.renderUserInfo(user)
-        }
+        if (!Store._data.settings) Store._data.settings = {}
+        Store._data.settings.leaderboard = Store._data.settings.leaderboard || {}
+        if (val.visible !== undefined) Store._data.settings.leaderboard.visible = val.visible
+        if (val.forceOverride !== undefined) Store._data.settings.leaderboard.forceOverride = val.forceOverride
+        if (val.openAt !== undefined) Store._data.settings.leaderboard.openAt = val.openAt
+        if (val.closeAt !== undefined) Store._data.settings.leaderboard.closeAt = val.closeAt
+        this.updateLeaderboardLockState()
       })
       this._lbVisibleUnsub = () => visRef.off('value', cb)
     }
@@ -45,6 +43,18 @@ window.Dashboard = {
       this.updateLeaderboardTabVisibility()
       this._tickLbReleaseTimer()
     }, 1000)
+  },
+
+  updateLeaderboardLockState() {
+    const user = Auth.currentUser()
+    if (!user) return
+    if (user.role === 'admin' || user.role === 'member') {
+      document.querySelectorAll('.lb-locked-overlay-wrapper').forEach(el => el.remove())
+    }
+    this.renderLeaderboard()
+    this.updateLeaderboardTabVisibility()
+    this.renderStats(user)
+    this.renderUserInfo(user)
   },
 
   _startLbReleaseTimer() {
