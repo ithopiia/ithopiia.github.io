@@ -5,6 +5,8 @@ function checkGlobalLockStatus() {
 
   if (window.leaderboardManualOverride === 'open') return true
   if (window.leaderboardManualOverride === 'closed') return false
+  if (window.isLeaderboardOpen === true) return true
+  if (window.isLeaderboardOpen === false) return false
   if (lb.forceOverride === 'open') return true
   if (lb.forceOverride === 'closed') return false
 
@@ -74,6 +76,10 @@ window.Dashboard = {
         if (val.forceOverride !== undefined) Store._data.settings.leaderboard.forceOverride = val.forceOverride
         if (val.openAt !== undefined) Store._data.settings.leaderboard.openAt = val.openAt
         if (val.closeAt !== undefined) Store._data.settings.leaderboard.closeAt = val.closeAt
+        const n = Date.now()
+        if (val.forceOverride === 'open') window.isLeaderboardOpen = true
+        else if (val.forceOverride === 'closed') window.isLeaderboardOpen = false
+        else if (val.openAt && val.closeAt) window.isLeaderboardOpen = n >= val.openAt && n < val.closeAt
         this.updateLeaderboardLockState()
       })
       this._lbVisibleUnsub = () => visRef.off('value', cb)

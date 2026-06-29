@@ -28,16 +28,20 @@ const Points = {
       adminNotes: '',
       saved: true,
     }
-    Store.writePath(`dailyPoints/${key}/${userId}`, {
-      basePoints: entry.basePoints,
-      evaluationScore: entry.evaluationScore,
-      manualBonus: entry.manualBonus,
-      finalScore: entry.finalScore,
-      overwritten: entry.overwritten,
-      adminNotes: entry.adminNotes,
-      saved: entry.saved,
-      date: entry.date,
-    })
+    const currentUser = (typeof Auth !== 'undefined' && Auth.currentUser) ? Auth.currentUser() : null
+    const canWrite = currentUser && (currentUser.role === 'admin' || currentUser.role === 'member')
+    if (canWrite) {
+      Store.writePath(`dailyPoints/${key}/${userId}`, {
+        basePoints: entry.basePoints,
+        evaluationScore: entry.evaluationScore,
+        manualBonus: entry.manualBonus,
+        finalScore: entry.finalScore,
+        overwritten: entry.overwritten,
+        adminNotes: entry.adminNotes,
+        saved: entry.saved,
+        date: entry.date,
+      })
+    }
 
     return entry
   },

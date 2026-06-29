@@ -1,3 +1,26 @@
+async function initLeaderboardPersistence() {
+  if (!CONFIG.useFirebase) return
+  try {
+    const snap = await firebase.database().ref('ithopiia/settings/leaderboard').once('value')
+    if (snap.exists()) {
+      const data = snap.val()
+      if (!Store._data.settings) Store._data.settings = {}
+      Store._data.settings.leaderboard = Store._data.settings.leaderboard || {}
+      Object.assign(Store._data.settings.leaderboard, data)
+      const now = Date.now()
+      const openAt = data.openAt
+      const closeAt = data.closeAt
+      if (data.forceOverride === 'open' || (openAt && closeAt && now >= openAt && now < closeAt)) {
+        window.isLeaderboardOpen = true
+      } else {
+        window.isLeaderboardOpen = false
+      }
+    }
+  } catch (e) {
+    // Firebase unavailable — persist nothing
+  }
+}
+
 window.App = {
   async init() {
     await Store.init()
@@ -11,10 +34,12 @@ window.App = {
           Points.grantDailyPoints()
         }
       }
-      this.render()
-      setTimeout(() => {
-        if (typeof forceLeaderboardSync === 'function') forceLeaderboardSync()
-      }, 50)
+      initLeaderboardPersistence().then(() => {
+        this.render()
+        setTimeout(() => {
+          if (typeof forceLeaderboardSync === 'function') forceLeaderboardSync()
+        }, 50)
+      })
     })
 
     document.getElementById('logout-btn')?.addEventListener('click', () => this.handleLogout())
