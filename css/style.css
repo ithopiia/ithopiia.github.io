@@ -2201,3 +2201,161 @@ th, td {
   color: var(--text-muted);
   margin-top: 2px;
 }
+
+/* ===== SCHEDULING CARD — PREMIUM DARK MODE REFINEMENT ===== */
+.scheduling-card-container, div:has(> .scheduling-title) {
+    background: rgba(30, 33, 41, 0.85) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7) !important;
+    border-radius: 16px !important;
+    padding: 24px !important;
+}
+
+.status-text-container {
+    color: #e0e0e0 !important;
+    font-weight: 600 !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-open-now {
+    background: rgba(46, 204, 113, 0.15) !important;
+    color: #2ecc71 !important;
+    border: 1px solid #2ecc71 !important;
+    border-radius: 8px !important;
+    font-weight: bold !important;
+    transition: all 0.2s ease;
+}
+.btn-open-now:hover {
+    background: #2ecc71 !important;
+    color: #111214 !important;
+    box-shadow: 0 0 15px rgba(46, 204, 113, 0.4);
+}
+
+.btn-close-now {
+    background: rgba(231, 76, 60, 0.15) !important;
+    color: #e74c3c !important;
+    border: 1px solid #e74c3c !important;
+    border-radius: 8px !important;
+    font-weight: bold !important;
+    transition: all 0.2s ease;
+}
+.btn-close-now:hover {
+    background: #e74c3c !important;
+    color: #111214 !important;
+    box-shadow: 0 0 15px rgba(231, 76, 60, 0.4);
+}
+
+.scheduling-card-container input[type="date"],
+.scheduling-card-container input[type="time"],
+.time-input-field {
+    background: rgba(20, 22, 26, 0.9) !important;
+    border: 1px solid #2d3139 !important;
+    color: #FFD700 !important;
+    border-radius: 6px !important;
+    padding: 8px !important;
+    text-align: center !important;
+}
+.scheduling-card-container input:focus {
+    border-color: #FFD700 !important;
+    outline: none !important;
+}
+
+.btn-save-schedule {
+    background: #FFD700 !important;
+    color: #111214 !important;
+    font-weight: bold !important;
+    border-radius: 8px !important;
+}
+.btn-cancel-schedule {
+    background: transparent !important;
+    color: #a0a0a0 !important;
+    border: 1px solid #2d3139 !important;
+    border-radius: 8px !important;
+}
+
+/* ===== LEADERBOARD LOCKED OVERLAY ===== */
+.lb-locked-overlay-wrapper {
+  position: relative;
+  min-height: 200px;
+}
+
+.lb-locked-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(12, 12, 14, 0.6);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.lb-locked-overlay .lb-lock-icon {
+  font-size: 3rem;
+  opacity: 0.8;
+  transition: all 0.6s ease;
+}
+
+.lb-locked-overlay .lb-lock-icon.lb-lock-unlocked {
+  transform: scale(1.3);
+  opacity: 1;
+  filter: drop-shadow(0 0 12px rgba(46, 204, 113, 0.6));
+}
+
+.lb-locked-overlay p {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.lb-locked-content {
+  transition: filter 0.5s ease, opacity 0.5s ease;
+}
+
+/* ===== TAB LOCKED STATE ===== */
+.tab-btn.tab-locked {
+  opacity: 0.6;
+  position: relative;
+}
+
+.tab-btn.tab-locked .tab-lock-icon {
+  font-size: 0.7rem;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+/* ===== RANK LOCKED DISPLAY ===== */
+.stat-card-locked {
+  opacity: 0.7;
+}
+
+.rank-display .rank-lock-icon {
+  font-size: 1.5rem;
+  opacity: 0.6;
+}
+
+.rank-locked-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: normal;
+}
+
+/* ===== LOCK UNLOCK ANIMATION ===== */
+@keyframes lockUnlock {
+  0% { transform: scale(1); opacity: 0.4; }
+  50% { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
+.lb-lock-unlocked {
+  animation: lockUnlock 0.6s ease-out;
+}

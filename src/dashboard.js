@@ -157,12 +157,12 @@ window.Dashboard = {
     el.innerHTML = `
       <h3>${lbReleased ? 'الترتيب' : 'الإحصائيات'}</h3>
       <div class="stats-grid">
-        ${lbReleased ? `
-        <div class="stat-card">
-          <div class="stat-value">${rank > 0 ? '#' + rank : '-'}</div>
-          <div class="stat-label">ترتيبك</div>
+        <div class="stat-card ${!lbReleased ? 'stat-card-locked' : ''}">
+          <div class="stat-value rank-display" id="rank-display-value">
+            ${lbReleased ? (rank > 0 ? '#' + rank : '-') : '<span class="rank-lock-icon">🔒</span>'}
+          </div>
+          <div class="stat-label">${lbReleased ? 'ترتيبك' : 'ترتيبك <span class="rank-locked-label">(مقفل)</span>'}</div>
         </div>
-        ` : ''}
         <div class="stat-card">
           <div class="stat-value">${sorted.length}</div>
           <div class="stat-label">إجمالي الأعضاء</div>
@@ -226,20 +226,41 @@ window.Dashboard = {
   renderLeaderboard() {
     const el = document.getElementById('dash-leaderboard-content')
     const released = Auth.isLeaderboardReleased()
+    const settings = Store.get('settings') || {}
+    const until = settings.leaderboard?.closeAt || settings.leaderboardReleasedUntil
+    const hasSchedule = until && Date.now() < until
+    const lbHtml = window.Leaderboard ? Leaderboard.renderDashboard() : '<p class="text-muted">لا توجد بيانات.</p>'
+
     if (!released) {
-      const settings = Store.get('settings') || {}
-      const until = settings.leaderboard?.closeAt || settings.leaderboardReleasedUntil
-      const hasSchedule = until && Date.now() < until
-      if (hasSchedule) {
-        const remaining = Math.floor((until - Date.now()) / 1000)
-        el.innerHTML = `<div class="lb-locked"><div class="lb-lock-icon">🔒</div><p>لوحة المتصدرين غير متاحة حاليًا</p><div class="lb-countdown-until">متاح خلال <span id="lb-release-countdown">${Timer.formatTime(remaining)}</span></div></div>`
-      } else {
-        el.innerHTML = '<div class="lb-locked"><div class="lb-lock-icon">🔒</div><p>لوحة المتصدرين غير متاحة حاليًا</p></div>'
-      }
+      const remaining = hasSchedule ? Math.floor((until - Date.now()) / 1000) : 0
+      el.innerHTML = `
+        <div class="lb-locked-overlay-wrapper">
+          <div class="lb-locked-overlay">
+            <div class="lb-lock-icon" id="lb-main-lock-icon">🔒</div>
+            <p>لوحة المتصدرين مقفلة حاليًا</p>
+            ${hasSchedule ? `<div class="lb-countdown-until">متاح خلال <span id="lb-release-countdown">${Timer.formatTime(remaining)}</span></div>` : ''}
+          </div>
+          <div class="lb-locked-content" id="lb-locked-content" style="filter:blur(6px);pointer-events:none;user-select:none;opacity:0.4">
+            ${lbHtml}
+          </div>
+        </div>`
       return
     }
-    if (window.Leaderboard) {
-      el.innerHTML = Leaderboard.renderDashboard()
+    el.innerHTML = lbHtml
+    this._animateLockOpen()
+  },
+
+  _animateLockOpen() {
+    const icon = document.getElementById('lb-main-lock-icon')
+    if (icon) {
+      icon.textContent = '🔓'
+      icon.classList.add('lb-lock-unlocked')
+      setTimeout(() => {
+        if (icon.parentElement) {
+          const wrapper = icon.closest('.lb-locked-overlay-wrapper')
+          if (wrapper) wrapper.style.display = 'none'
+        }
+      }, 800)
     }
   },
 
@@ -247,16 +268,24 @@ window.Dashboard = {
     const released = Auth.isLeaderboardReleased()
     const btn = document.getElementById('dash-lb-tab-btn')
     if (!btn) return
-    btn.style.display = released ? '' : 'none'
+    btn.classList.toggle('tab-locked', !released)
+    const lockSpan = btn.querySelector('.tab-lock-icon')
+    if (!released) {
+      if (!lockSpan) btn.innerHTML = 'المتصدرين <span class="tab-lock-icon">🔒</span>'
+    } else {
+      if (lockSpan) lockSpan.remove()
+    }
     if (!released) {
       const tab = document.getElementById('dash-tab-leaderboard')
       if (tab && tab.classList.contains('active')) {
         document.querySelectorAll('#view-dashboard .tab-btn').forEach(b => b.classList.remove('active'))
         document.querySelectorAll('#view-dashboard .tab-content').forEach(c => c.classList.remove('active'))
-        const firstTab = document.querySelector('#view-dashboard .tab-btn')
-        if (firstTab) firstTab.classList.add('active')
-        const firstContent = document.getElementById(firstTab?.dataset?.tab)
-        if (firstContent) firstContent.classList.add('active')
+        const firstTab = document.querySelector('#view-dashboard .tab-btn:not(.tab-locked)')
+        if (firstTab) {
+          firstTab.classList.add('active')
+          const firstContent = document.getElementById(firstTab?.dataset?.tab)
+          if (firstContent) firstContent.classList.add('active')
+        }
       }
     }
   },

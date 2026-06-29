@@ -73,16 +73,54 @@ window.Evaluation = {
   _promptZeroReason(userId) {
     const user = (Store.get('users') || []).find(u => u.id === userId)
     const name = user ? user.fullName : userId
-    return prompt(`اكتب سبب التصفير للعضو: ${name}`)
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div')
+      overlay.className = 'modal-overlay'
+      overlay.style.zIndex = '10000'
+      overlay.innerHTML = `
+        <div class="modal-content zero-reason-modal">
+          <div class="modal-header">
+            <h2>سبب التصفير</h2>
+            <button class="modal-close" id="zero-reason-close">✕</button>
+          </div>
+          <div class="modal-body">
+            <p style="margin-bottom:12px;color:var(--text-muted)">ما هو سبب تصفير هذا الشخص؟</p>
+            <p style="margin-bottom:16px;font-weight:600">${name}</p>
+            <textarea id="zero-reason-input" placeholder="اكتب سبب التصفير..." rows="3" style="width:100%;margin-bottom:12px;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);resize:vertical"></textarea>
+            <div style="display:flex;gap:10px;justify-content:flex-end">
+              <button class="btn btn-primary" id="zero-reason-confirm" style="padding:10px 20px;font-size:0.9rem">تأكيد</button>
+              <button class="btn btn-ghost" id="zero-reason-cancel" style="padding:10px 20px;font-size:0.9rem">إلغاء</button>
+            </div>
+            <div id="zero-reason-error" class="auth-error" style="margin-top:8px"></div>
+          </div>
+        </div>`
+      document.body.appendChild(overlay)
+      const input = overlay.querySelector('#zero-reason-input')
+      const confirm = () => {
+        const text = input.value.trim()
+        if (!text) {
+          overlay.querySelector('#zero-reason-error').textContent = 'يرجى كتابة سبب التصفير'
+          return
+        }
+        overlay.remove()
+        resolve(text)
+      }
+      const cancel = () => { overlay.remove(); resolve(null) }
+      overlay.querySelector('#zero-reason-confirm').addEventListener('click', confirm)
+      overlay.querySelector('#zero-reason-cancel').addEventListener('click', cancel)
+      overlay.querySelector('#zero-reason-close').addEventListener('click', cancel)
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel() })
+      setTimeout(() => input.focus(), 100)
+    })
   },
 
-  onSmartAction(sel, userId) {
+  async onSmartAction(sel, userId) {
     const val = sel.value
     if (!val) return
     if (val === 'neutral') {
-      const reason = this._promptZeroReason(userId)
-      if (reason === null || reason.trim() === '') { sel.value = ''; return }
-      this._pendingZeroReason = reason.trim()
+      const reason = await this._promptZeroReason(userId)
+      if (!reason) { sel.value = ''; return }
+      this._pendingZeroReason = reason
     }
     switch (val) {
       case 'bonus': this.fillRow(userId, 'max'); break
@@ -94,6 +132,7 @@ window.Evaluation = {
   },
 
   render(dateKey) {
+    this._pendingZeroReason = null
     if (dateKey) {
       this._dateKey = dateKey
     } else if (!this._dateKey) {
@@ -343,8 +382,7 @@ window.Evaluation = {
         dp.zeroReason = this._pendingZeroReason
         this._pendingZeroReason = null
       } else if (!dp.zeroReason) {
-        const reason = this._promptZeroReason(userId)
-        if (reason && reason.trim()) dp.zeroReason = reason.trim()
+        dp.zeroReason = ''
       }
     }
 
@@ -448,6 +486,14 @@ window.Evaluation = {
       e.totalScore = this.calculateTotal(e)
       e.saved = true
       const existing = dailyPoints.find(p => p.userId === e.userId && p.dateKey === dateKey)
+      const isZero = this.BASELINE_POINTS + (e.totalScore || 0) <= 0
+      let reason = ''
+      if (isZero) {
+        reason = this._pendingZeroReason || (existing?.zeroReason) || ''
+        if (this._pendingZeroReason && !existing?.zeroReason) {
+          if (existing) existing.zeroReason = this._pendingZeroReason
+        }
+      }
       if (!existing) {
         dailyPoints.push({
           userId: e.userId, dateKey,
@@ -458,6 +504,7 @@ window.Evaluation = {
           overwritten: false,
           finalScore: this.BASELINE_POINTS + (e.totalScore || 0),
           adminNotes: '',
+          zeroReason: reason,
           saved: true,
         })
       }
@@ -492,6 +539,7 @@ window.Evaluation = {
       setTimeout(() => { notice.style.display = 'none' }, 5000)
     }
 
+    this._pendingZeroReason = null
     this.render()
   },
 

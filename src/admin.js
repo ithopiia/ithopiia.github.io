@@ -349,20 +349,20 @@ window.Admin = {
     const fmtNum = n => String(n).padStart(2, '0')
 
     el.innerHTML = `
-      <div class="lb-scheduler-card">
+      <div class="lb-scheduler-card scheduling-card-container">
         <div class="lb-scheduler-header">
           <span class="lb-scheduler-icon">⏰</span>
-          <span>جدولة ظهور المتصدرين</span>
+          <span class="scheduling-title">جدولة ظهور المتصدرين</span>
         </div>
-        <div class="lb-scheduler-status ${isVisible ? 'status-visible' : 'status-hidden'}">
+        <div class="lb-scheduler-status status-text-container ${isVisible ? 'status-visible' : 'status-hidden'}">
           ${isVisible
             ? '<span class="lb-status-dot green"></span> 🟢 المتصدرين <strong>مرئي</strong> للمستخدمين'
             : '<span class="lb-status-dot red"></span> 🔴 المتصدرين <strong>مخفي</strong> عن المستخدمين'}
           <span id="sched-countdown" class="sched-countdown"></span>
         </div>
         <div class="lb-scheduler-override">
-          <button class="btn btn-success" onclick="Admin.forceOpenLeaderboard()">🔓 فتح الآن</button>
-          <button class="btn btn-danger" onclick="Admin.forceCloseLeaderboard()">🔒 إغلاق الآن</button>
+          <button class="btn btn-open-now" onclick="Admin.forceOpenLeaderboard()">🔓 فتح الآن</button>
+          <button class="btn btn-close-now" onclick="Admin.forceCloseLeaderboard()">🔒 إغلاق الآن</button>
           ${state.forceOverride ? '<button class="btn btn-ghost" onclick="Admin.clearLeaderboardOverride()">↩️ العودة للجدولة التلقائية</button>' : ''}
         </div>
         <hr>
@@ -409,8 +409,8 @@ window.Admin = {
           </div>
         </div>
         <div class="lb-scheduler-actions">
-          <button class="btn btn-primary" onclick="Admin.saveLeaderboardSchedule()">💾 حفظ الجدولة</button>
-          <button class="btn btn-ghost btn-danger-text" onclick="Admin.clearLeaderboardSchedule()">🗑️ إلغاء الجدولة</button>
+          <button class="btn btn-save-schedule" onclick="Admin.saveLeaderboardSchedule()">💾 حفظ الجدولة</button>
+          <button class="btn btn-cancel-schedule" onclick="Admin.clearLeaderboardSchedule()">🗑️ إلغاء الجدولة</button>
         </div>
       </div>`
 
@@ -446,7 +446,7 @@ window.Admin = {
       if (isVisible && state.closeAt && now < state.closeAt) nextChange = state.closeAt
     }
 
-    statusEl.className = 'lb-scheduler-status ' + (isVisible ? 'status-visible' : 'status-hidden')
+    statusEl.className = 'lb-scheduler-status status-text-container ' + (isVisible ? 'status-visible' : 'status-hidden')
     statusEl.innerHTML = `
       ${isVisible
         ? '<span class="lb-status-dot green"></span> 🟢 المتصدرين <strong>مرئي</strong> للمستخدمين'
