@@ -1,6 +1,7 @@
 window.Evaluation = {
   _dateKey: null,
   _activeGender: 'male',
+  _pendingZeroReason: null,
   BASELINE_POINTS: 0,
 
   COLUMNS: [
@@ -72,6 +73,11 @@ window.Evaluation = {
   onSmartAction(sel, userId) {
     const val = sel.value
     if (!val) return
+    if (val === 'neutral') {
+      const reason = prompt('اكتب سبب تصفير هذا الشخص فوراً لضمان التسجيل:')
+      if (reason === null || reason.trim() === '') { sel.value = ''; return }
+      this._pendingZeroReason = reason.trim()
+    }
     switch (val) {
       case 'bonus': this.fillRow(userId, 'max'); break
       case 'reduce': this.fillRow(userId, 'reduce'); break
@@ -177,7 +183,6 @@ window.Evaluation = {
                             <option value="neutral">تثبيت محايد (0)</option>
                             <option value="normal">تقفيل عادي (10)</option>
                           </select>
-                          <input class="zero-reason-input" data-user-id="${u.id}" placeholder="اكتب سبب التصفير هنا..." value="${entry?.zeroReason || ''}">
                         ` : ''}
                       </td>
                     </tr>
@@ -328,10 +333,9 @@ window.Evaluation = {
     dp.saved = true
 
     if (dp.finalScore <= 0) {
-      const input = document.querySelector(`input.zero-reason-input[data-user-id="${userId}"]`)
-      const reason = input ? input.value.trim() : ''
-      if (reason) {
-        dp.zeroReason = reason
+      if (this._pendingZeroReason) {
+        dp.zeroReason = this._pendingZeroReason
+        this._pendingZeroReason = null
       } else if (!dp.zeroReason) {
         dp.zeroReason = ''
       }
@@ -440,9 +444,10 @@ window.Evaluation = {
       const isZero = this.BASELINE_POINTS + (e.totalScore || 0) <= 0
       let reason = ''
       if (isZero) {
-        const input = document.querySelector(`input.zero-reason-input[data-user-id="${e.userId}"]`)
-        reason = input ? input.value.trim() : (existing?.zeroReason || '')
-        if (reason && existing) existing.zeroReason = reason
+        reason = this._pendingZeroReason || (existing?.zeroReason) || ''
+        if (this._pendingZeroReason && !existing?.zeroReason) {
+          if (existing) existing.zeroReason = this._pendingZeroReason
+        }
       }
       if (!existing) {
         dailyPoints.push({
@@ -489,6 +494,7 @@ window.Evaluation = {
       setTimeout(() => { notice.style.display = 'none' }, 5000)
     }
 
+    this._pendingZeroReason = null
     this.render()
   },
 
