@@ -70,13 +70,43 @@ window.Evaluation = {
       + (Number(entry.bonus) || 0)
   },
 
-  onSmartAction(sel, userId) {
+  _showReasonModal() {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div')
+      overlay.className = 'custom-modal-overlay'
+      overlay.innerHTML = `
+        <div class="custom-modal-box">
+          <h3>⚠️ تسجيل سبب التصفير</h3>
+          <p>اكتب سبب تصفير هذا الشخص فوراً لضمان التسجيل في السجل الرقمي:</p>
+          <textarea id="modal-reason-input" placeholder="مثال: غياب بدون إذن عن البروفة..."></textarea>
+          <div class="modal-actions">
+            <button id="btn-modal-confirm" class="modal-btn confirm">تأكيد التصفير</button>
+            <button id="btn-modal-cancel" class="modal-btn cancel">إلغاء</button>
+          </div>
+        </div>`
+      document.body.appendChild(overlay)
+      const input = overlay.querySelector('#modal-reason-input')
+      const confirm = () => {
+        const text = input.value.trim()
+        if (!text) return
+        overlay.remove()
+        resolve(text)
+      }
+      const cancel = () => { overlay.remove(); resolve(null) }
+      overlay.querySelector('#btn-modal-confirm').addEventListener('click', confirm)
+      overlay.querySelector('#btn-modal-cancel').addEventListener('click', cancel)
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel() })
+      setTimeout(() => input.focus(), 100)
+    })
+  },
+
+  async onSmartAction(sel, userId) {
     const val = sel.value
     if (!val) return
     if (val === 'neutral') {
-      const reason = prompt('اكتب سبب تصفير هذا الشخص فوراً لضمان التسجيل:')
-      if (reason === null || reason.trim() === '') { sel.value = ''; return }
-      this._pendingZeroReason = reason.trim()
+      const reason = await this._showReasonModal()
+      if (!reason) { sel.value = ''; return }
+      this._pendingZeroReason = reason
     }
     switch (val) {
       case 'bonus': this.fillRow(userId, 'max'); break
