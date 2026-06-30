@@ -27,7 +27,8 @@ function checkGlobalLockStatus() {
 function forceLeaderboardSync() {
   const user = Auth.currentUser()
   if (!user) return
-  const isOpen = user.role === 'admin' || user.role === 'member' || checkGlobalLockStatus()
+  const activeRole = typeof Auth.getCurrentActiveRole === 'function' ? Auth.getCurrentActiveRole() : user.role
+  const isOpen = activeRole === 'admin' || activeRole === 'member' || checkGlobalLockStatus()
 
   const wrapper = document.querySelector('.lb-locked-overlay-wrapper')
 
@@ -97,7 +98,8 @@ window.Dashboard = {
   updateLeaderboardLockState() {
     const user = Auth.currentUser()
     if (!user) return
-    if (user.role === 'admin' || user.role === 'member') {
+    const activeRole = typeof Auth.getCurrentActiveRole === 'function' ? Auth.getCurrentActiveRole() : user.role
+    if (activeRole === 'admin' || activeRole === 'member') {
       document.querySelectorAll('.lb-locked-overlay-wrapper').forEach(el => el.remove())
     }
     this.renderLeaderboard()

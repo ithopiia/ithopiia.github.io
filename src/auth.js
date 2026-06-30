@@ -45,11 +45,12 @@ window.Auth = {
         data.needsProfile = false
         const roleChanged = data.role !== this._currentUser.role
         const statusChanged = data.status !== this._currentUser.status
+        const viewModeChanged = data.viewMode !== undefined && data.viewMode !== this._currentUser.viewMode
         Object.assign(this._currentUser, data)
         if (!this._isInitialized) {
           this._isInitialized = true
         }
-        if (roleChanged || statusChanged || this._isInitialized) {
+        if (roleChanged || statusChanged || viewModeChanged || this._isInitialized) {
           this._notify()
         }
       } else if (!this._isInitialized) {
@@ -164,10 +165,37 @@ window.Auth = {
     return this._currentUser && this._currentUser.role === 'admin'
   },
 
+  getCurrentActiveRole() {
+    const user = this._currentUser
+    if (!user) return null
+    const viewMode = user.viewMode
+    if ((user.role === 'admin' || user.role === 'member') && viewMode === 'user') {
+      return 'user'
+    }
+    return user.role
+  },
+
+  async setViewMode(mode) {
+    if (!this._currentUser) return { ok: false, error: 'لا يوجد مستخدم.' }
+    try {
+      const db = firebase.database()
+      const ref = db.ref(`ithopiia/users/${this._currentUser.id}/viewMode`)
+      if (mode === 'user') {
+        await ref.set('user')
+      } else {
+        await ref.remove()
+      }
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e.message }
+    }
+  },
+
   isLeaderboardReleased() {
     const user = this._currentUser
     if (!user) return false
-    if (user.role === 'admin' || user.role === 'member') return true
+    const activeRole = this.getCurrentActiveRole()
+    if (activeRole === 'admin' || activeRole === 'member') return true
     if (typeof Store === 'undefined' || !Store._data) return false
     const settings = Store.get('settings') || {}
     const lb = settings.leaderboard

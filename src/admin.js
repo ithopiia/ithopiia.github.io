@@ -384,6 +384,13 @@ window.Admin = {
           ${state.forceOverride ? '<button class="btn btn-ghost" onclick="Admin.clearLeaderboardOverride()">↩️ العودة للجدولة التلقائية</button>' : ''}
         </div>
         <hr>
+        <div class="lb-scheduler-override" style="margin-bottom:12px">
+          <span style="font-size:0.85rem;color:var(--text-muted);display:block;margin-bottom:6px">محاكاة دور المستخدم:</span>
+          <button class="btn ${Auth.getCurrentActiveRole() === 'user' ? 'btn-primary' : 'btn-ghost'}" onclick="Admin.toggleViewMode()" id="admin-view-mode-toggle">
+            ${Auth.getCurrentActiveRole() === 'user' ? '👑 العودة لوضع المشرف' : '👁 مشاهدة كمستخدم'}
+          </button>
+        </div>
+        <hr>
         <div class="lb-dual-section">
           <h4>وقت الفتح التلقائي</h4>
           <div class="lb-scheduler-fields">
@@ -601,6 +608,19 @@ window.Admin = {
     this.saveLeaderboardSettings(data)
     this.renderSchedulerTab()
     this._notifyDashboard()
+  },
+
+  async toggleViewMode() {
+    const user = Auth.currentUser()
+    if (!user || (user.role !== 'admin' && user.role !== 'member')) return
+    const current = Auth.getCurrentActiveRole()
+    const newMode = current === 'user' ? 'leader' : 'user'
+    await Auth.setViewMode(newMode)
+    if (newMode === 'user') {
+      App.showDashboard()
+    } else {
+      this.renderSchedulerTab()
+    }
   },
 
   _notifyDashboard() {

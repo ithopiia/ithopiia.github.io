@@ -169,6 +169,7 @@ window.App = {
     Admin.render()
     document.getElementById('admin-nav-btn').style.display = 'none'
     document.getElementById('profile-nav-btn').style.display = Auth.isMember() ? '' : 'none'
+    this._updateViewModeBtn()
     setTimeout(() => this._restoreTab('admin'), 50)
   },
 
@@ -179,7 +180,38 @@ window.App = {
     Dashboard.render()
     document.getElementById('profile-nav-btn').style.display = 'none'
     document.getElementById('admin-nav-btn').style.display = Auth.isMember() ? '' : 'none'
+    this._updateViewModeBtn()
     setTimeout(() => this._restoreTab('dashboard'), 50)
+  },
+
+  async toggleViewMode() {
+    const user = Auth.currentUser()
+    if (!user || (user.role !== 'admin' && user.role !== 'member')) return
+    const current = Auth.getCurrentActiveRole()
+    const newMode = current === 'user' ? 'leader' : 'user'
+    const res = await Auth.setViewMode(newMode)
+    if (res.ok) {
+      this._updateViewModeBtn()
+      if (newMode === 'user') {
+        this.showDashboard()
+      } else {
+        this.showAdmin()
+      }
+    }
+  },
+
+  _updateViewModeBtn() {
+    const btn = document.getElementById('view-mode-btn')
+    const user = Auth.currentUser()
+    if (!btn || !user) return
+    const isLeader = user.role === 'admin' || user.role === 'member'
+    btn.style.display = isLeader ? '' : 'none'
+    const activeRole = Auth.getCurrentActiveRole()
+    if (activeRole === 'user') {
+      btn.innerHTML = '👑 <span>العودة للمشرف</span>'
+    } else {
+      btn.innerHTML = '👁 <span>مشاهدة كمستخدم</span>'
+    }
   },
 
   _restoreTab(view) {
@@ -202,7 +234,8 @@ window.App = {
     }
 
     const user = Auth.currentUser()
-    const role = user?.role
+    const realRole = user?.role
+    const activeRole = Auth.getCurrentActiveRole()
     const isApproved = user?.status === 'approved'
     const logoutBtn = document.getElementById('logout-btn')
     const adminNavBtn = document.getElementById('admin-nav-btn')
@@ -212,14 +245,15 @@ window.App = {
     if (logoutBtn) logoutBtn.style.display = user ? '' : 'none'
 
     const savedView = localStorage.getItem('ithopiia_activeView')
+    this._updateViewModeBtn()
 
-    if (user && role === 'admin' && isApproved) {
+    if (user && activeRole === 'admin' && isApproved) {
       if (adminNavBtn) adminNavBtn.style.display = 'none'
       if (profileNavBtn) profileNavBtn.style.display = 'none'
       document.getElementById('view-admin')?.classList.add('active')
       Admin.render()
       setTimeout(() => this._restoreTab('admin'), 50)
-    } else if (user && role === 'member' && isApproved) {
+    } else if (user && activeRole === 'member' && isApproved) {
       if (savedView === 'admin') {
         if (adminNavBtn) adminNavBtn.style.display = 'none'
         if (profileNavBtn) profileNavBtn.style.display = ''
