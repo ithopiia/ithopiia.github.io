@@ -151,9 +151,23 @@ window.Admin = {
 
       const prevLabel = previousRank ? 'السابق' : null
 
-      const penaltyDates = userPoints.filter(p => (p.manualBonus || 0) < 0).map(p => p.dateKey).reverse()
-      const bonusDates = userPoints.filter(p => (p.manualBonus || 0) > 0).map(p => p.dateKey).reverse()
-      const zeroDates = userPoints.filter(p => (p.finalScore || 0) <= 0).map(p => p.dateKey).reverse()
+      var evaluationList = Store.get('evaluation') || []
+      var evalLookup = {}
+      evaluationList.forEach(function (e) {
+        if (e.userId === userId && e.saved) {
+          evalLookup[e.dateKey] = e.bonus || 0
+        }
+      })
+
+      function getBonusVal(dp) {
+        var mb = dp.manualBonus || 0
+        if (mb !== 0) return mb
+        return evalLookup[dp.dateKey] || 0
+      }
+
+      const penaltyDates = userPoints.filter(function (p) { return getBonusVal(p) < 0 }).map(function (p) { return p.dateKey }).reverse()
+      const bonusDates = userPoints.filter(function (p) { return getBonusVal(p) > 0 }).map(function (p) { return p.dateKey }).reverse()
+      const zeroDates = userPoints.filter(function (p) { return (p.finalScore || 0) <= 0 }).map(function (p) { return p.dateKey }).reverse()
 
       overlay.innerHTML = `
       <div class="modal-content">
@@ -276,38 +290,54 @@ window.Admin = {
   },
 
   _renderTimeline(activeTab, penaltyDates, bonusDates, zeroDates, userPoints) {
+    var evaluationList = Store.get('evaluation') || []
+
+    function findBonusVal(dateKey) {
+      var dp = userPoints.find(function (p) { return p.dateKey === dateKey })
+      if (dp) {
+        var mb = dp.manualBonus || 0
+        if (mb !== 0) return mb
+      }
+      var ev = evaluationList.find(function (e) { return e.dateKey === dateKey && e.saved })
+      return ev ? (ev.bonus || 0) : 0
+    }
+
     if (activeTab === 'penalty' && penaltyDates.length > 0) {
-      return penaltyDates.map(d => `
+      return penaltyDates.map(function (d) {
+        var val = findBonusVal(d)
+        return `
         <div class="timeline-item">
           <div class="timeline-marker timeline-marker-penalty"></div>
           <div class="timeline-content">
             <div class="timeline-date">${d}</div>
-            <div class="timeline-desc">تمنص</div>
+            <div class="timeline-desc" style="color:var(--red)">تمنص (${val})</div>
           </div>
-        </div>
-      `).join('')
+        </div>`
+      }).join('')
     }
     if (activeTab === 'bonus' && bonusDates.length > 0) {
-      return bonusDates.map(d => `
+      return bonusDates.map(function (d) {
+        var val = findBonusVal(d)
+        return `
         <div class="timeline-item">
           <div class="timeline-marker timeline-marker-bonus"></div>
           <div class="timeline-content">
             <div class="timeline-date">${d}</div>
-            <div class="timeline-desc">بونص</div>
+            <div class="timeline-desc" style="color:var(--green)">بونص (+${val})</div>
           </div>
-        </div>
-      `).join('')
+        </div>`
+      }).join('')
     }
     if (activeTab === 'zero' && zeroDates.length > 0) {
-      return zeroDates.map(d => {
-        const dp = userPoints.find(p => p.dateKey === d)
-        const reason = dp && dp.zeroReason ? dp.zeroReason : ''
+      return zeroDates.map(function (d) {
+        var dp = userPoints.find(function (p) { return p.dateKey === d })
+        var reason = dp && dp.zeroReason ? dp.zeroReason : ''
         return `
         <div class="timeline-item">
           <div class="timeline-marker timeline-marker-zero"></div>
           <div class="timeline-content">
             <div class="timeline-date">${d}</div>
-            <div class="timeline-desc">${reason ? `${reason}` : 'تصفير'}</div>
+            <div class="timeline-desc">${reason ? reason : 'تصفير'}</div>
           </div>
         </div>`
       }).join('')
