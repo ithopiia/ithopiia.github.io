@@ -305,6 +305,108 @@ window.Admin = {
 
   _schedTimerInterval: null,
 
+  _attachSchedulerListeners(el) {
+    var self = this
+
+    el.querySelector('.btn-open-now')?.addEventListener('click', function () {
+      firebase.database().ref('/ithopiia/settings/leaderboard').set({
+        manualStatus: "open",
+        autoOpenDateTime: "",
+        autoCloseDateTime: ""
+      }).then(function () {
+        self._lastLeaderboardState = { manualStatus: 'open' }
+        self.renderSchedulerTab()
+        self._notifyDashboard()
+        alert("تم فتح المتصدرين بنجاح لايف للكل! 🔓")
+      }).catch(function (err) { console.error("Firebase write error:", err) })
+    })
+
+    el.querySelector('.btn-close-now')?.addEventListener('click', function () {
+      firebase.database().ref('/ithopiia/settings/leaderboard').set({
+        manualStatus: "closed",
+        autoOpenDateTime: "",
+        autoCloseDateTime: ""
+      }).then(function () {
+        self._lastLeaderboardState = { manualStatus: 'closed' }
+        self.renderSchedulerTab()
+        self._notifyDashboard()
+        alert("تم إغلاق المتصدرين بنجاح! 🔒")
+      }).catch(function (err) { console.error("Firebase write error:", err) })
+    })
+
+    el.querySelector('.btn-save-schedule')?.addEventListener('click', function () {
+      var openDate = document.getElementById('lb-open-date')?.value
+      var openHour = String(parseInt(document.getElementById('lb-open-hour')?.value) || 0).padStart(2, '0')
+      var openMin = String(parseInt(document.getElementById('lb-open-minute')?.value) || 0).padStart(2, '0')
+      var openSec = String(parseInt(document.getElementById('lb-open-second')?.value) || 0).padStart(2, '0')
+      var closeDate = document.getElementById('lb-close-date')?.value
+      var closeHour = String(parseInt(document.getElementById('lb-close-hour')?.value) || 0).padStart(2, '0')
+      var closeMin = String(parseInt(document.getElementById('lb-close-minute')?.value) || 0).padStart(2, '0')
+      var closeSec = String(parseInt(document.getElementById('lb-close-second')?.value) || 0).padStart(2, '0')
+
+      if (!openDate || !closeDate) {
+        alert("برجاء ملء جميع خانات التاريخ والوقت أولاً! ⏰")
+        return
+      }
+
+      var openStr = openDate + 'T' + openHour + ':' + openMin + ':' + openSec
+      var closeStr = closeDate + 'T' + closeHour + ':' + closeMin + ':' + closeSec
+      var openDateObj = new Date(openStr)
+      var closeDateObj = new Date(closeStr)
+
+      if (isNaN(openDateObj.getTime()) || isNaN(closeDateObj.getTime())) {
+        alert('تاريخ أو وقت غير صالح')
+        return
+      }
+      if (closeDateObj <= openDateObj) {
+        alert('يجب أن يكون وقت القفل بعد وقت الفتح')
+        return
+      }
+
+      firebase.database().ref('/ithopiia/settings/leaderboard').set({
+        manualStatus: "scheduled",
+        autoOpenDateTime: openDateObj.toISOString(),
+        autoCloseDateTime: closeDateObj.toISOString()
+      }).then(function () {
+        self._lastLeaderboardState = { autoOpenDateTime: openDateObj.toISOString(), autoCloseDateTime: closeDateObj.toISOString(), manualStatus: 'scheduled' }
+        self.renderSchedulerTab()
+        self._notifyDashboard()
+        alert("تم حفظ الجدولة التلقائية بنجاح! 💾")
+      }).catch(function (err) { console.error("Firebase write error:", err) })
+    })
+
+    el.querySelector('.btn-cancel-schedule')?.addEventListener('click', function () {
+      if (!confirm('هل تريد إلغاء الجدولة بالكامل؟')) return
+      firebase.database().ref('/ithopiia/settings/leaderboard').set({
+        manualStatus: "closed",
+        autoOpenDateTime: "",
+        autoCloseDateTime: ""
+      }).then(function () {
+        self._lastLeaderboardState = { manualStatus: 'closed' }
+        self.renderSchedulerTab()
+        self._notifyDashboard()
+        alert("تم إلغاء الجدولة! 🔒")
+      }).catch(function (err) { console.error("Firebase write error:", err) })
+    })
+
+    el.querySelector('.btn-clear-override')?.addEventListener('click', function () {
+      var settings = Store.get('settings') || {}
+      var lb = settings.leaderboard || {}
+      var hasSchedule = lb.autoOpenDateTime && lb.autoCloseDateTime
+      if (!hasSchedule) { alert('لا توجد جدولة سابقة للعودة إليها'); return }
+      firebase.database().ref('/ithopiia/settings/leaderboard').set({
+        manualStatus: "scheduled",
+        autoOpenDateTime: lb.autoOpenDateTime,
+        autoCloseDateTime: lb.autoCloseDateTime
+      }).then(function () {
+        self._lastLeaderboardState = { autoOpenDateTime: lb.autoOpenDateTime, autoCloseDateTime: lb.autoCloseDateTime, manualStatus: 'scheduled' }
+        self.renderSchedulerTab()
+        self._notifyDashboard()
+        alert("تم العودة للجدولة التلقائية! ↩️")
+      }).catch(function (err) { console.error("Firebase write error:", err) })
+    })
+  },
+
   _getLeaderboardState() {
     if (this._lastLeaderboardState) return this._lastLeaderboardState
     const settings = Store.get('settings') || {}
@@ -388,9 +490,9 @@ window.Admin = {
           <span id="sched-countdown" class="sched-countdown"></span>
         </div>
         <div class="lb-scheduler-override">
-          <button class="btn btn-open-now" onclick="Admin.forceOpenLeaderboard()">🔓 فتح الآن</button>
-          <button class="btn btn-close-now" onclick="Admin.forceCloseLeaderboard()">🔒 إغلاق الآن</button>
-          ${state.forceOverride ? '<button class="btn btn-ghost" onclick="Admin.clearLeaderboardOverride()">↩️ العودة للجدولة التلقائية</button>' : ''}
+          <button class="btn btn-open-now">🔓 فتح الآن</button>
+          <button class="btn btn-close-now">🔒 إغلاق الآن</button>
+          ${state.forceOverride || state.manualStatus === 'open' || state.manualStatus === 'closed' ? '<button class="btn btn-ghost btn-clear-override">↩️ العودة للجدولة التلقائية</button>' : ''}
         </div>
         <hr>
         <div class="lb-dual-section">
@@ -436,11 +538,12 @@ window.Admin = {
           </div>
         </div>
         <div class="lb-scheduler-actions">
-          <button class="btn btn-save-schedule" onclick="Admin.saveLeaderboardSchedule()">💾 حفظ الجدولة</button>
-          <button class="btn btn-cancel-schedule" onclick="Admin.clearLeaderboardSchedule()">🗑️ إلغاء الجدولة</button>
+          <button class="btn btn-save-schedule">💾 حفظ الجدولة</button>
+          <button class="btn btn-cancel-schedule">🗑️ إلغاء الجدولة</button>
         </div>
       </div>`
 
+    this._attachSchedulerListeners(el)
     this._startSchedulerTimer()
   },
 
@@ -458,8 +561,9 @@ window.Admin = {
     const now = Date.now()
 
     if (this._schedulerLastVisible !== undefined && this._schedulerLastVisible !== isVisible) {
-      if (!state.forceOverride) {
-        Store.writePath('settings/leaderboard/visible', isVisible)
+      if (!state.forceOverride && CONFIG.useFirebase && typeof firebase !== 'undefined') {
+        firebase.database().ref('/ithopiia/settings/leaderboard/visible').set(isVisible)
+          .catch(function (err) { console.error('Firebase write error:', err) })
       }
       if (this._lastLeaderboardState) {
         this._lastLeaderboardState.visible = isVisible
@@ -507,7 +611,15 @@ window.Admin = {
       return
     }
 
-    Store.writePath('settings/leaderboard', data)
+    // Sync local Store immediately
+    if (!Store._data.settings) Store._data.settings = {}
+    Store._data.settings.leaderboard = { ...(Store._data.settings.leaderboard || {}), ...data }
+
+    // Direct Firebase write (bypasses Store.writePath)
+    if (CONFIG.useFirebase && typeof firebase !== 'undefined') {
+      firebase.database().ref('/ithopiia/settings/leaderboard').set(data)
+        .catch(function (err) { console.error('Firebase write error:', err) })
+    }
   },
 
   saveLeaderboardSchedule() {
