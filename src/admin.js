@@ -317,7 +317,16 @@ window.Admin = {
         self._lastLeaderboardState = { manualStatus: 'open' }
         self.renderSchedulerTab()
         self._notifyDashboard()
-        alert("تم فتح المتصدرين بنجاح لايف للكل! 🔓")
+        Swal.fire({
+          title: 'تم بنجاح!',
+          text: 'تم فتح المتصدرين بنجاح لايف للكل! 🔓',
+          icon: 'success',
+          confirmButtonText: 'موافق',
+          background: '#1a1a1a',
+          color: '#ffffff',
+          confirmButtonColor: '#5c6bc0',
+          customClass: { popup: 'my-rounded-popup' }
+        })
       }).catch(function (err) { console.error("Firebase write error:", err) })
     })
 
@@ -330,7 +339,16 @@ window.Admin = {
         self._lastLeaderboardState = { manualStatus: 'closed' }
         self.renderSchedulerTab()
         self._notifyDashboard()
-        alert("تم إغلاق المتصدرين بنجاح! 🔒")
+        Swal.fire({
+          title: 'تم بنجاح!',
+          text: 'تم إغلاق المتصدرين بنجاح! 🔒',
+          icon: 'success',
+          confirmButtonText: 'موافق',
+          background: '#1a1a1a',
+          color: '#ffffff',
+          confirmButtonColor: '#5c6bc0',
+          customClass: { popup: 'my-rounded-popup' }
+        })
       }).catch(function (err) { console.error("Firebase write error:", err) })
     })
 
@@ -341,7 +359,16 @@ window.Admin = {
       var closeTime = document.getElementById('lb-close-time')?.value
 
       if (!openDate || !openTime || !closeDate || !closeTime) {
-        alert("برجاء ملء جميع خانات التاريخ والوقت أولاً! ⏰")
+        Swal.fire({
+          title: 'تنبيه',
+          text: 'برجاء ملء جميع خانات التاريخ والوقت أولاً! ⏰',
+          icon: 'warning',
+          confirmButtonText: 'حسناً',
+          background: '#1a1a1a',
+          color: '#ffffff',
+          confirmButtonColor: '#5c6bc0',
+          customClass: { popup: 'my-rounded-popup' }
+        })
         return
       }
 
@@ -356,29 +383,73 @@ window.Admin = {
         self._lastLeaderboardState = { autoOpenDateTime: autoOpenDateTime, autoCloseDateTime: autoCloseDateTime, manualStatus: 'scheduled' }
         self.renderSchedulerTab()
         self._notifyDashboard()
-        alert("تم حفظ الجدولة التلقائية بنجاح! 💾")
+        Swal.fire({
+          title: 'تم بنجاح!',
+          text: 'تم حفظ الجدولة التلقائية بنجاح! 💾',
+          icon: 'success',
+          confirmButtonText: 'موافق',
+          background: '#1a1a1a',
+          color: '#ffffff',
+          confirmButtonColor: '#5c6bc0',
+          customClass: { popup: 'my-rounded-popup' }
+        })
       }).catch(function (err) { console.error("Write failed:", err) })
     })
 
     el.querySelector('.btn-cancel-schedule')?.addEventListener('click', function () {
-      if (!confirm('هل تريد إلغاء الجدولة بالكامل؟')) return
-      firebase.database().ref('/ithopiia/settings/leaderboard').set({
-        manualStatus: "closed",
-        autoOpenDateTime: "",
-        autoCloseDateTime: ""
-      }).then(function () {
-        self._lastLeaderboardState = { manualStatus: 'closed' }
-        self.renderSchedulerTab()
-        self._notifyDashboard()
-        alert("تم إلغاء الجدولة! 🔒")
-      }).catch(function (err) { console.error("Firebase write error:", err) })
+      Swal.fire({
+        title: 'تأكيد الإلغاء',
+        text: 'هل تريد إلغاء الجدولة بالكامل؟',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'نعم، إلغاء',
+        cancelButtonText: 'تراجع',
+        background: '#1a1a1a',
+        color: '#ffffff',
+        confirmButtonColor: '#e53935',
+        cancelButtonColor: '#555',
+        customClass: { popup: 'my-rounded-popup' }
+      }).then(function (result) {
+        if (!result.isConfirmed) return
+        firebase.database().ref('/ithopiia/settings/leaderboard').set({
+          manualStatus: "closed",
+          autoOpenDateTime: "",
+          autoCloseDateTime: ""
+        }).then(function () {
+          self._lastLeaderboardState = { manualStatus: 'closed' }
+          self.renderSchedulerTab()
+          self._notifyDashboard()
+          Swal.fire({
+            title: 'تم بنجاح!',
+            text: 'تم إلغاء الجدولة! 🔒',
+            icon: 'success',
+            confirmButtonText: 'موافق',
+            background: '#1a1a1a',
+            color: '#ffffff',
+            confirmButtonColor: '#5c6bc0',
+            customClass: { popup: 'my-rounded-popup' }
+          })
+        }).catch(function (err) { console.error("Firebase write error:", err) })
+      })
     })
 
     el.querySelector('.btn-clear-override')?.addEventListener('click', function () {
       var settings = Store.get('settings') || {}
       var lb = settings.leaderboard || {}
       var hasSchedule = lb.autoOpenDateTime && lb.autoCloseDateTime
-      if (!hasSchedule) { alert('لا توجد جدولة سابقة للعودة إليها'); return }
+      if (!hasSchedule) {
+        Swal.fire({
+          title: 'لا توجد جدولة',
+          text: 'لا توجد جدولة سابقة للعودة إليها',
+          icon: 'info',
+          confirmButtonText: 'حسناً',
+          background: '#1a1a1a',
+          color: '#ffffff',
+          confirmButtonColor: '#5c6bc0',
+          customClass: { popup: 'my-rounded-popup' }
+        })
+        return
+      }
       firebase.database().ref('/ithopiia/settings/leaderboard').set({
         manualStatus: "scheduled",
         autoOpenDateTime: lb.autoOpenDateTime,
@@ -387,7 +458,16 @@ window.Admin = {
         self._lastLeaderboardState = { autoOpenDateTime: lb.autoOpenDateTime, autoCloseDateTime: lb.autoCloseDateTime, manualStatus: 'scheduled' }
         self.renderSchedulerTab()
         self._notifyDashboard()
-        alert("تم العودة للجدولة التلقائية! ↩️")
+        Swal.fire({
+          title: 'تم بنجاح!',
+          text: 'تم العودة للجدولة التلقائية! ↩️',
+          icon: 'success',
+          confirmButtonText: 'موافق',
+          background: '#1a1a1a',
+          color: '#ffffff',
+          confirmButtonColor: '#5c6bc0',
+          customClass: { popup: 'my-rounded-popup' }
+        })
       }).catch(function (err) { console.error("Firebase write error:", err) })
     })
   },
