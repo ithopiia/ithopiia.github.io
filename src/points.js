@@ -83,8 +83,8 @@ const Points = {
     var bonusTotal = 0
     var minusTotal = 0
     saved.forEach(function (p) {
-      var ev = p.evaluationScore || 0
-      var mb = p.manualBonus || 0
+      var ev = Number(p.evaluationScore) || 0
+      var mb = Number(p.manualBonus) || 0
       baseTotal += ev
       if (mb > 0) bonusTotal += mb
       else if (mb < 0) minusTotal += Math.abs(mb)

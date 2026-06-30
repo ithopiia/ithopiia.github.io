@@ -155,14 +155,14 @@ window.Admin = {
       var evalLookup = {}
       evaluationList.forEach(function (e) {
         if (e.userId === userId && e.saved) {
-          evalLookup[e.dateKey] = e.bonus || 0
+          evalLookup[e.dateKey] = Number(e.bonus) || 0
         }
       })
 
       function getBonusVal(dp) {
-        var mb = dp.manualBonus || 0
+        var mb = Number(dp.manualBonus) || 0
         if (mb !== 0) return mb
-        return evalLookup[dp.dateKey] || 0
+        return Number(evalLookup[dp.dateKey]) || 0
       }
 
       const penaltyDates = userPoints.filter(function (p) { return getBonusVal(p) < 0 }).map(function (p) { return p.dateKey }).reverse()
@@ -187,20 +187,9 @@ window.Admin = {
               <div class="stat-label">النقاط الأساسية</div>
             </div>
             <div class="stat-card">
-              <div class="stat-value" style="color:var(--green)">+${breakdown.totalBonus}</div>
-              <div class="stat-label">إجمالي البونص</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-value" style="color:var(--red)">-${breakdown.totalMinus}</div>
-              <div class="stat-label">إجمالي الماينص</div>
-            </div>
-            <div class="stat-card">
               <div class="stat-value">${userPoints.length}</div>
               <div class="stat-label">أيام مسجلة</div>
             </div>
-          </div>
-          <div style="text-align:center;margin-top:4px;font-size:0.75rem;color:var(--text-muted)">
-            الإجمالي = النقاط الأساسية + البونص - الماينص
           </div>
           ${currentRank > 0 ? `
           <div class="rank-history-line" style="margin-top:12px;text-align:center;padding:10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border)">
@@ -295,11 +284,11 @@ window.Admin = {
     function findBonusVal(dateKey) {
       var dp = userPoints.find(function (p) { return p.dateKey === dateKey })
       if (dp) {
-        var mb = dp.manualBonus || 0
+        var mb = Number(dp.manualBonus) || 0
         if (mb !== 0) return mb
       }
       var ev = evaluationList.find(function (e) { return e.dateKey === dateKey && e.saved })
-      return ev ? (ev.bonus || 0) : 0
+      return ev ? (Number(ev.bonus) || 0) : 0
     }
 
     if (activeTab === 'penalty' && penaltyDates.length > 0) {
