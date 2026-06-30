@@ -396,7 +396,7 @@ window.Evaluation = {
   _syncCumulativeToFirebase(userId) {
     const dailyPoints = Store.get('dailyPoints') || []
     const total = dailyPoints
-      .filter(p => p.userId === userId && p.saved)
+      .filter(p => p.userId === userId && p.saved !== false)
       .reduce((sum, p) => sum + (p.finalScore ?? 0), 0)
     const users = Store.get('users') || []
     const user = users.find(u => u.id === userId)

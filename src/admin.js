@@ -130,7 +130,7 @@ window.Admin = {
     const renderModal = () => {
       const freshUser = (Store.get('users') || []).find(u => u.id === userId) || user
       const dailyPoints = Store.get('dailyPoints') || []
-      const userPoints = dailyPoints.filter(p => p.userId === userId && p.saved)
+      const userPoints = dailyPoints.filter(p => p.userId === userId && p.saved !== false)
         .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
 
       const notes = Store.get('notes') || []

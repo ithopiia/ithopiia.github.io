@@ -102,7 +102,7 @@ window.Store = {
     this._recalculating = true
     const totals = {}
     this._data.dailyPoints.forEach(p => {
-      if (p.saved) {
+      if (p.saved !== false) {
         totals[p.userId] = (totals[p.userId] || 0) + (p.finalScore ?? 0)
       }
     })

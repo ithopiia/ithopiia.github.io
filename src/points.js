@@ -72,13 +72,13 @@ const Points = {
   getUserTotalPoints(userId) {
     const all = Store.get('dailyPoints') || []
     return all
-      .filter(p => p.userId === userId && p.saved)
+      .filter(p => p.userId === userId && p.saved !== false)
       .reduce((sum, p) => sum + (p.finalScore ?? p.basePoints), 0)
   },
 
   getUserPointsBreakdown(userId) {
     const all = Store.get('dailyPoints') || []
-    const saved = all.filter(p => p.userId === userId && p.saved)
+    const saved = all.filter(p => p.userId === userId && p.saved !== false)
     var baseTotal = 0
     var bonusTotal = 0
     var minusTotal = 0
@@ -150,7 +150,7 @@ const Points = {
   isDaySaved(dateKey) {
     const all = Store.get('dailyPoints') || []
     const today = all.filter(p => p.dateKey === dateKey)
-    return today.length > 0 && today.every(p => p.saved)
+    return today.length > 0 && today.every(p => p.saved !== false)
   },
 
   claim(userId) {
@@ -162,7 +162,7 @@ const Points = {
     const all = Store.get('dailyPoints') || []
     const months = new Set()
     all.forEach(p => {
-      if (p.saved && p.dateKey) {
+      if (p.saved !== false && p.dateKey) {
         months.add(p.dateKey.substring(0, 7))
       }
     })
@@ -172,7 +172,7 @@ const Points = {
   getMonthlyPoints(userId, yearMonth) {
     const all = Store.get('dailyPoints') || []
     return all
-      .filter(p => p.userId === userId && p.saved && p.dateKey && p.dateKey.startsWith(yearMonth))
+      .filter(p => p.userId === userId && p.saved !== false && p.dateKey && p.dateKey.startsWith(yearMonth))
       .reduce((sum, p) => sum + (p.finalScore ?? 0), 0)
   },
 
