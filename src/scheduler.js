@@ -15,71 +15,47 @@ function applyLeaderboardLockOverlay() {
 function startLiveLeaderboardScheduler() {
     if (!CONFIG.useFirebase) return;
 
-    var db = firebase.database();
-    var leaderboardRef = db.ref('ithopiia/settings/leaderboard');
-    var listenerRef;
+    if (window.leaderboardTimerInterval) {
+        clearInterval(window.leaderboardTimerInterval);
+    }
 
-    listenerRef = leaderboardRef.on('value', function (snapshot) {
-        var schedule = snapshot.val();
-        if (!schedule) return;
+    window.leaderboardTimerInterval = setInterval(function () {
+        var now = new Date();
+        var schedule = (Store._data && Store._data.settings && Store._data.settings.leaderboard) || {};
 
-        if (window.leaderboardTimerInterval) {
-            clearInterval(window.leaderboardTimerInterval);
-        }
+        var openDateTimeStr = schedule.openDate && schedule.openHour !== undefined
+            ? schedule.openDate + 'T' + String(schedule.openHour).padStart(2, '0') + ':' + String(schedule.openMinute).padStart(2, '0') + ':' + String(schedule.openSecond).padStart(2, '0')
+            : null;
+        var closeDateTimeStr = schedule.closeDate && schedule.closeHour !== undefined
+            ? schedule.closeDate + 'T' + String(schedule.closeHour).padStart(2, '0') + ':' + String(schedule.closeMinute).padStart(2, '0') + ':' + String(schedule.closeSecond).padStart(2, '0')
+            : null;
 
-        window.leaderboardTimerInterval = setInterval(function () {
-            var now = new Date();
+        var openDateTime = openDateTimeStr ? new Date(openDateTimeStr) : null;
+        var closeDateTime = closeDateTimeStr ? new Date(closeDateTimeStr) : null;
 
-            var openDateTimeStr = schedule.openDate && schedule.openHour !== undefined
-                ? schedule.openDate + 'T' + String(schedule.openHour).padStart(2, '0') + ':' + String(schedule.openMinute).padStart(2, '0') + ':' + String(schedule.openSecond).padStart(2, '0')
-                : null;
-            var closeDateTimeStr = schedule.closeDate && schedule.closeHour !== undefined
-                ? schedule.closeDate + 'T' + String(schedule.closeHour).padStart(2, '0') + ':' + String(schedule.closeMinute).padStart(2, '0') + ':' + String(schedule.closeSecond).padStart(2, '0')
-                : null;
+        var leaderboardContainer = document.querySelector('.leaderboard-page-container');
+        var statusLabel = document.querySelector('.status-text-container');
+        var currentRole = getCurrentUserRole();
 
-            var openDateTime = openDateTimeStr ? new Date(openDateTimeStr) : null;
-            var closeDateTime = closeDateTimeStr ? new Date(closeDateTimeStr) : null;
+        var isInsideOpenWindow = openDateTime && closeDateTime && (now >= openDateTime && now <= closeDateTime);
 
-            var leaderboardContainer = document.querySelector('.leaderboard-page-container');
-            var statusLabel = document.querySelector('.status-text-container');
-            var currentRole = getCurrentUserRole();
+        if (schedule.forceOverride === 'open') isInsideOpenWindow = true;
+        if (schedule.forceOverride === 'closed') isInsideOpenWindow = false;
 
-            var isInsideOpenWindow = openDateTime && closeDateTime && (now >= openDateTime && now <= closeDateTime);
-
-            if (Store._data && Store._data.settings) {
-                if (!Store._data.settings.leaderboard) Store._data.settings.leaderboard = {};
-                Store._data.settings.leaderboard.openAt = openDateTime ? openDateTime.getTime() : null;
-                Store._data.settings.leaderboard.closeAt = closeDateTime ? closeDateTime.getTime() : null;
-                Store._data.settings.leaderboard.visible = isInsideOpenWindow;
+        if (currentRole === 'Admin' || isInsideOpenWindow || schedule.manualStatus === 'open') {
+            if (leaderboardContainer) {
+                leaderboardContainer.classList.remove('view-locked');
+                var overlay = document.querySelector('.leaderboard-lock-overlay');
+                if (overlay) overlay.remove();
             }
-
-            if (currentRole === 'Admin' || currentRole === 'Member' || isInsideOpenWindow || schedule.manualStatus === 'open') {
-                if (leaderboardContainer) {
-                    leaderboardContainer.classList.remove('view-locked');
-                    var overlay = document.querySelector('.leaderboard-lock-overlay');
-                    if (overlay) overlay.remove();
-                }
-                if (statusLabel && isInsideOpenWindow) {
-                    statusLabel.innerHTML = '🟢 المتصدرين ظاهر الآن للمستخدمين';
-                }
-            } else {
-                if (currentRole === 'User') {
-                    applyLeaderboardLockOverlay();
-                    if (statusLabel) {
-                        statusLabel.innerHTML = '🔴 المتصدرين مخفي عن المستخدمين';
-                    }
-                }
+            if (statusLabel && isInsideOpenWindow) {
+                statusLabel.innerHTML = '🟢 المتصدرين ظاهر الآن للمستخدمين';
             }
-        }, 1000);
-    });
-
-    window._leaderboardSchedulerRef = listenerRef;
-    window._leaderboardSchedulerOff = function () {
-        if (window.leaderboardTimerInterval) {
-            clearInterval(window.leaderboardTimerInterval);
+        } else if (currentRole === 'User') {
+            applyLeaderboardLockOverlay();
+            if (statusLabel) {
+                statusLabel.innerHTML = '🔴 المتصدرين مخفي عن المستخدمين';
+            }
         }
-        if (listenerRef) {
-            leaderboardRef.off('value', listenerRef);
-        }
-    };
+    }, 1000);
 }

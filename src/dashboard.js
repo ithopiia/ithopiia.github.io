@@ -27,11 +27,16 @@ function checkGlobalLockStatus() {
 function forceLeaderboardSync() {
   const user = Auth.currentUser()
   if (!user) return
-  const activeRole = typeof Auth.getCurrentActiveRole === 'function' ? Auth.getCurrentActiveRole() : user.role
-  const isOpen = activeRole === 'admin' || activeRole === 'member' || checkGlobalLockStatus()
-
-  const wrapper = document.querySelector('.lb-locked-overlay-wrapper')
-
+  if (user.role === 'admin') {
+    var wrapper = document.querySelector('.lb-locked-overlay-wrapper')
+    if (wrapper) wrapper.remove()
+    if (typeof Dashboard?.renderLeaderboard === 'function') {
+      Dashboard.renderLeaderboard()
+    }
+    return
+  }
+  var isOpen = checkGlobalLockStatus()
+  var wrapper = document.querySelector('.lb-locked-overlay-wrapper')
   if (isOpen) {
     if (wrapper) wrapper.remove()
     if (typeof Dashboard?.renderLeaderboard === 'function') {
@@ -64,27 +69,7 @@ window.Dashboard = {
     if (this._unsubscribe) this._unsubscribe()
     this._unsubscribe = Store.onChange(() => this.autoRefresh(Auth.currentUser()))
 
-    if (this._lbVisibleUnsub) this._lbVisibleUnsub()
-    if (CONFIG.useFirebase) {
-      const db = firebase.database()
-      const visRef = db.ref('ithopiia/settings/leaderboard')
-      const cb = visRef.on('value', snap => {
-        if (!snap.exists()) return
-        const val = snap.val()
-        if (!Store._data.settings) Store._data.settings = {}
-        Store._data.settings.leaderboard = Store._data.settings.leaderboard || {}
-        if (val.visible !== undefined) Store._data.settings.leaderboard.visible = val.visible
-        if (val.forceOverride !== undefined) Store._data.settings.leaderboard.forceOverride = val.forceOverride
-        if (val.openAt !== undefined) Store._data.settings.leaderboard.openAt = val.openAt
-        if (val.closeAt !== undefined) Store._data.settings.leaderboard.closeAt = val.closeAt
-        const n = Date.now()
-        if (val.forceOverride === 'open') window.isLeaderboardOpen = true
-        else if (val.forceOverride === 'closed') window.isLeaderboardOpen = false
-        else if (val.openAt && val.closeAt) window.isLeaderboardOpen = n >= val.openAt && n < val.closeAt
-        this.updateLeaderboardLockState()
-      })
-      this._lbVisibleUnsub = () => visRef.off('value', cb)
-    }
+    // Live state is handled by global listenToLeaderboardLiveState() in app.js
 
     this._startLbReleaseTimer()
 
@@ -98,8 +83,15 @@ window.Dashboard = {
   updateLeaderboardLockState() {
     const user = Auth.currentUser()
     if (!user) return
-    const activeRole = typeof Auth.getCurrentActiveRole === 'function' ? Auth.getCurrentActiveRole() : user.role
-    if (activeRole === 'admin' || activeRole === 'member') {
+    if (user.role === 'admin') {
+      document.querySelectorAll('.lb-locked-overlay-wrapper').forEach(el => el.remove())
+      this.renderLeaderboard()
+      this.updateLeaderboardTabVisibility()
+      this.renderStats(user)
+      this.renderUserInfo(user)
+      return
+    }
+    if (Auth.isLeaderboardReleased()) {
       document.querySelectorAll('.lb-locked-overlay-wrapper').forEach(el => el.remove())
     }
     this.renderLeaderboard()
@@ -309,6 +301,7 @@ window.Dashboard = {
     }
     if (el && !el.classList.contains('leaderboard-page-container')) {
       el.classList.add('leaderboard-page-container')
+      el.classList.add('profile-leaderboard-section')
     }
     el.innerHTML = lbHtml
     this._animateLockOpen()

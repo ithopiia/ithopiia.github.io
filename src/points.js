@@ -29,7 +29,7 @@ const Points = {
       saved: true,
     }
     const currentUser = (typeof Auth !== 'undefined' && Auth.currentUser) ? Auth.currentUser() : null
-    const canWrite = currentUser && (currentUser.role === 'admin' || currentUser.role === 'member')
+    const canWrite = currentUser && (currentUser.role === 'admin' || currentUser.role === 'member') && !window._leaderboardWritesBlocked
     if (canWrite) {
       Store.writePath(`dailyPoints/${key}/${userId}`, {
         basePoints: entry.basePoints,

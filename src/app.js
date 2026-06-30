@@ -8,17 +8,94 @@ async function initLeaderboardPersistence() {
       Store._data.settings.leaderboard = Store._data.settings.leaderboard || {}
       Object.assign(Store._data.settings.leaderboard, data)
       const now = Date.now()
-      const openAt = data.openAt
-      const closeAt = data.closeAt
-      if (data.forceOverride === 'open' || (openAt && closeAt && now >= openAt && now < closeAt)) {
+      if (data.forceOverride === 'open') {
         window.isLeaderboardOpen = true
-      } else {
+      } else if (data.forceOverride === 'closed') {
         window.isLeaderboardOpen = false
+      } else if (data.openDate && data.openHour !== undefined && data.closeDate && data.closeHour !== undefined) {
+        var pad = function (n) { return String(n).padStart(2, '0') }
+        var openTime = new Date(
+          data.openDate + 'T' +
+          pad(data.openHour) + ':' +
+          pad(data.openMinute != null ? data.openMinute : 0) + ':' +
+          pad(data.openSecond != null ? data.openSecond : 0)
+        ).getTime()
+        var closeTime = new Date(
+          data.closeDate + 'T' +
+          pad(data.closeHour) + ':' +
+          pad(data.closeMinute != null ? data.closeMinute : 0) + ':' +
+          pad(data.closeSecond != null ? data.closeSecond : 0)
+        ).getTime()
+        if (!isNaN(openTime) && !isNaN(closeTime)) {
+          window.isLeaderboardOpen = now >= openTime && now < closeTime
+        }
+      } else if (data.openAt && data.closeAt) {
+        window.isLeaderboardOpen = now >= data.openAt && now < data.closeAt
       }
     }
   } catch (e) {
     // Firebase unavailable — persist nothing
   }
+}
+
+function listenToLeaderboardLiveState() {
+  if (!CONFIG.useFirebase || typeof firebase === 'undefined') return
+  var db = firebase.database()
+  var ref = db.ref('ithopiia/settings/leaderboard')
+  ref.on('value', function (snapshot) {
+    var settings = snapshot.val()
+    if (!settings) return
+
+    var now = new Date()
+    var openTime, closeTime
+    if (settings.openDate && settings.openHour !== undefined && settings.closeDate && settings.closeHour !== undefined) {
+      var pad = function (n) { return String(n).padStart(2, '0') }
+      openTime = new Date(
+        settings.openDate + 'T' +
+        pad(settings.openHour) + ':' +
+        pad(settings.openMinute != null ? settings.openMinute : 0) + ':' +
+        pad(settings.openSecond != null ? settings.openSecond : 0)
+      )
+      closeTime = new Date(
+        settings.closeDate + 'T' +
+        pad(settings.closeHour) + ':' +
+        pad(settings.closeMinute != null ? settings.closeMinute : 0) + ':' +
+        pad(settings.closeSecond != null ? settings.closeSecond : 0)
+      )
+    }
+
+    var isCurrentlyOpen = false
+    if (settings.forceOverride === 'open' || settings.manualStatus === 'open') {
+      isCurrentlyOpen = true
+    } else if (settings.forceOverride === 'closed') {
+      isCurrentlyOpen = false
+    } else if (openTime && closeTime && !isNaN(openTime.getTime()) && !isNaN(closeTime.getTime())) {
+      isCurrentlyOpen = now >= openTime && now <= closeTime
+    }
+
+    window.isLeaderboardOpen = isCurrentlyOpen
+    window._leaderboardWritesBlocked = !isCurrentlyOpen
+
+    var currentRole = getCurrentUserRole()
+    var profileLeaderboard = document.querySelector('.profile-leaderboard-section')
+
+    if (isCurrentlyOpen) {
+      if (typeof Dashboard !== 'undefined' && Dashboard) {
+        var wrapper = document.querySelector('.lb-locked-overlay-wrapper')
+        if (wrapper) wrapper.remove()
+        Dashboard.renderLeaderboard()
+        Dashboard.updateLeaderboardTabVisibility()
+      }
+    } else {
+      if (currentRole === 'User' || profileLeaderboard) {
+        if (typeof Dashboard !== 'undefined' && Dashboard) {
+          Dashboard.renderLeaderboard()
+          Dashboard.updateLeaderboardTabVisibility()
+        }
+      }
+    }
+  })
+  window._lbLiveStateRef = ref
 }
 
 window.App = {
@@ -35,6 +112,7 @@ window.App = {
         }
       }
       initLeaderboardPersistence().then(() => {
+        listenToLeaderboardLiveState()
         if (typeof startLiveLeaderboardScheduler === 'function') {
           startLiveLeaderboardScheduler()
         }
@@ -169,7 +247,6 @@ window.App = {
     Admin.render()
     document.getElementById('admin-nav-btn').style.display = 'none'
     document.getElementById('profile-nav-btn').style.display = Auth.isMember() ? '' : 'none'
-    this._updateViewModeBtn()
     setTimeout(() => this._restoreTab('admin'), 50)
   },
 
@@ -180,38 +257,7 @@ window.App = {
     Dashboard.render()
     document.getElementById('profile-nav-btn').style.display = 'none'
     document.getElementById('admin-nav-btn').style.display = Auth.isMember() ? '' : 'none'
-    this._updateViewModeBtn()
     setTimeout(() => this._restoreTab('dashboard'), 50)
-  },
-
-  async toggleViewMode() {
-    const user = Auth.currentUser()
-    if (!user || (user.role !== 'admin' && user.role !== 'member')) return
-    const current = Auth.getCurrentActiveRole()
-    const newMode = current === 'user' ? 'leader' : 'user'
-    const res = await Auth.setViewMode(newMode)
-    if (res.ok) {
-      this._updateViewModeBtn()
-      if (newMode === 'user') {
-        this.showDashboard()
-      } else {
-        this.showAdmin()
-      }
-    }
-  },
-
-  _updateViewModeBtn() {
-    const btn = document.getElementById('view-mode-btn')
-    const user = Auth.currentUser()
-    if (!btn || !user) return
-    const isLeader = user.role === 'admin' || user.role === 'member'
-    btn.style.display = isLeader ? '' : 'none'
-    const activeRole = Auth.getCurrentActiveRole()
-    if (activeRole === 'user') {
-      btn.innerHTML = '👑 <span>العودة للمشرف</span>'
-    } else {
-      btn.innerHTML = '👁 <span>مشاهدة كمستخدم</span>'
-    }
   },
 
   _restoreTab(view) {
@@ -234,8 +280,7 @@ window.App = {
     }
 
     const user = Auth.currentUser()
-    const realRole = user?.role
-    const activeRole = Auth.getCurrentActiveRole()
+    const role = user?.role
     const isApproved = user?.status === 'approved'
     const logoutBtn = document.getElementById('logout-btn')
     const adminNavBtn = document.getElementById('admin-nav-btn')
@@ -245,15 +290,14 @@ window.App = {
     if (logoutBtn) logoutBtn.style.display = user ? '' : 'none'
 
     const savedView = localStorage.getItem('ithopiia_activeView')
-    this._updateViewModeBtn()
 
-    if (user && activeRole === 'admin' && isApproved) {
+    if (user && role === 'admin' && isApproved) {
       if (adminNavBtn) adminNavBtn.style.display = 'none'
       if (profileNavBtn) profileNavBtn.style.display = 'none'
       document.getElementById('view-admin')?.classList.add('active')
       Admin.render()
       setTimeout(() => this._restoreTab('admin'), 50)
-    } else if (user && activeRole === 'member' && isApproved) {
+    } else if (user && role === 'member' && isApproved) {
       if (savedView === 'admin') {
         if (adminNavBtn) adminNavBtn.style.display = 'none'
         if (profileNavBtn) profileNavBtn.style.display = ''
