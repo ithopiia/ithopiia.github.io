@@ -144,6 +144,8 @@ window.Admin = {
         return r ? r.name : id
       }).join(', ') || '-'
 
+      var breakdown = Points.getUserPointsBreakdown(userId)
+
       const currentRank = freshUser.currentRank ?? Store.getUserRank(userId)
       const previousRank = freshUser.previousRank
 
@@ -161,15 +163,30 @@ window.Admin = {
           <span class="badge" style="background:var(--accent);color:#000">${freshUser.role === 'member' ? 'عضو لجنة' : 'مستخدم'}</span>
         </div>
         <div class="modal-body">
-          <div class="stats-grid" style="grid-template-columns:1fr 1fr">
+          <div class="stats-grid" style="grid-template-columns:1fr 1fr 1fr 1fr">
             <div class="stat-card">
-              <div class="stat-value" id="modal-cumulative-${userId}">${freshUser.cumulativePoints || 0}</div>
-              <div class="stat-label">إجمالي النقاط</div>
+              <div class="stat-value" id="modal-cumulative-${userId}">${breakdown.grandTotal}</div>
+              <div class="stat-label">الإجمالي النهائي</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${breakdown.basePoints}</div>
+              <div class="stat-label">النقاط الأساسية</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" style="color:var(--green)">+${breakdown.totalBonus}</div>
+              <div class="stat-label">إجمالي البونص</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" style="color:var(--red)">-${breakdown.totalMinus}</div>
+              <div class="stat-label">إجمالي الماينص</div>
             </div>
             <div class="stat-card">
               <div class="stat-value">${userPoints.length}</div>
               <div class="stat-label">أيام مسجلة</div>
             </div>
+          </div>
+          <div style="text-align:center;margin-top:4px;font-size:0.75rem;color:var(--text-muted)">
+            الإجمالي = النقاط الأساسية + البونص - الماينص
           </div>
           ${currentRank > 0 ? `
           <div class="rank-history-line" style="margin-top:12px;text-align:center;padding:10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border)">

@@ -76,6 +76,27 @@ const Points = {
       .reduce((sum, p) => sum + (p.finalScore ?? p.basePoints), 0)
   },
 
+  getUserPointsBreakdown(userId) {
+    const all = Store.get('dailyPoints') || []
+    const saved = all.filter(p => p.userId === userId && p.saved)
+    var baseTotal = 0
+    var bonusTotal = 0
+    var minusTotal = 0
+    saved.forEach(function (p) {
+      var ev = p.evaluationScore || 0
+      var mb = p.manualBonus || 0
+      baseTotal += ev
+      if (mb > 0) bonusTotal += mb
+      else if (mb < 0) minusTotal += Math.abs(mb)
+    })
+    return {
+      basePoints: baseTotal,
+      totalBonus: bonusTotal,
+      totalMinus: minusTotal,
+      grandTotal: baseTotal + bonusTotal - minusTotal
+    }
+  },
+
   getAllUsersTotalPoints() {
     const users = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
     return users.map(u => ({

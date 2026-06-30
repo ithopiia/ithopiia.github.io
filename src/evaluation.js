@@ -358,8 +358,10 @@ window.Evaluation = {
       }
       dailyPoints.push(dp)
     }
-    dp.evaluationScore = adjustment
-    dp.finalScore = this.BASELINE_POINTS + (adjustment || 0) + (dp.manualBonus || 0)
+    var bonusVal = evalEntry && typeof evalEntry.bonus === 'number' ? evalEntry.bonus : 0
+    dp.manualBonus = bonusVal
+    dp.evaluationScore = (adjustment || 0) - bonusVal
+    dp.finalScore = this.BASELINE_POINTS + (adjustment || 0)
     dp.saved = true
 
     if (dp.finalScore <= 0) {
@@ -480,12 +482,13 @@ window.Evaluation = {
         }
       }
       if (!existing) {
+        var bonusVal = typeof e.bonus === 'number' ? e.bonus : 0
         dailyPoints.push({
           userId: e.userId, dateKey,
           date: new Date().toISOString(),
           basePoints: this.BASELINE_POINTS,
-          evaluationScore: e.totalScore,
-          manualBonus: 0,
+          evaluationScore: (e.totalScore || 0) - bonusVal,
+          manualBonus: bonusVal,
           overwritten: false,
           finalScore: this.BASELINE_POINTS + (e.totalScore || 0),
           adminNotes: '',
