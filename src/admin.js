@@ -152,21 +152,26 @@ window.Admin = {
       const prevLabel = previousRank ? 'السابق' : null
 
       var evaluationList = Store.get('evaluation') || []
-      var evalLookup = {}
+      var evalCategoryMap = {}
       evaluationList.forEach(function (e) {
         if (e.userId === userId && e.saved) {
-          evalLookup[e.dateKey] = Number(e.bonus) || 0
+          var cats = {}
+          Evaluation.COLUMNS.forEach(function (c) {
+            var val = Number(e[c.key]) || 0
+            if (val !== 0) cats[c.key] = val
+          })
+          evalCategoryMap[e.dateKey] = cats
         }
       })
 
-      function getBonusVal(dp) {
-        var mb = Number(dp.manualBonus) || 0
-        if (mb !== 0) return mb
-        return Number(evalLookup[dp.dateKey]) || 0
-      }
-
-      const penaltyDates = userPoints.filter(function (p) { return getBonusVal(p) < 0 }).map(function (p) { return p.dateKey }).reverse()
-      const bonusDates = userPoints.filter(function (p) { return getBonusVal(p) > 0 }).map(function (p) { return p.dateKey }).reverse()
+      const penaltyDates = userPoints.filter(function (p) {
+        var cats = evalCategoryMap[p.dateKey]
+        return cats && Object.values(cats).some(function (v) { return v < 0 })
+      }).map(function (p) { return p.dateKey }).reverse()
+      const bonusDates = userPoints.filter(function (p) {
+        var cats = evalCategoryMap[p.dateKey]
+        return cats && cats.bonus > 0
+      }).map(function (p) { return p.dateKey }).reverse()
       const zeroDates = userPoints.filter(function (p) { return (p.finalScore || 0) <= 0 }).map(function (p) { return p.dateKey }).reverse()
 
       overlay.innerHTML = `
@@ -243,7 +248,7 @@ window.Admin = {
             </div>
           </div>
           <div class="stats-timeline" id="stats-timeline-${userId}">
-            ${Admin._renderTimeline(Admin._activeStatTab, penaltyDates, bonusDates, zeroDates, userPoints)}
+            ${Admin._renderTimeline(Admin._activeStatTab, penaltyDates, bonusDates, zeroDates, userPoints, evalCategoryMap)}
           </div>
         </div>
       </div>`
@@ -278,35 +283,35 @@ window.Admin = {
     })
   },
 
-  _renderTimeline(activeTab, penaltyDates, bonusDates, zeroDates, userPoints) {
-    var evaluationList = Store.get('evaluation') || []
-
-    function findBonusVal(dateKey) {
-      var dp = userPoints.find(function (p) { return p.dateKey === dateKey })
-      if (dp) {
-        var mb = Number(dp.manualBonus) || 0
-        if (mb !== 0) return mb
-      }
-      var ev = evaluationList.find(function (e) { return e.dateKey === dateKey && e.saved })
-      return ev ? (Number(ev.bonus) || 0) : 0
-    }
-
+  _renderTimeline(activeTab, penaltyDates, bonusDates, zeroDates, userPoints, evalCategoryMap) {
     if (activeTab === 'penalty' && penaltyDates.length > 0) {
       return penaltyDates.map(function (d) {
-        var val = findBonusVal(d)
+        var cats = evalCategoryMap ? evalCategoryMap[d] : null
+        var parts = []
+        if (cats) {
+          Object.keys(cats).forEach(function (k) {
+            if (cats[k] < 0) {
+              var colDef = Evaluation.COLUMNS.find(function (c) { return c.key === k })
+              var label = colDef ? colDef.label : k
+              parts.push(label + ' (' + cats[k] + ')')
+            }
+          })
+        }
+        if (parts.length === 0) parts.push('تمنص')
         return `
         <div class="timeline-item">
           <div class="timeline-marker timeline-marker-penalty"></div>
           <div class="timeline-content">
             <div class="timeline-date">${d}</div>
-            <div class="timeline-desc" style="color:var(--red)">تمنص (${val})</div>
+            <div class="timeline-desc" style="color:var(--red)">${parts.join(' , ')}</div>
           </div>
         </div>`
       }).join('')
     }
     if (activeTab === 'bonus' && bonusDates.length > 0) {
       return bonusDates.map(function (d) {
-        var val = findBonusVal(d)
+        var cats = evalCategoryMap ? evalCategoryMap[d] : null
+        var val = cats ? cats.bonus : 1
         return `
         <div class="timeline-item">
           <div class="timeline-marker timeline-marker-bonus"></div>
