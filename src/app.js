@@ -1,101 +1,29 @@
 async function initLeaderboardPersistence() {
   if (!CONFIG.useFirebase) return
   try {
-    const snap = await firebase.database().ref('ithopiia/settings/leaderboard').once('value')
+    var snap = await firebase.database().ref('ithopiia/settings/leaderboard').once('value')
     if (snap.exists()) {
-      const data = snap.val()
+      var data = snap.val()
       if (!Store._data.settings) Store._data.settings = {}
       Store._data.settings.leaderboard = Store._data.settings.leaderboard || {}
       Object.assign(Store._data.settings.leaderboard, data)
-      const now = Date.now()
-      if (data.forceOverride === 'open') {
-        window.isLeaderboardOpen = true
-      } else if (data.forceOverride === 'closed') {
-        window.isLeaderboardOpen = false
-      } else if (data.openDate && data.openHour !== undefined && data.closeDate && data.closeHour !== undefined) {
-        var pad = function (n) { return String(n).padStart(2, '0') }
-        var openTime = new Date(
-          data.openDate + 'T' +
-          pad(data.openHour) + ':' +
-          pad(data.openMinute != null ? data.openMinute : 0) + ':' +
-          pad(data.openSecond != null ? data.openSecond : 0)
-        ).getTime()
-        var closeTime = new Date(
-          data.closeDate + 'T' +
-          pad(data.closeHour) + ':' +
-          pad(data.closeMinute != null ? data.closeMinute : 0) + ':' +
-          pad(data.closeSecond != null ? data.closeSecond : 0)
-        ).getTime()
-        if (!isNaN(openTime) && !isNaN(closeTime)) {
-          window.isLeaderboardOpen = now >= openTime && now < closeTime
+      var now = new Date()
+      var isOpen = false
+      if (data.manualStatus === 'open') {
+        isOpen = true
+      } else if (data.manualStatus === 'scheduled' && data.autoOpenDateTime && data.autoCloseDateTime) {
+        var openTime = new Date(data.autoOpenDateTime)
+        var closeTime = new Date(data.autoCloseDateTime)
+        if (!isNaN(openTime.getTime()) && !isNaN(closeTime.getTime())) {
+          isOpen = now >= openTime && now <= closeTime
         }
-      } else if (data.openAt && data.closeAt) {
-        window.isLeaderboardOpen = now >= data.openAt && now < data.closeAt
       }
+      window.isLeaderboardOpen = isOpen
+      window._leaderboardWritesBlocked = !isOpen
     }
   } catch (e) {
     // Firebase unavailable — persist nothing
   }
-}
-
-function listenToLeaderboardLiveState() {
-  if (!CONFIG.useFirebase || typeof firebase === 'undefined') return
-  var db = firebase.database()
-  var ref = db.ref('ithopiia/settings/leaderboard')
-  ref.on('value', function (snapshot) {
-    var settings = snapshot.val()
-    if (!settings) return
-
-    var now = new Date()
-    var openTime, closeTime
-    if (settings.openDate && settings.openHour !== undefined && settings.closeDate && settings.closeHour !== undefined) {
-      var pad = function (n) { return String(n).padStart(2, '0') }
-      openTime = new Date(
-        settings.openDate + 'T' +
-        pad(settings.openHour) + ':' +
-        pad(settings.openMinute != null ? settings.openMinute : 0) + ':' +
-        pad(settings.openSecond != null ? settings.openSecond : 0)
-      )
-      closeTime = new Date(
-        settings.closeDate + 'T' +
-        pad(settings.closeHour) + ':' +
-        pad(settings.closeMinute != null ? settings.closeMinute : 0) + ':' +
-        pad(settings.closeSecond != null ? settings.closeSecond : 0)
-      )
-    }
-
-    var isCurrentlyOpen = false
-    if (settings.forceOverride === 'open' || settings.manualStatus === 'open') {
-      isCurrentlyOpen = true
-    } else if (settings.forceOverride === 'closed') {
-      isCurrentlyOpen = false
-    } else if (openTime && closeTime && !isNaN(openTime.getTime()) && !isNaN(closeTime.getTime())) {
-      isCurrentlyOpen = now >= openTime && now <= closeTime
-    }
-
-    window.isLeaderboardOpen = isCurrentlyOpen
-    window._leaderboardWritesBlocked = !isCurrentlyOpen
-
-    var currentRole = getCurrentUserRole()
-    var profileLeaderboard = document.querySelector('.profile-leaderboard-section')
-
-    if (isCurrentlyOpen) {
-      if (typeof Dashboard !== 'undefined' && Dashboard) {
-        var wrapper = document.querySelector('.lb-locked-overlay-wrapper')
-        if (wrapper) wrapper.remove()
-        Dashboard.renderLeaderboard()
-        Dashboard.updateLeaderboardTabVisibility()
-      }
-    } else {
-      if (currentRole === 'User' || profileLeaderboard) {
-        if (typeof Dashboard !== 'undefined' && Dashboard) {
-          Dashboard.renderLeaderboard()
-          Dashboard.updateLeaderboardTabVisibility()
-        }
-      }
-    }
-  })
-  window._lbLiveStateRef = ref
 }
 
 window.App = {
@@ -112,7 +40,6 @@ window.App = {
         }
       }
       initLeaderboardPersistence().then(() => {
-        listenToLeaderboardLiveState()
         if (typeof startLiveLeaderboardScheduler === 'function') {
           startLiveLeaderboardScheduler()
         }

@@ -1,26 +1,8 @@
 function checkGlobalLockStatus() {
-  const now = Date.now()
-  const settings = (Store.get('settings') || {})
-  const lb = settings.leaderboard || {}
-
   if (window.leaderboardManualOverride === 'open') return true
   if (window.leaderboardManualOverride === 'closed') return false
   if (window.isLeaderboardOpen === true) return true
   if (window.isLeaderboardOpen === false) return false
-  if (lb.forceOverride === 'open') return true
-  if (lb.forceOverride === 'closed') return false
-
-  const legacyOverride = settings.leaderboardForceOverride
-  if (legacyOverride === 'open') return true
-  if (legacyOverride === 'closed') return false
-
-  const openAt = lb.openAt || settings.leaderboardReleasedFrom
-  const closeAt = lb.closeAt || settings.leaderboardReleasedUntil
-  if (openAt && closeAt) return now >= openAt && now < closeAt
-  if (openAt) return now >= openAt
-  if (closeAt) return now < closeAt
-
-  if (lb.visible !== undefined) return lb.visible
   return false
 }
 
@@ -278,21 +260,26 @@ window.Dashboard = {
   },
 
   renderLeaderboard() {
-    const el = document.getElementById('dash-leaderboard-content')
-    const released = Auth.isLeaderboardReleased()
-    const settings = Store.get('settings') || {}
-    const until = settings.leaderboard?.closeAt || settings.leaderboardReleasedUntil
-    const hasSchedule = until && Date.now() < until
-    const lbHtml = window.Leaderboard ? Leaderboard.renderDashboard() : '<p class="text-muted">لا توجد بيانات.</p>'
+    var el = document.getElementById('dash-leaderboard-content')
+    var released = Auth.isLeaderboardReleased()
+    var settings = Store.get('settings') || {}
+    var lb = settings.leaderboard || {}
+    var autoClose = lb.autoCloseDateTime || null
+    var hasSchedule = autoClose ? new Date(autoClose).getTime() > Date.now() : false
+    var lbHtml = window.Leaderboard ? Leaderboard.renderDashboard() : '<p class="text-muted">لا توجد بيانات.</p>'
 
     if (!released) {
-      const remaining = hasSchedule ? Math.floor((until - Date.now()) / 1000) : 0
+      var remaining = 0
+      if (autoClose) {
+        var c = new Date(autoClose).getTime()
+        if (!isNaN(c) && c > Date.now()) remaining = Math.floor((c - Date.now()) / 1000)
+      }
       el.innerHTML = `
         <div class="lb-locked-overlay-wrapper">
           <div class="lb-locked-overlay">
             <div class="lb-lock-icon" id="lb-main-lock-icon">🔒</div>
             <p>لوحة المتصدرين مقفلة حاليًا</p>
-            ${hasSchedule ? `<div class="lb-countdown-until">متاح خلال <span id="lb-release-countdown">${Timer.formatTime(remaining)}</span></div>` : ''}
+            ${remaining > 0 ? '<div class="lb-countdown-until">متاح خلال <span id="lb-release-countdown">' + Timer.formatTime(remaining) + '</span></div>' : ''}
           </div>
           <div class="lb-locked-content" id="lb-locked-content" style="filter:blur(6px);pointer-events:none;user-select:none;opacity:0.4">
             ${lbHtml}
@@ -301,14 +288,17 @@ window.Dashboard = {
       return
     }
     var countdownHtml = ''
-    if (released && hasSchedule) {
-      var dist = until - Date.now()
-      if (dist > 0) {
-        var min = Math.floor((dist % 3600000) / 60000)
-        var sec = Math.floor((dist % 60000) / 1000)
-        countdownHtml = '<div class="leaderboard-countdown-display">⏰ يغلق الترتيب تلقائياً بعد: ' + min + ' دقيقة و ' + sec + ' ثانية</div>'
-      } else {
-        countdownHtml = '<div class="leaderboard-countdown-display">🔒 تم إغلاق الفترة المحددة</div>'
+    if (autoClose) {
+      var closeMs = new Date(autoClose).getTime()
+      if (!isNaN(closeMs)) {
+        var dist = closeMs - Date.now()
+        if (dist > 0) {
+          var min = Math.floor((dist % 3600000) / 60000)
+          var sec = Math.floor((dist % 60000) / 1000)
+          countdownHtml = '<div class="leaderboard-countdown-display">⏰ يغلق الترتيب تلقائياً بعد: ' + min + ' دقيقة و ' + sec + ' ثانية</div>'
+        } else {
+          countdownHtml = '<div class="leaderboard-countdown-display">🔒 تم إغلاق الفترة المحددة</div>'
+        }
       }
     }
     if (el && !el.classList.contains('leaderboard-page-container')) {
@@ -365,9 +355,11 @@ window.Dashboard = {
     var display = document.querySelector('.leaderboard-countdown-display')
     if (!display) return
     var settings = Store.get('settings') || {}
-    var until = settings.leaderboard?.closeAt || settings.leaderboardReleasedUntil
-    if (!until) { display.remove(); return }
-    var distance = until - Date.now()
+    var autoClose = settings.leaderboard?.autoCloseDateTime || null
+    if (!autoClose) { display.remove(); return }
+    var closeMs = new Date(autoClose).getTime()
+    if (isNaN(closeMs)) { display.remove(); return }
+    var distance = closeMs - Date.now()
     if (distance <= 0) {
       window.isLeaderboardOpen = false
       window._leaderboardWritesBlocked = true

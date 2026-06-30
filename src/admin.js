@@ -320,6 +320,8 @@ window.Admin = {
       closeHour: lb.closeHour,
       closeMinute: lb.closeMinute,
       closeSecond: lb.closeSecond,
+      autoOpenDateTime: lb.autoOpenDateTime || null,
+      autoCloseDateTime: lb.autoCloseDateTime || null,
       forceOverride: lb.forceOverride || settings.leaderboardForceOverride || null,
       manualStatus: lb.manualStatus || null,
       mode: lb.mode || null,
@@ -329,6 +331,13 @@ window.Admin = {
 
   _computeVisible(state) {
     const now = Date.now()
+    if (state.manualStatus === 'open') return true
+    if (state.manualStatus === 'closed') return false
+    if (state.autoOpenDateTime && state.autoCloseDateTime) {
+      var o = new Date(state.autoOpenDateTime).getTime()
+      var c = new Date(state.autoCloseDateTime).getTime()
+      if (!isNaN(o) && !isNaN(c)) return now >= o && now < c
+    }
     if (state.forceOverride === 'open') return true
     if (state.forceOverride === 'closed') return false
     if (state.openAt && state.closeAt) return now >= state.openAt && now < state.closeAt
@@ -460,8 +469,18 @@ window.Admin = {
 
     let nextChange = Infinity
     if (!state.forceOverride) {
-      if (!isVisible && state.openAt && now < state.openAt) nextChange = state.openAt
-      if (isVisible && state.closeAt && now < state.closeAt) nextChange = state.closeAt
+      if (state.autoOpenDateTime && state.autoCloseDateTime) {
+        var oT = new Date(state.autoOpenDateTime).getTime()
+        var cT = new Date(state.autoCloseDateTime).getTime()
+        if (!isNaN(oT) && !isNaN(cT)) {
+          if (!isVisible && now < oT) nextChange = oT
+          if (isVisible && now < cT) nextChange = cT
+        }
+      }
+      if (nextChange === Infinity) {
+        if (!isVisible && state.openAt && now < state.openAt) nextChange = state.openAt
+        if (isVisible && state.closeAt && now < state.closeAt) nextChange = state.closeAt
+      }
     }
 
     statusEl.className = 'lb-scheduler-status status-text-container ' + (isVisible ? 'status-visible' : 'status-hidden')
@@ -479,8 +498,8 @@ window.Admin = {
     const role = user?.role
 
     if (role === 'user') {
-      if (data.forceOverride === 'open') window.leaderboardManualOverride = 'open'
-      else if (data.forceOverride === 'closed') window.leaderboardManualOverride = 'closed'
+      if (data.manualStatus === 'open') window.leaderboardManualOverride = 'open'
+      else if (data.manualStatus === 'closed') window.leaderboardManualOverride = 'closed'
       else window.leaderboardManualOverride = null
       if (!Store._data.settings) Store._data.settings = {}
       Store._data.settings.leaderboard = { ...(Store._data.settings.leaderboard || {}), ...data }
@@ -511,20 +530,22 @@ window.Admin = {
     const closeM = minClose != null ? minClose : 0
     const closeS = secClose != null ? secClose : 0
 
-    const openTime = new Date(dateOpen + 'T' +
+    const openDateObj = new Date(dateOpen + 'T' +
       String(openH).padStart(2, '0') + ':' +
       String(openM).padStart(2, '0') + ':' +
-      String(openS).padStart(2, '0')).getTime()
+      String(openS).padStart(2, '0'))
 
-    const closeTime = new Date(dateClose + 'T' +
+    const closeDateObj = new Date(dateClose + 'T' +
       String(closeH).padStart(2, '0') + ':' +
       String(closeM).padStart(2, '0') + ':' +
-      String(closeS).padStart(2, '0')).getTime()
+      String(closeS).padStart(2, '0'))
 
-    if (isNaN(openTime) || isNaN(closeTime)) return
-    if (closeTime <= openTime) { alert('يجب أن يكون وقت القفل بعد وقت الفتح'); return }
+    if (isNaN(openDateObj.getTime()) || isNaN(closeDateObj.getTime())) return
+    if (closeDateObj <= openDateObj) { alert('يجب أن يكون وقت القفل بعد وقت الفتح'); return }
 
     const now = Date.now()
+    const openTime = openDateObj.getTime()
+    const closeTime = closeDateObj.getTime()
     const visible = now >= openTime && now < closeTime
     const data = {
       openDate: dateOpen,
@@ -537,7 +558,9 @@ window.Admin = {
       closeSecond: closeS,
       openAt: openTime,
       closeAt: closeTime,
-      manualStatus: null,
+      autoOpenDateTime: openDateObj.toISOString(),
+      autoCloseDateTime: closeDateObj.toISOString(),
+      manualStatus: 'scheduled',
       forceOverride: null,
       mode: 'auto',
       visible
@@ -554,7 +577,8 @@ window.Admin = {
       openAt: null, closeAt: null,
       openDate: null, openHour: null, openMinute: null, openSecond: null,
       closeDate: null, closeHour: null, closeMinute: null, closeSecond: null,
-      manualStatus: null, forceOverride: null, mode: null, visible: false
+      autoOpenDateTime: null, autoCloseDateTime: null,
+      manualStatus: 'closed', forceOverride: null, mode: null, visible: false
     }
     this._lastLeaderboardState = data
     this.saveLeaderboardSettings(data)
@@ -563,7 +587,7 @@ window.Admin = {
   },
 
   forceOpenLeaderboard() {
-    const data = { forceOverride: 'open', mode: 'manual', visible: true }
+    const data = { manualStatus: 'open' }
     this._lastLeaderboardState = data
     this.saveLeaderboardSettings(data)
     this.renderSchedulerTab()
@@ -571,16 +595,7 @@ window.Admin = {
   },
 
   forceCloseLeaderboard() {
-    const data = {
-      manualStatus: 'closed',
-      forceOverride: 'closed',
-      openAt: null, closeAt: null,
-      openDate: null, openHour: null, openMinute: null, openSecond: null,
-      closeDate: null, closeHour: null, closeMinute: null, closeSecond: null,
-      autoOpenDateTime: '', autoCloseDateTime: '',
-      mode: 'manual',
-      visible: false
-    }
+    const data = { manualStatus: 'closed' }
     this._lastLeaderboardState = data
     this.saveLeaderboardSettings(data)
     this.renderSchedulerTab()
@@ -590,12 +605,21 @@ window.Admin = {
   clearLeaderboardOverride() {
     const settings = Store.get('settings') || {}
     const lb = settings.leaderboard || {}
-    const openAt = lb.openAt || settings.leaderboardReleasedFrom || null
-    const closeAt = lb.closeAt || settings.leaderboardReleasedUntil || null
+    const hasSchedule = lb.autoOpenDateTime && lb.autoCloseDateTime
     const now = Date.now()
-    const visible = openAt && closeAt ? now >= openAt && now < closeAt : (openAt ? now >= openAt : (closeAt ? now < closeAt : false))
+    var manualStatus = 'closed'
+    var visible = false
+    if (hasSchedule) {
+      var o = new Date(lb.autoOpenDateTime).getTime()
+      var c = new Date(lb.autoCloseDateTime).getTime()
+      if (!isNaN(o) && !isNaN(c)) {
+        visible = now >= o && now < c
+        manualStatus = 'scheduled'
+      }
+    }
     const data = {
-      openAt, closeAt,
+      openAt: lb.openAt || settings.leaderboardReleasedFrom || null,
+      closeAt: lb.closeAt || settings.leaderboardReleasedUntil || null,
       openDate: lb.openDate || null,
       openHour: lb.openHour,
       openMinute: lb.openMinute,
@@ -604,7 +628,9 @@ window.Admin = {
       closeHour: lb.closeHour,
       closeMinute: lb.closeMinute,
       closeSecond: lb.closeSecond,
-      manualStatus: null, forceOverride: null, mode: 'auto', visible
+      autoOpenDateTime: lb.autoOpenDateTime || null,
+      autoCloseDateTime: lb.autoCloseDateTime || null,
+      manualStatus: manualStatus, forceOverride: null, mode: manualStatus === 'scheduled' ? 'auto' : null, visible: visible
     }
     this._lastLeaderboardState = data
     this.saveLeaderboardSettings(data)

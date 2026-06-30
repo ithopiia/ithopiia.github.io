@@ -169,33 +169,8 @@ window.Auth = {
     if (!user) return false
     // Admin (master controller) always bypasses all locking
     if (user.role === 'admin') return true
-    if (typeof Store === 'undefined' || !Store._data) return false
-    const settings = Store.get('settings') || {}
-    const lb = settings.leaderboard
-
-    // 1. Manual override is the source of truth
-    if (lb?.forceOverride === 'open') return true
-    if (lb?.forceOverride === 'closed') return false
-
-    // 2. Legacy manual override (pre-leaderboard object path)
-    const legacyOverride = settings.leaderboardForceOverride
-    if (legacyOverride === 'open') return true
-    if (legacyOverride === 'closed') return false
-
-    // 3. Auto-schedule evaluation against real-time clock
-    const now = Date.now()
-    const from = lb?.openAt || settings.leaderboardReleasedFrom
-    const until = lb?.closeAt || settings.leaderboardReleasedUntil
-    if (from && until) return now >= from && now < until
-    if (from) return now >= from
-    if (until) return now < until
-
-    // 4. Fallback to global window flag (updated live by listener)
+    // Live state is maintained by startLiveLeaderboardScheduler in scheduler.js
     if (window.isLeaderboardOpen !== undefined) return window.isLeaderboardOpen
-
-    // 5. Fallback to legacy visible flag (may be stale)
-    if (lb && lb.visible !== undefined) return lb.visible
-
     return false
   },
 
