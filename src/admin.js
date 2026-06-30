@@ -312,7 +312,16 @@ window.Admin = {
     return {
       openAt: lb.openAt || settings.leaderboardReleasedFrom || null,
       closeAt: lb.closeAt || settings.leaderboardReleasedUntil || null,
+      openDate: lb.openDate || null,
+      openHour: lb.openHour,
+      openMinute: lb.openMinute,
+      openSecond: lb.openSecond,
+      closeDate: lb.closeDate || null,
+      closeHour: lb.closeHour,
+      closeMinute: lb.closeMinute,
+      closeSecond: lb.closeSecond,
       forceOverride: lb.forceOverride || settings.leaderboardForceOverride || null,
+      manualStatus: lb.manualStatus || null,
       mode: lb.mode || null,
       visible: lb.visible !== undefined ? lb.visible : null
     }
@@ -343,8 +352,17 @@ window.Admin = {
     const isVisible = this._computeVisible(state)
     this._schedulerLastVisible = isVisible
 
-    const fromDate = state.openAt ? new Date(state.openAt) : new Date()
-    const untilDate = state.closeAt ? new Date(state.closeAt) : new Date(Date.now() + 3600000)
+    let fromDate, untilDate
+    if (state.openDate && state.openHour !== undefined) {
+      fromDate = new Date(state.openDate + 'T' + String(state.openHour).padStart(2, '0') + ':' + String(state.openMinute).padStart(2, '0') + ':' + String(state.openSecond).padStart(2, '0'))
+    } else {
+      fromDate = state.openAt ? new Date(state.openAt) : new Date()
+    }
+    if (state.closeDate && state.closeHour !== undefined) {
+      untilDate = new Date(state.closeDate + 'T' + String(state.closeHour).padStart(2, '0') + ':' + String(state.closeMinute).padStart(2, '0') + ':' + String(state.closeSecond).padStart(2, '0'))
+    } else {
+      untilDate = state.closeAt ? new Date(state.closeAt) : new Date(Date.now() + 3600000)
+    }
 
     const fmtNum = n => String(n).padStart(2, '0')
 
@@ -486,22 +504,44 @@ window.Admin = {
 
     if (!dateOpen || !dateClose) return
 
+    const openH = hrOpen != null ? hrOpen : 0
+    const openM = minOpen != null ? minOpen : 0
+    const openS = secOpen != null ? secOpen : 0
+    const closeH = hrClose != null ? hrClose : 0
+    const closeM = minClose != null ? minClose : 0
+    const closeS = secClose != null ? secClose : 0
+
     const openTime = new Date(dateOpen + 'T' +
-      String(hrOpen != null ? hrOpen : 0).padStart(2, '0') + ':' +
-      String(minOpen != null ? minOpen : 0).padStart(2, '0') + ':' +
-      String(secOpen != null ? secOpen : 0).padStart(2, '0')).getTime()
+      String(openH).padStart(2, '0') + ':' +
+      String(openM).padStart(2, '0') + ':' +
+      String(openS).padStart(2, '0')).getTime()
 
     const closeTime = new Date(dateClose + 'T' +
-      String(hrClose != null ? hrClose : 0).padStart(2, '0') + ':' +
-      String(minClose != null ? minClose : 0).padStart(2, '0') + ':' +
-      String(secClose != null ? secClose : 0).padStart(2, '0')).getTime()
+      String(closeH).padStart(2, '0') + ':' +
+      String(closeM).padStart(2, '0') + ':' +
+      String(closeS).padStart(2, '0')).getTime()
 
     if (isNaN(openTime) || isNaN(closeTime)) return
     if (closeTime <= openTime) { alert('يجب أن يكون وقت القفل بعد وقت الفتح'); return }
 
     const now = Date.now()
     const visible = now >= openTime && now < closeTime
-    const data = { openAt: openTime, closeAt: closeTime, forceOverride: null, mode: 'auto', visible }
+    const data = {
+      openDate: dateOpen,
+      openHour: openH,
+      openMinute: openM,
+      openSecond: openS,
+      closeDate: dateClose,
+      closeHour: closeH,
+      closeMinute: closeM,
+      closeSecond: closeS,
+      openAt: openTime,
+      closeAt: closeTime,
+      manualStatus: null,
+      forceOverride: null,
+      mode: 'auto',
+      visible
+    }
     this._lastLeaderboardState = data
     this.saveLeaderboardSettings(data)
     this.renderSchedulerTab()
@@ -510,7 +550,12 @@ window.Admin = {
 
   clearLeaderboardSchedule() {
     if (!confirm('هل تريد إلغاء الجدولة بالكامل؟')) return
-    const data = { openAt: null, closeAt: null, forceOverride: null, mode: null, visible: false }
+    const data = {
+      openAt: null, closeAt: null,
+      openDate: null, openHour: null, openMinute: null, openSecond: null,
+      closeDate: null, closeHour: null, closeMinute: null, closeSecond: null,
+      manualStatus: null, forceOverride: null, mode: null, visible: false
+    }
     this._lastLeaderboardState = data
     this.saveLeaderboardSettings(data)
     this.renderSchedulerTab()
@@ -540,7 +585,18 @@ window.Admin = {
     const closeAt = lb.closeAt || settings.leaderboardReleasedUntil || null
     const now = Date.now()
     const visible = openAt && closeAt ? now >= openAt && now < closeAt : (openAt ? now >= openAt : (closeAt ? now < closeAt : false))
-    const data = { openAt, closeAt, forceOverride: null, mode: 'auto', visible }
+    const data = {
+      openAt, closeAt,
+      openDate: lb.openDate || null,
+      openHour: lb.openHour,
+      openMinute: lb.openMinute,
+      openSecond: lb.openSecond,
+      closeDate: lb.closeDate || null,
+      closeHour: lb.closeHour,
+      closeMinute: lb.closeMinute,
+      closeSecond: lb.closeSecond,
+      manualStatus: null, forceOverride: null, mode: 'auto', visible
+    }
     this._lastLeaderboardState = data
     this.saveLeaderboardSettings(data)
     this.renderSchedulerTab()

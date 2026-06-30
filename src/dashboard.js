@@ -305,6 +305,9 @@ window.Dashboard = {
         </div>`
       return
     }
+    if (el && !el.classList.contains('leaderboard-page-container')) {
+      el.classList.add('leaderboard-page-container')
+    }
     el.innerHTML = lbHtml
     this._animateLockOpen()
   },

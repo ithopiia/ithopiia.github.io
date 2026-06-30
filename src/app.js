@@ -35,6 +35,9 @@ window.App = {
         }
       }
       initLeaderboardPersistence().then(() => {
+        if (typeof startLiveLeaderboardScheduler === 'function') {
+          startLiveLeaderboardScheduler()
+        }
         this.render()
         setTimeout(() => {
           if (typeof forceLeaderboardSync === 'function') forceLeaderboardSync()
