@@ -189,14 +189,23 @@ const Points = {
         months.add(p.dateKey.substring(0, 7))
       }
     })
+    const now = new Date()
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    months.add(currentMonth)
     return Array.from(months).sort().reverse()
   },
 
   getMonthlyPoints(userId, yearMonth) {
     const all = Store.get('dailyPoints') || []
-    return all
+    const monthly = all
       .filter(p => p.userId === userId && p.saved !== false && p.dateKey && p.dateKey.startsWith(yearMonth))
-      .reduce((sum, p) => sum + calcEntryScore(p), 0)
+    const sum = monthly.reduce((s, p) => s + calcEntryScore(p), 0)
+    if (sum === 0 && monthly.length === 0) {
+      const users = Store.get('users') || []
+      const user = users.find(u => u.id === userId)
+      return user?.cumulativePoints ?? 0
+    }
+    return sum
   },
 
   getMonthlyLeaderboard(yearMonth, genderFilter) {
