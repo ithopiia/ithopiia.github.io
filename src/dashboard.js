@@ -77,6 +77,7 @@ window.Dashboard = {
     this._lbPollInterval = setInterval(() => {
       this.updateLeaderboardTabVisibility()
       this._tickLbReleaseTimer()
+      this._updateLeaderboardCountdown()
     }, 1000)
   },
 
@@ -299,11 +300,22 @@ window.Dashboard = {
         </div>`
       return
     }
+    var countdownHtml = ''
+    if (released && hasSchedule) {
+      var dist = until - Date.now()
+      if (dist > 0) {
+        var min = Math.floor((dist % 3600000) / 60000)
+        var sec = Math.floor((dist % 60000) / 1000)
+        countdownHtml = '<div class="leaderboard-countdown-display">⏰ يغلق الترتيب تلقائياً بعد: ' + min + ' دقيقة و ' + sec + ' ثانية</div>'
+      } else {
+        countdownHtml = '<div class="leaderboard-countdown-display">🔒 تم إغلاق الفترة المحددة</div>'
+      }
+    }
     if (el && !el.classList.contains('leaderboard-page-container')) {
       el.classList.add('leaderboard-page-container')
       el.classList.add('profile-leaderboard-section')
     }
-    el.innerHTML = lbHtml
+    el.innerHTML = countdownHtml + lbHtml
     this._animateLockOpen()
   },
 
@@ -348,6 +360,25 @@ window.Dashboard = {
   },
 
   _lbReleaseTimer: null,
+
+  _updateLeaderboardCountdown() {
+    var display = document.querySelector('.leaderboard-countdown-display')
+    if (!display) return
+    var settings = Store.get('settings') || {}
+    var until = settings.leaderboard?.closeAt || settings.leaderboardReleasedUntil
+    if (!until) { display.remove(); return }
+    var distance = until - Date.now()
+    if (distance <= 0) {
+      window.isLeaderboardOpen = false
+      window._leaderboardWritesBlocked = true
+      this.renderLeaderboard()
+      this.updateLeaderboardTabVisibility()
+      return
+    }
+    var min = Math.floor((distance % 3600000) / 60000)
+    var sec = Math.floor((distance % 60000) / 1000)
+    display.textContent = '⏰ يغلق الترتيب تلقائياً بعد: ' + min + ' دقيقة و ' + sec + ' ثانية'
+  },
 
   _getUserRoomNames(user) {
     const rooms = Store.get('rooms') || []

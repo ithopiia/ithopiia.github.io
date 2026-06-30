@@ -571,7 +571,16 @@ window.Admin = {
   },
 
   forceCloseLeaderboard() {
-    const data = { forceOverride: 'closed', mode: 'manual', visible: false }
+    const data = {
+      manualStatus: 'closed',
+      forceOverride: 'closed',
+      openAt: null, closeAt: null,
+      openDate: null, openHour: null, openMinute: null, openSecond: null,
+      closeDate: null, closeHour: null, closeMinute: null, closeSecond: null,
+      autoOpenDateTime: '', autoCloseDateTime: '',
+      mode: 'manual',
+      visible: false
+    }
     this._lastLeaderboardState = data
     this.saveLeaderboardSettings(data)
     this.renderSchedulerTab()

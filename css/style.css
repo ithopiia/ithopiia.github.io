@@ -2471,3 +2471,16 @@ th, td {
   text-align: center;
   padding: 40px 20px;
 }
+
+.leaderboard-countdown-display {
+  background: rgba(231, 76, 60, 0.1) !important;
+  border: 1px solid rgba(231, 76, 60, 0.3) !important;
+  color: #e74c3c !important;
+  padding: 10px 20px !important;
+  border-radius: 8px !important;
+  font-weight: bold !important;
+  text-align: center !important;
+  margin-bottom: 15px !important;
+  font-size: 15px !important;
+  display: inline-block !important;
+}
