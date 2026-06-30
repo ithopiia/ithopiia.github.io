@@ -336,43 +336,28 @@ window.Admin = {
 
     el.querySelector('.btn-save-schedule')?.addEventListener('click', function () {
       var openDate = document.getElementById('lb-open-date')?.value
-      var openHour = String(parseInt(document.getElementById('lb-open-hour')?.value) || 0).padStart(2, '0')
-      var openMin = String(parseInt(document.getElementById('lb-open-minute')?.value) || 0).padStart(2, '0')
-      var openSec = String(parseInt(document.getElementById('lb-open-second')?.value) || 0).padStart(2, '0')
+      var openTime = document.getElementById('lb-open-time')?.value
       var closeDate = document.getElementById('lb-close-date')?.value
-      var closeHour = String(parseInt(document.getElementById('lb-close-hour')?.value) || 0).padStart(2, '0')
-      var closeMin = String(parseInt(document.getElementById('lb-close-minute')?.value) || 0).padStart(2, '0')
-      var closeSec = String(parseInt(document.getElementById('lb-close-second')?.value) || 0).padStart(2, '0')
+      var closeTime = document.getElementById('lb-close-time')?.value
 
-      if (!openDate || !closeDate) {
+      if (!openDate || !openTime || !closeDate || !closeTime) {
         alert("برجاء ملء جميع خانات التاريخ والوقت أولاً! ⏰")
         return
       }
 
-      var openStr = openDate + 'T' + openHour + ':' + openMin + ':' + openSec
-      var closeStr = closeDate + 'T' + closeHour + ':' + closeMin + ':' + closeSec
-      var openDateObj = new Date(openStr)
-      var closeDateObj = new Date(closeStr)
-
-      if (isNaN(openDateObj.getTime()) || isNaN(closeDateObj.getTime())) {
-        alert('تاريخ أو وقت غير صالح')
-        return
-      }
-      if (closeDateObj <= openDateObj) {
-        alert('يجب أن يكون وقت القفل بعد وقت الفتح')
-        return
-      }
+      var autoOpenDateTime = openDate + 'T' + openTime
+      var autoCloseDateTime = closeDate + 'T' + closeTime
 
       firebase.database().ref('/ithopiia/settings/leaderboard').set({
         manualStatus: "scheduled",
-        autoOpenDateTime: openDateObj.toISOString(),
-        autoCloseDateTime: closeDateObj.toISOString()
+        autoOpenDateTime: autoOpenDateTime,
+        autoCloseDateTime: autoCloseDateTime
       }).then(function () {
-        self._lastLeaderboardState = { autoOpenDateTime: openDateObj.toISOString(), autoCloseDateTime: closeDateObj.toISOString(), manualStatus: 'scheduled' }
+        self._lastLeaderboardState = { autoOpenDateTime: autoOpenDateTime, autoCloseDateTime: autoCloseDateTime, manualStatus: 'scheduled' }
         self.renderSchedulerTab()
         self._notifyDashboard()
         alert("تم حفظ الجدولة التلقائية بنجاح! 💾")
-      }).catch(function (err) { console.error("Firebase write error:", err) })
+      }).catch(function (err) { console.error("Write failed:", err) })
     })
 
     el.querySelector('.btn-cancel-schedule')?.addEventListener('click', function () {
@@ -463,17 +448,11 @@ window.Admin = {
     const isVisible = this._computeVisible(state)
     this._schedulerLastVisible = isVisible
 
-    let fromDate, untilDate
-    if (state.openDate && state.openHour !== undefined) {
-      fromDate = new Date(state.openDate + 'T' + String(state.openHour).padStart(2, '0') + ':' + String(state.openMinute).padStart(2, '0') + ':' + String(state.openSecond).padStart(2, '0'))
-    } else {
-      fromDate = state.openAt ? new Date(state.openAt) : new Date()
-    }
-    if (state.closeDate && state.closeHour !== undefined) {
-      untilDate = new Date(state.closeDate + 'T' + String(state.closeHour).padStart(2, '0') + ':' + String(state.closeMinute).padStart(2, '0') + ':' + String(state.closeSecond).padStart(2, '0'))
-    } else {
-      untilDate = state.closeAt ? new Date(state.closeAt) : new Date(Date.now() + 3600000)
-    }
+    var nowDate = new Date()
+    var fromDate = state.autoOpenDateTime ? new Date(state.autoOpenDateTime) : (state.openAt ? new Date(state.openAt) : nowDate)
+    var untilDate = state.autoCloseDateTime ? new Date(state.autoCloseDateTime) : (state.closeAt ? new Date(state.closeAt) : new Date(nowDate.getTime() + 3600000))
+    if (isNaN(fromDate.getTime())) fromDate = nowDate
+    if (isNaN(untilDate.getTime())) untilDate = new Date(nowDate.getTime() + 3600000)
 
     const fmtNum = n => String(n).padStart(2, '0')
 
@@ -500,19 +479,11 @@ window.Admin = {
           <div class="lb-scheduler-fields">
             <div class="lb-field-group">
               <label class="lb-field-label">التاريخ</label>
-              <input type="date" id="lb-open-date" class="lb-input" value="${fmtNum(fromDate.getFullYear())}-${fmtNum(fromDate.getMonth() + 1)}-${fmtNum(fromDate.getDate())}">
+              <input type="date" id="lb-open-date" class="lb-input input-open-date" value="${fmtNum(fromDate.getFullYear())}-${fmtNum(fromDate.getMonth() + 1)}-${fmtNum(fromDate.getDate())}">
             </div>
             <div class="lb-field-group">
-              <label class="lb-field-label">الساعة</label>
-              <input type="number" id="lb-open-hour" class="lb-input lb-input-narrow" value="${fmtNum(fromDate.getHours())}" min="0" max="23">
-            </div>
-            <div class="lb-field-group">
-              <label class="lb-field-label">الدقائق</label>
-              <input type="number" id="lb-open-minute" class="lb-input lb-input-narrow" value="${fmtNum(fromDate.getMinutes())}" min="0" max="59">
-            </div>
-            <div class="lb-field-group">
-              <label class="lb-field-label">الثواني</label>
-              <input type="number" id="lb-open-second" class="lb-input lb-input-narrow" value="${fmtNum(fromDate.getSeconds())}" min="0" max="59">
+              <label class="lb-field-label">الوقت</label>
+              <input type="time" id="lb-open-time" class="lb-input input-open-time" value="${fmtNum(fromDate.getHours())}:${fmtNum(fromDate.getMinutes())}:${fmtNum(fromDate.getSeconds())}" step="1">
             </div>
           </div>
         </div>
@@ -521,19 +492,11 @@ window.Admin = {
           <div class="lb-scheduler-fields">
             <div class="lb-field-group">
               <label class="lb-field-label">التاريخ</label>
-              <input type="date" id="lb-close-date" class="lb-input" value="${fmtNum(untilDate.getFullYear())}-${fmtNum(untilDate.getMonth() + 1)}-${fmtNum(untilDate.getDate())}">
+              <input type="date" id="lb-close-date" class="lb-input input-close-date" value="${fmtNum(untilDate.getFullYear())}-${fmtNum(untilDate.getMonth() + 1)}-${fmtNum(untilDate.getDate())}">
             </div>
             <div class="lb-field-group">
-              <label class="lb-field-label">الساعة</label>
-              <input type="number" id="lb-close-hour" class="lb-input lb-input-narrow" value="${fmtNum(untilDate.getHours())}" min="0" max="23">
-            </div>
-            <div class="lb-field-group">
-              <label class="lb-field-label">الدقائق</label>
-              <input type="number" id="lb-close-minute" class="lb-input lb-input-narrow" value="${fmtNum(untilDate.getMinutes())}" min="0" max="59">
-            </div>
-            <div class="lb-field-group">
-              <label class="lb-field-label">الثواني</label>
-              <input type="number" id="lb-close-second" class="lb-input lb-input-narrow" value="${fmtNum(untilDate.getSeconds())}" min="0" max="59">
+              <label class="lb-field-label">الوقت</label>
+              <input type="time" id="lb-close-time" class="lb-input input-close-time" value="${fmtNum(untilDate.getHours())}:${fmtNum(untilDate.getMinutes())}:${fmtNum(untilDate.getSeconds())}" step="1">
             </div>
           </div>
         </div>
