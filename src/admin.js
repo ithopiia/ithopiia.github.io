@@ -172,7 +172,7 @@ window.Admin = {
         var cats = evalCategoryMap[p.dateKey]
         return cats && cats.bonus > 0
       }).map(function (p) { return p.dateKey }).reverse()
-      const zeroDates = userPoints.filter(function (p) { return (p.finalScore || 0) <= 0 }).map(function (p) { return p.dateKey }).reverse()
+      const zeroDates = userPoints.filter(function (p) { return calcEntryScore(p) <= 0 }).map(function (p) { return p.dateKey }).reverse()
 
       overlay.innerHTML = `
       <div class="modal-content">

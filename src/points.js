@@ -1,4 +1,27 @@
 
+function calcEntryScore(entry) {
+  if (entry == null) return 0
+  if (entry.finalScore != null) {
+    const n = Number(entry.finalScore)
+    if (!isNaN(n)) return n
+  }
+  const base = entry.basePoints != null ? (Number(entry.basePoints) || 0) : 0
+  const evalScore = Number(entry.evaluationScore) || 0
+  const bonus = Number(entry.manualBonus) || 0
+  const composed = base + evalScore + bonus
+  if (composed !== 0) return composed
+  const oldBonus = Number(entry.bonus) || 0
+  const oldMinus = Number(entry.minus) || 0
+  if (base !== 0 || oldBonus !== 0 || oldMinus !== 0) return base + oldBonus - oldMinus
+  const total = Number(entry.total) || 0
+  const points = Number(entry.points) || 0
+  const score = Number(entry.score) || 0
+  if (total !== 0) return total
+  if (points !== 0) return points
+  if (score !== 0) return score
+  return 0
+}
+
 const Points = {
   getTodayKey() {
     const d = new Date()
@@ -73,7 +96,7 @@ const Points = {
     const all = Store.get('dailyPoints') || []
     return all
       .filter(p => p.userId === userId && p.saved !== false)
-      .reduce((sum, p) => sum + (p.finalScore ?? p.basePoints), 0)
+      .reduce((sum, p) => sum + calcEntryScore(p), 0)
   },
 
   getUserPointsBreakdown(userId) {
@@ -173,7 +196,7 @@ const Points = {
     const all = Store.get('dailyPoints') || []
     return all
       .filter(p => p.userId === userId && p.saved !== false && p.dateKey && p.dateKey.startsWith(yearMonth))
-      .reduce((sum, p) => sum + (p.finalScore ?? 0), 0)
+      .reduce((sum, p) => sum + calcEntryScore(p), 0)
   },
 
   getMonthlyLeaderboard(yearMonth, genderFilter) {

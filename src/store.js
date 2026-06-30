@@ -103,7 +103,7 @@ window.Store = {
     const totals = {}
     this._data.dailyPoints.forEach(p => {
       if (p.saved !== false) {
-        totals[p.userId] = (totals[p.userId] || 0) + (p.finalScore ?? 0)
+        totals[p.userId] = (totals[p.userId] || 0) + calcEntryScore(p)
       }
     })
     const currentUser = (typeof Auth !== 'undefined' && Auth.currentUser) ? Auth.currentUser() : null
