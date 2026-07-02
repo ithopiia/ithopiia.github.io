@@ -1,5 +1,6 @@
 window.Leaderboard = {
   _selectedMonth: null,
+  _activeTab: 'monthly',
 
   _getMonths() {
     return Points.getMonths()
@@ -43,8 +44,20 @@ window.Leaderboard = {
       </div>`
   },
 
-  selectMonth(yearMonth) {
-    this._selectedMonth = yearMonth
+  _renderTabSwitcher() {
+    return `
+      <div class="lb-tab-switcher">
+        <button class="lb-tab-btn ${this._activeTab === 'monthly' ? 'active' : ''}" onclick="Leaderboard.switchTab('monthly')">
+          📅 الترتيب الحالي (شهري)
+        </button>
+        <button class="lb-tab-btn ${this._activeTab === 'cumulative' ? 'active' : ''}" onclick="Leaderboard.switchTab('cumulative')">
+          🏆 المجموع العام (كل الشهور)
+        </button>
+      </div>`
+  },
+
+  switchTab(tab) {
+    this._activeTab = tab
     const dashEl = document.getElementById('dash-leaderboard-content')
     if (dashEl) {
       const released = Auth.isLeaderboardReleased()
@@ -56,21 +69,24 @@ window.Leaderboard = {
     }
   },
 
-  renderDashboard() {
-    const currentUser = Auth.currentUser()
-    if (!currentUser) return '<p class="text-muted">لا يوجد أعضاء بعد.</p>'
-    const isHiddenAdmin = Auth.isHiddenAdmin()
-
-    const months = this._getMonths()
-    if (!this._selectedMonth && months.length > 0) {
-      this._selectedMonth = months[0]
+  selectMonth(yearMonth) {
+    this._selectedMonth = yearMonth
+    if (this._activeTab !== 'monthly') return
+    const dashEl = document.getElementById('dash-leaderboard-content')
+    if (dashEl) {
+      const released = Auth.isLeaderboardReleased()
+      if (released) dashEl.innerHTML = this.renderDashboard()
     }
+    const adminLb = document.getElementById('admin-tab-leaderboard')
+    if (adminLb && adminLb.closest('.tab-content')?.classList.contains('active')) {
+      adminLb.innerHTML = this.renderAdmin()
+    }
+  },
 
-    if (!this._selectedMonth) return '<p class="text-muted">لا توجد بيانات شهرية.</p>'
-
+  _getFilteredApprovedUsers(currentUser) {
     const users = Store.get('users') || []
     let approved = users.filter(u => u.status === 'approved' && u.role !== 'admin')
-
+    const isHiddenAdmin = Auth.isHiddenAdmin()
     const isMember = currentUser?.role === 'member'
     if (!isHiddenAdmin && !isMember && currentUser) {
       const userRooms = currentUser.rooms || []
@@ -80,22 +96,53 @@ window.Leaderboard = {
         return otherRooms.some(r => userRooms.includes(r))
       })
     }
-
     approved = approved.filter(u => u.gender === currentUser.gender)
-    const approvedIds = new Set(approved.map(u => u.id))
+    return approved
+  },
 
-    const standings = Points.getMonthlyLeaderboard(this._selectedMonth)
-      .filter(s => approvedIds.has(s.userId))
+  renderDashboard() {
+    const currentUser = Auth.currentUser()
+    if (!currentUser) return '<p class="text-muted">لا يوجد أعضاء بعد.</p>'
+
+    const months = this._getMonths()
+    if (!this._selectedMonth && months.length > 0) {
+      this._selectedMonth = months[0]
+    }
+
+    if (!this._selectedMonth) return '<p class="text-muted">لا توجد بيانات شهرية.</p>'
+
+    let tabContent = ''
+
+    if (this._activeTab === 'monthly') {
+      const approved = this._getFilteredApprovedUsers(currentUser)
+      const approvedIds = new Set(approved.map(u => u.id))
+      const standings = Points.getMonthlyLeaderboard(this._selectedMonth)
+        .filter(s => approvedIds.has(s.userId))
+      tabContent = `
+        <div class="lb-controls">
+          <label class="lb-filter-label">تصفية بالشهر:</label>
+          <select class="lb-month-select" onchange="Leaderboard.selectMonth(this.value)">
+            ${this._monthOptions()}
+          </select>
+        </div>
+        <input type="text" class="lb-search" placeholder="بحث..." oninput="Leaderboard.filter(this)">
+        ${this._renderMonthSection(this._selectedMonth, standings, currentUser)}`
+    } else {
+      const approved = this._getFilteredApprovedUsers(currentUser)
+      const approvedIds = new Set(approved.map(u => u.id))
+      const standings = Points.getLeaderboard()
+        .filter(s => approvedIds.has(s.userId))
+      tabContent = `
+        <input type="text" class="lb-search" placeholder="بحث..." oninput="Leaderboard.filter(this)">
+        <div class="lb-month-section">
+          <h3 class="lb-month-title">المجموع العام (كل الشهور)</h3>
+          ${this._renderList(standings, currentUser)}
+        </div>`
+    }
 
     return `
-      <div class="lb-controls">
-        <label class="lb-filter-label">تصفية بالشهر:</label>
-        <select class="lb-month-select" onchange="Leaderboard.selectMonth(this.value)">
-          ${this._monthOptions()}
-        </select>
-      </div>
-      <input type="text" class="lb-search" placeholder="بحث..." oninput="Leaderboard.filter(this)">
-      ${this._renderMonthSection(this._selectedMonth, standings, currentUser)}`
+      ${this._renderTabSwitcher()}
+      ${tabContent}`
   },
 
   renderAdmin() {
@@ -107,28 +154,51 @@ window.Leaderboard = {
 
     if (!this._selectedMonth) return '<p class="text-muted">لا توجد بيانات شهرية.</p>'
 
-    const boyStandings = Points.getMonthlyLeaderboard(this._selectedMonth, 'male')
-    const girlStandings = Points.getMonthlyLeaderboard(this._selectedMonth, 'female')
+    let bodyContent = ''
+
+    if (this._activeTab === 'monthly') {
+      const boyStandings = Points.getMonthlyLeaderboard(this._selectedMonth, 'male')
+      const girlStandings = Points.getMonthlyLeaderboard(this._selectedMonth, 'female')
+      bodyContent = `
+        <div class="lb-controls" style="margin-bottom:16px">
+          <label class="lb-filter-label">تصفية بالشهر:</label>
+          <select class="lb-month-select" onchange="Leaderboard.selectMonth(this.value)">
+            ${this._monthOptions()}
+          </select>
+        </div>
+        <div class="admin-lb-split">
+          <div class="lb-gender-section">
+            <h3 class="lb-gender-title">ترتيب الأولاد</h3>
+            <input type="text" class="lb-search" placeholder="بحث في الأولاد..." oninput="Leaderboard.filter(this)">
+            ${this._renderList(boyStandings, currentUser)}
+          </div>
+          <div class="lb-gender-section">
+            <h3 class="lb-gender-title">ترتيب البنات</h3>
+            <input type="text" class="lb-search" placeholder="بحث في البنات..." oninput="Leaderboard.filter(this)">
+            ${this._renderList(girlStandings, currentUser)}
+          </div>
+        </div>`
+    } else {
+      const boyStandings = Points.getLeaderboard('male')
+      const girlStandings = Points.getLeaderboard('female')
+      bodyContent = `
+        <div class="admin-lb-split">
+          <div class="lb-gender-section">
+            <h3 class="lb-gender-title">ترتيب الأولاد - المجموع العام</h3>
+            <input type="text" class="lb-search" placeholder="بحث في الأولاد..." oninput="Leaderboard.filter(this)">
+            ${this._renderList(boyStandings, currentUser)}
+          </div>
+          <div class="lb-gender-section">
+            <h3 class="lb-gender-title">ترتيب البنات - المجموع العام</h3>
+            <input type="text" class="lb-search" placeholder="بحث في البنات..." oninput="Leaderboard.filter(this)">
+            ${this._renderList(girlStandings, currentUser)}
+          </div>
+        </div>`
+    }
 
     return `
-      <div class="lb-controls" style="margin-bottom:16px">
-        <label class="lb-filter-label">تصفية بالشهر:</label>
-        <select class="lb-month-select" onchange="Leaderboard.selectMonth(this.value)">
-          ${this._monthOptions()}
-        </select>
-      </div>
-      <div class="admin-lb-split">
-        <div class="lb-gender-section">
-          <h3 class="lb-gender-title">ترتيب الأولاد</h3>
-          <input type="text" class="lb-search" placeholder="بحث في الأولاد..." oninput="Leaderboard.filter(this)">
-          ${this._renderList(boyStandings, currentUser)}
-        </div>
-        <div class="lb-gender-section">
-          <h3 class="lb-gender-title">ترتيب البنات</h3>
-          <input type="text" class="lb-search" placeholder="بحث في البنات..." oninput="Leaderboard.filter(this)">
-          ${this._renderList(girlStandings, currentUser)}
-        </div>
-      </div>`
+      ${this._renderTabSwitcher()}
+      ${bodyContent}`
   },
 
   filter(input) {

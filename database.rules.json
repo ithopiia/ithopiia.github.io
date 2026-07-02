@@ -12,6 +12,12 @@
       "settings": {
         ".read": "auth != null",
         ".write": "root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member'"
+      },
+      "pointsHistory": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member'"
+        }
       }
     }
   }
