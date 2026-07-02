@@ -390,31 +390,41 @@ window.Admin = {
     if (logKeys.length === 0) return ''
     var items = logKeys.map(function (key) {
       var log = userLogs[key]
+      var logDate = log.date || (log.timestamp ? log.timestamp.split('T')[0] : '')
+      var reasonText = log.reason || 'تم الحفظ التلقائي لليوم'
       if (log.type === 'minus' || log.type === 'bonus') {
-        var logDate = log.date || (log.timestamp ? log.timestamp.split('T')[0] : '')
-        var logClass = log.type === 'minus' ? 'minus' : 'bonus'
-        var icon = log.type === 'minus' ? '🔻' : '⭐'
-        var changedByHtml = log.changedBy ? '<div style="font-size:0.65rem;color:var(--text-muted);margin-top:2px;opacity:0.7">بواسطة: ' + log.changedBy + '</div>' : ''
+        if (log.summary && log.summary.indexOf('بونص') !== -1) {
+          var isNegative = log.summary.indexOf('-') !== -1
+          var cardClass = isNegative ? 'log-card-bonus-minus' : 'log-card-bonus-plus'
+          var icon = isNegative ? '⚠️' : '⭐'
+          var label = isNegative ? 'خصم بونص' : 'بونص تميز'
+          var match = log.summary.match(/\(([^)]+)\)/)
+          var cleanPoints = match ? match[0] : ''
+          return '\
+            <div class="log-item-card-universal ' + cardClass + '">\
+              <div class="log-date">📅 ' + logDate + '</div>\
+              <div class="log-summary-text"><strong>' + icon + ' ' + label + ' ' + cleanPoints + '</strong></div>\
+              <div class="log-reason-output">📝 تفاصيل التقييم: ' + reasonText + '</div>\
+            </div>'
+        }
+        var isRegularMinus = log.type === 'minus'
+        var cardClass = isRegularMinus ? 'regular-minus-card' : 'regular-plus-card'
         return '\
-          <div class="log-item-card ' + logClass + '">\
-            <div class="log-date">' + icon + ' ' + logDate + '</div>\
-            <div>' + (log.summary || '') + '</div>\
-            <div class="log-reason">📝 ' + (log.reason || '') + '</div>\
-            ' + changedByHtml + '\
+          <div class="log-item-card-universal ' + cardClass + '">\
+            <div class="log-date">📅 ' + logDate + '</div>\
+            <div class="log-summary-text">' + (log.summary || '') + '</div>\
+            <div class="log-reason-output">📝 تفاصيل التقييم: ' + reasonText + '</div>\
           </div>'
       }
-      var reasonHtml = log.reason && log.reason !== 'بدون سبب' ? '<div class="log-reason">📝 ' + log.reason + '</div>' : ''
-      var logDate = log.timestamp ? log.timestamp.split('T')[0] : (log.date || '')
       var isMinus = (log.amount || '').indexOf('-') === 0 || (log.category || '').indexOf('تمنص') !== -1
-      var logClass = isMinus ? 'minus' : 'bonus'
-      var icon = isMinus ? '🔻' : '⭐'
+      var cardClass = isMinus ? 'regular-minus-card' : 'regular-plus-card'
       var catDisplay = log.category || ''
       var amtDisplay = log.amount ? ' (' + log.amount + ')' : ''
       return '\
-        <div class="log-item-card ' + logClass + '">\
-          <div class="log-date">' + icon + ' ' + logDate + '</div>\
-          <div>' + catDisplay + amtDisplay + '</div>\
-          ' + reasonHtml + '\
+        <div class="log-item-card-universal ' + cardClass + '">\
+          <div class="log-date">📅 ' + logDate + '</div>\
+          <div class="log-summary-text">' + catDisplay + amtDisplay + '</div>\
+          <div class="log-reason-output">📝 تفاصيل التقييم: ' + reasonText + '</div>\
         </div>'
     }).join('')
     return '\

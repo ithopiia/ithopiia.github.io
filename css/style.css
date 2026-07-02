@@ -2527,6 +2527,32 @@ th, td {
 .log-date { font-weight: bold; color: #888; font-size: 12px; margin-bottom: 4px; }
 .log-reason { margin-top: 5px; font-style: italic; opacity: 0.9; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 4px; }
 
+/* ===== UNIVERSAL LOG CARDS — Distinctive Color Coding ===== */
+.log-item-card-universal {
+    padding: 14px; border-radius: 12px; margin-bottom: 12px;
+    text-align: right; font-size: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+.log-card-bonus-plus {
+    background: rgba(46, 204, 113, 0.15) !important;
+    border-right: 5px solid #2ecc71 !important;
+    color: #2ecc71 !important;
+    font-weight: bold;
+}
+.log-card-bonus-minus {
+    background: rgba(231, 76, 60, 0.15) !important;
+    border-right: 5px solid #e74c3c !important;
+    color: #e74c3c !important;
+    font-weight: bold;
+}
+.regular-minus-card { background: #221d22; border-right: 4px solid #f39c12; color: #f39c12; }
+.regular-plus-card { background: #1c2224; border-right: 4px solid #3498db; color: #3498db; }
+.log-summary-text { font-size: 13px; margin-bottom: 4px; }
+.log-reason-output {
+    margin-top: 8px; padding-top: 6px;
+    border-top: 1px dashed rgba(255,255,255,0.08);
+    font-size: 13px; color: #e2e8f0; font-style: italic;
+}
+
 /* ===== GLOBAL MOBILE RESPONSIVENESS ===== */
 @media (max-width: 768px) {
     body { font-size: 14px; }
@@ -2724,6 +2750,12 @@ th, td {
   }
   .btn-save-row {
     font-size: 12px !important; padding: 10px 8px !important; min-height: 44px !important;
+  }
+  .log-item-card-universal {
+    padding: 12px !important; font-size: 13px !important;
+  }
+  .log-reason-output {
+    font-size: 12px !important;
   }
 }
 

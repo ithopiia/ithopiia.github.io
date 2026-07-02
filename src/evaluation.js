@@ -250,12 +250,12 @@ window.Evaluation = {
       </div>
       <div class="eval-footer">
         ${isTodayKey ? `
-          <button class="btn-sm btn-primary" onclick="Evaluation.saveDay()">💾 حفظ اليوم</button>
+          <button class="btn-sm btn-primary" onclick="Evaluation.saveDay()">💾 حفظ تفاصيل اليوم</button>
           <button class="btn-sm btn-ghost" onclick="Evaluation.render()">🔄 تحديث</button>
         ` : (saved ? `
           <button class="btn-sm btn-ghost" onclick="Evaluation.unlockDay()">🔓 فتح اليوم للتعديل</button>
         ` : `
-          <button class="btn-sm btn-primary" onclick="Evaluation.saveDay()">💾 حفظ يوم والتاريخ</button>
+          <button class="btn-sm btn-primary" onclick="Evaluation.saveDay()">💾 حفظ تفاصيل اليوم</button>
           <button class="btn-sm btn-ghost" onclick="Evaluation.render()">🔄 تحديث</button>
         `)}
         <span class="eval-stats" id="eval-stats"></span>
@@ -492,22 +492,23 @@ window.Evaluation = {
     const snapshotKey = userId + '_' + dateKey
     const snapshot = this._evalSnapshots[snapshotKey] || {}
 
-    const changes = []
-    let hasMinus = false
-    let hasBonus = false
+    const regularChanges = []
+    let bonusChange = null
 
     this.COLUMNS.forEach(c => {
       const currentVal = Number(entry[c.key]) || 0
       const originalVal = Number(snapshot[c.key]) || 0
       if (currentVal !== originalVal) {
         const diff = currentVal - originalVal
-        changes.push({ label: c.label, diff, current: currentVal })
-        if (diff < 0) hasMinus = true
-        if (diff > 0) hasBonus = true
+        if (c.key === 'bonus') {
+          bonusChange = { label: c.label, diff, current: currentVal }
+        } else {
+          regularChanges.push({ label: c.label, diff, current: currentVal })
+        }
       }
     })
 
-    if (changes.length === 0) {
+    if (regularChanges.length === 0 && !bonusChange) {
       showCustomAlert('لم تقم بإجراء أي تغيير في الدرجات لحفظه!')
       return
     }
@@ -518,12 +519,12 @@ window.Evaluation = {
       <div class="custom-modal-card animate-pop">
         <div class="modal-header">
           <span class="modal-icon">📝</span>
-          <h3>تعديل خانة التقييم</h3>
+          <h3>تفاصيل التقييم</h3>
         </div>
-        <p class="modal-subtitle">اكتب سبب التعديل هنا (اختياري)...</p>
-        <textarea id="global-change-reason" placeholder="اكتب سبب التعديل هنا (اختياري)..." dir="rtl"></textarea>
+        <p class="modal-subtitle">اكتب تفاصيل التقييم هنا (اختياري)...</p>
+        <textarea id="global-change-reason" placeholder="اكتب تفاصيل التقييم هنا (اختياري)..." dir="rtl"></textarea>
         <div class="modal-footer-actions">
-          <button id="submit-global-grade" class="btn-modal-save">حفظ التعديل</button>
+          <button id="submit-global-grade" class="btn-modal-save">حفظ تفاصيل اليوم</button>
           <button id="close-global-modal" class="btn-modal-cancel">إلغاء</button>
         </div>
       </div>`
@@ -531,21 +532,39 @@ window.Evaluation = {
 
     document.getElementById('submit-global-grade').addEventListener('click', async () => {
       const reasonInput = document.getElementById('global-change-reason').value.trim()
-      const finalReason = reasonInput || (hasMinus ? 'تم التقييم اليومي العادي' : 'بونص تميز')
+      const sharedReason = reasonInput || 'تم التقييم اليومي العادي'
 
-      const changesStr = changes.map(c => `${c.label} (${c.diff > 0 ? '+' : ''}${c.diff})`).join(' ، ')
-      const logType = hasMinus ? 'minus' : 'bonus'
+      if (regularChanges.length > 0) {
+        const hasMinus = regularChanges.some(function (c) { return c.diff < 0 })
+        const changesStr = regularChanges.map(c => `${c.label} (${c.diff > 0 ? '+' : ''}${c.diff})`).join(' ، ')
+        const logType = hasMinus ? 'minus' : 'bonus'
 
-      const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)
-      Store.writePath(`pointsHistory/${userId}/${logId}`, {
-        timestamp: new Date().toISOString(),
-        date: dateKey,
-        summary: changesStr,
-        reason: finalReason,
-        type: logType,
-        changedBy: currentUser.fullName,
-        changedByUid: currentUser.id,
-      })
+        const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)
+        Store.writePath(`pointsHistory/${userId}/${logId}`, {
+          timestamp: new Date().toISOString(),
+          date: dateKey,
+          summary: changesStr,
+          reason: sharedReason,
+          type: logType,
+          changedBy: currentUser.fullName,
+          changedByUid: currentUser.id,
+        })
+      }
+
+      if (bonusChange) {
+        const bonusSign = bonusChange.diff > 0 ? '+' : ''
+        const bonusStr = 'بونص (' + bonusSign + bonusChange.diff + ')'
+        const bonusLogId = 'log_' + Date.now() + '_b' + Math.random().toString(36).substr(2, 4)
+        Store.writePath(`pointsHistory/${userId}/${bonusLogId}`, {
+          timestamp: new Date().toISOString(),
+          date: dateKey,
+          summary: bonusStr,
+          reason: sharedReason,
+          type: bonusChange.diff > 0 ? 'bonus' : 'minus',
+          changedBy: currentUser.fullName,
+          changedByUid: currentUser.id,
+        })
+      }
 
       const totalScore = this.calculateTotal(entry)
       entry.totalScore = totalScore
