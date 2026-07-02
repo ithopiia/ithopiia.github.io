@@ -390,21 +390,36 @@ window.Admin = {
     if (logKeys.length === 0) return ''
     var items = logKeys.map(function (key) {
       var log = userLogs[key]
-      var reasonHtml = log.reason && log.reason !== 'بدون سبب' ? '<div class="timeline-desc" style="color:var(--text-muted);margin-top:2px">' + log.reason + '</div>' : ''
+      if (log.type === 'minus' || log.type === 'bonus') {
+        var logDate = log.date || (log.timestamp ? log.timestamp.split('T')[0] : '')
+        var logClass = log.type === 'minus' ? 'minus' : 'bonus'
+        var icon = log.type === 'minus' ? '🔻' : '⭐'
+        var changedByHtml = log.changedBy ? '<div style="font-size:0.65rem;color:var(--text-muted);margin-top:2px;opacity:0.7">بواسطة: ' + log.changedBy + '</div>' : ''
+        return '\
+          <div class="log-item-card ' + logClass + '">\
+            <div class="log-date">' + icon + ' ' + logDate + '</div>\
+            <div>' + (log.summary || '') + '</div>\
+            <div class="log-reason">📝 ' + (log.reason || '') + '</div>\
+            ' + changedByHtml + '\
+          </div>'
+      }
+      var reasonHtml = log.reason && log.reason !== 'بدون سبب' ? '<div class="log-reason">📝 ' + log.reason + '</div>' : ''
+      var logDate = log.timestamp ? log.timestamp.split('T')[0] : (log.date || '')
+      var isMinus = (log.amount || '').indexOf('-') === 0 || (log.category || '').indexOf('تمنص') !== -1
+      var logClass = isMinus ? 'minus' : 'bonus'
+      var icon = isMinus ? '🔻' : '⭐'
+      var catDisplay = log.category || ''
+      var amtDisplay = log.amount ? ' (' + log.amount + ')' : ''
       return '\
-        <div class="timeline-item">\
-          <div class="timeline-marker" style="background:var(--accent)"></div>\
-          <div class="timeline-content">\
-            <div class="timeline-date">' + (log.timestamp ? new Date(log.timestamp).toLocaleDateString('en-CA') : '') + '</div>\
-            <div class="timeline-desc" style="color:#ccc;font-weight:600">' + (log.category || '') + ' (' + (log.amount || '') + ')</div>\
-            ' + reasonHtml + '\
-            <div style="font-size:0.65rem;color:var(--text-muted);margin-top:1px">تعديل بواسطة: ' + (log.changedBy || '-') + '</div>\
-          </div>\
+        <div class="log-item-card ' + logClass + '">\
+          <div class="log-date">' + icon + ' ' + logDate + '</div>\
+          <div>' + catDisplay + amtDisplay + '</div>\
+          ' + reasonHtml + '\
         </div>'
     }).join('')
     return '\
       <h3 style="margin-top:16px;font-size:1rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:8px">📋 سجل التعديلات (آخر 20)</h3>\
-      <div class="stats-timeline">' + items + '</div>'
+      <div class="stats-timeline" style="max-height:280px;overflow-y:auto">' + items + '</div>'
   },
 
   async deleteUser(id) {

@@ -70,7 +70,7 @@ window.Evaluation = {
       + (Number(entry.bonus) || 0)
   },
 
-  _pendingEditReason: null,
+  _evalSnapshots: {},
 
   _showReasonModal() {
     return new Promise((resolve) => {
@@ -124,65 +124,6 @@ window.Evaluation = {
     })
   },
 
-  _showEditReasonModal() {
-    return new Promise((resolve) => {
-      const overlay = document.createElement('div')
-      overlay.className = 'custom-alert-overlay'
-      overlay.innerHTML = `
-        <div class="custom-alert-box edit-reason-modal animate-pop">
-          <h4>📝 تعديل خانة</h4>
-          <p>اكتب سبب التعديل هنا (اختياري)...</p>
-          <textarea id="modal-edit-reason-input" placeholder="اكتب سبب التعديل هنا (اختياري)..."></textarea>
-          <div class="alert-actions">
-            <button id="btn-modal-edit-confirm" class="btn-alert-success">حفظ التعديل</button>
-            <button id="btn-modal-edit-cancel" class="btn-alert-secondary">إلغاء</button>
-          </div>
-        </div>`
-      document.body.appendChild(overlay)
-      const input = overlay.querySelector('#modal-edit-reason-input')
-      const confirm = () => {
-        const text = input.value.trim()
-        overlay.remove()
-        resolve(text || 'بدون سبب')
-      }
-      const cancel = () => { overlay.remove(); resolve(null) }
-      overlay.querySelector('#btn-modal-edit-confirm').addEventListener('click', confirm)
-      overlay.querySelector('#btn-modal-edit-cancel').addEventListener('click', cancel)
-      overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel() })
-      setTimeout(() => input.focus(), 100)
-    })
-  },
-
-  _savePointsHistory(userId, adjustment, dateKey, evalEntry) {
-    if (!this._pendingEditReason) return
-    const currentUser = Auth.currentUser()
-    if (!currentUser) return
-    if (currentUser.role !== 'admin' && currentUser.role !== 'member') return
-
-    const changedCategories = []
-    if (evalEntry) {
-      this.COLUMNS.forEach(c => {
-        const val = Number(evalEntry[c.key]) || 0
-        if (val !== 0) {
-          changedCategories.push(`${c.label} (${val > 0 ? '+' : ''}${val})`)
-        }
-      })
-    }
-    const categoryStr = changedCategories.length > 0 ? changedCategories.join(' ، ') : `المجموع (${adjustment >= 0 ? '+' : ''}${adjustment})`
-
-    const logEntry = {
-      timestamp: new Date().toISOString(),
-      category: categoryStr,
-      amount: (adjustment >= 0 ? '+' : '') + adjustment,
-      reason: this._pendingEditReason,
-      changedBy: currentUser.fullName,
-      changedByUid: currentUser.id,
-    }
-
-    const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)
-    Store.writePath(`pointsHistory/${userId}/${logId}`, logEntry)
-  },
-
   async onSmartAction(sel, userId) {
     const val = sel.value
     if (!val) return
@@ -190,11 +131,6 @@ window.Evaluation = {
       const reason = await this._showReasonModal()
       if (!reason) { sel.value = ''; return }
       this._pendingZeroReason = reason
-    }
-    if (!this._pendingEditReason) {
-      const reason = await this._showEditReasonModal()
-      if (!reason) { sel.value = ''; return }
-      this._pendingEditReason = reason
     }
     switch (val) {
       case 'bonus': this.fillRow(userId, 'max'); break
@@ -276,6 +212,8 @@ window.Evaluation = {
                   const offsetSum = entry ? this.calculateTotal(entry) : 0
                   const total = this.BASELINE_POINTS + offsetSum
                   const inputDisabled = !isTodayKey && saved
+                  const snapKey = u.id + '_' + dateKey
+                  this._evalSnapshots[snapKey] = { ...(entry || { spiritual:0, exercises:0, moral:0, rehearsal:0, acting:0, movement:0, clothing:0, bonus:0 }) }
                   return `
                     <tr data-user-id="${u.id}" class="eval-row">
                       <td class="col-num">${i + 1}</td>
@@ -301,6 +239,7 @@ window.Evaluation = {
                             <option value="neutral">تثبيت محايد (0)</option>
                             <option value="normal">تقفيل عادي (10)</option>
                           </select>
+                          <button class="btn-save-row" onclick="Evaluation._openUnifiedSaveModal('${u.id}')">💾 حفظ التقييم لليوم</button>
                         ` : ''}
                       </td>
                     </tr>
@@ -347,19 +286,13 @@ window.Evaluation = {
     const grid = document.getElementById('eval-grid-table')
     if (!grid) return
 
-    grid.addEventListener('click', async (e) => {
+    grid.addEventListener('click', (e) => {
       const btn = e.target.closest('.stepper-btn:not(:disabled)')
       if (!btn) return
       const userId = btn.dataset.user
       const col = btn.dataset.col
       const step = parseInt(btn.dataset.step)
       if (!userId || !col || !step) return
-
-      if (!this._pendingEditReason) {
-        const reason = await this._showEditReasonModal()
-        if (!reason) return
-        this._pendingEditReason = reason
-      }
 
       const capturedDateKey = this._dateKey
       const all = Store.get('evaluation') || []
@@ -392,20 +325,10 @@ window.Evaluation = {
       const totalEl = document.getElementById(`eval-total-${userId}`)
       if (totalEl) totalEl.textContent = this.BASELINE_POINTS + total
       this.updateStats()
-
-      Store.debounce(`eval_${capturedDateKey}_${userId}`, () => {
-        this._applyAdjustment(userId, entry.totalScore, capturedDateKey, entry)
-      }, 500)
     })
   },
 
-  async updateCell(userId, col, value) {
-    if (!this._pendingEditReason) {
-      const reason = await this._showEditReasonModal()
-      if (!reason) return
-      this._pendingEditReason = reason
-    }
-
+  updateCell(userId, col, value) {
     const capturedDateKey = this._dateKey
     const all = Store.get('evaluation') || []
     let entry = all.find(e => e.userId === userId && e.dateKey === capturedDateKey)
@@ -434,10 +357,6 @@ window.Evaluation = {
     const totalEl = document.getElementById(`eval-total-${userId}`)
     if (totalEl) totalEl.textContent = this.BASELINE_POINTS + total
     this.updateStats()
-
-    Store.debounce(`eval_${capturedDateKey}_${userId}`, () => {
-      this._applyAdjustment(userId, entry.totalScore, capturedDateKey, entry)
-    }, 500)
   },
 
   _applyAdjustment(userId, adjustment, dateKey, evalEntry) {
@@ -489,8 +408,6 @@ window.Evaluation = {
       const { userId: uid, dateKey: dk, totalScore, saved, ...evalScores } = evalEntry
       Store.writePath(`evaluation/${dateKey}/${userId}`, { ...evalScores, totalScore, saved })
     }
-
-    this._savePointsHistory(userId, adjustment, dateKey, evalEntry)
 
     this._syncCumulativeToFirebase(userId)
   },
@@ -548,10 +465,6 @@ window.Evaluation = {
     const totalEl = document.getElementById(`eval-total-${userId}`)
     if (totalEl) totalEl.textContent = this.BASELINE_POINTS + total
     this.updateStats()
-
-    Store.debounce(`eval_${capturedDateKey}_${userId}`, () => {
-      this._applyAdjustment(userId, entry.totalScore, capturedDateKey, entry)
-    }, 500)
   },
 
   updateStats() {
@@ -561,6 +474,156 @@ window.Evaluation = {
     const total = dayData.reduce((s, e) => s + this.BASELINE_POINTS + this.calculateTotal(e), 0)
     const count = dayData.length
     el.textContent = `📊 ${count} أعضاء — إجمالي النقاط: ${total}`
+  },
+
+  _openUnifiedSaveModal(userId) {
+    const dateKey = this._dateKey
+    const currentUser = Auth.currentUser()
+    if (!currentUser) return
+    if (currentUser.role !== 'admin' && currentUser.role !== 'member') return
+
+    const all = Store.get('evaluation') || []
+    const entry = all.find(e => e.userId === userId && e.dateKey === dateKey)
+    if (!entry) {
+      showCustomAlert('لم يتم العثور على بيانات التقييم لهذا المستخدم.')
+      return
+    }
+
+    const snapshotKey = userId + '_' + dateKey
+    const snapshot = this._evalSnapshots[snapshotKey] || {}
+
+    const changes = []
+    let hasMinus = false
+    let hasBonus = false
+
+    this.COLUMNS.forEach(c => {
+      const currentVal = Number(entry[c.key]) || 0
+      const originalVal = Number(snapshot[c.key]) || 0
+      if (currentVal !== originalVal) {
+        const diff = currentVal - originalVal
+        changes.push({ label: c.label, diff, current: currentVal })
+        if (diff < 0) hasMinus = true
+        if (diff > 0) hasBonus = true
+      }
+    })
+
+    if (changes.length === 0) {
+      showCustomAlert('لم تقم بإجراء أي تغيير في الدرجات لحفظه!')
+      return
+    }
+
+    const overlay = document.createElement('div')
+    overlay.className = 'custom-modal-overlay'
+    overlay.innerHTML = `
+      <div class="custom-modal-card animate-pop">
+        <div class="modal-header">
+          <span class="modal-icon">📝</span>
+          <h3>تعديل خانة التقييم</h3>
+        </div>
+        <p class="modal-subtitle">اكتب سبب التعديل هنا (اختياري)...</p>
+        <textarea id="global-change-reason" placeholder="اكتب سبب التعديل هنا (اختياري)..." dir="rtl"></textarea>
+        <div class="modal-footer-actions">
+          <button id="submit-global-grade" class="btn-modal-save">حفظ التعديل</button>
+          <button id="close-global-modal" class="btn-modal-cancel">إلغاء</button>
+        </div>
+      </div>`
+    document.body.appendChild(overlay)
+
+    document.getElementById('submit-global-grade').addEventListener('click', async () => {
+      const reasonInput = document.getElementById('global-change-reason').value.trim()
+      const finalReason = reasonInput || (hasMinus ? 'تم التقييم اليومي العادي' : 'بونص تميز')
+
+      const changesStr = changes.map(c => `${c.label} (${c.diff > 0 ? '+' : ''}${c.diff})`).join(' ، ')
+      const logType = hasMinus ? 'minus' : 'bonus'
+
+      const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)
+      Store.writePath(`pointsHistory/${userId}/${logId}`, {
+        timestamp: new Date().toISOString(),
+        date: dateKey,
+        summary: changesStr,
+        reason: finalReason,
+        type: logType,
+        changedBy: currentUser.fullName,
+        changedByUid: currentUser.id,
+      })
+
+      const totalScore = this.calculateTotal(entry)
+      entry.totalScore = totalScore
+      entry.saved = true
+
+      const { userId: uid, dateKey: dk, totalScore: ts, saved: sv, ...evalScores } = entry
+      Store.writePath(`evaluation/${dateKey}/${userId}`, { ...evalScores, totalScore, saved: true })
+
+      var bonusVal = Number(entry.bonus) || 0
+      const dailyPoints = Store.get('dailyPoints') || []
+      let dp = dailyPoints.find(p => p.userId === userId && p.dateKey === dateKey)
+      if (!dp) {
+        dp = {
+          userId, dateKey,
+          date: new Date().toISOString(),
+          basePoints: this.BASELINE_POINTS,
+          evaluationScore: 0,
+          manualBonus: 0,
+          overwritten: false,
+          finalScore: this.BASELINE_POINTS,
+          adminNotes: '',
+          saved: true,
+        }
+        dailyPoints.push(dp)
+      }
+      dp.manualBonus = bonusVal
+      dp.evaluationScore = totalScore - bonusVal
+      dp.finalScore = this.BASELINE_POINTS + totalScore
+      dp.saved = true
+
+      if (dp.finalScore <= 0) {
+        if (this._pendingZeroReason) {
+          dp.zeroReason = this._pendingZeroReason
+          this._pendingZeroReason = null
+        } else if (!dp.zeroReason) {
+          dp.zeroReason = ''
+        }
+      }
+
+      Store.writePath(`dailyPoints/${dateKey}/${userId}`, {
+        basePoints: dp.basePoints,
+        evaluationScore: dp.evaluationScore ?? 0,
+        manualBonus: dp.manualBonus ?? 0,
+        finalScore: dp.finalScore,
+        overwritten: dp.overwritten ?? false,
+        adminNotes: dp.adminNotes ?? '',
+        zeroReason: dp.zeroReason ?? '',
+        saved: true,
+        date: dp.date ?? new Date().toISOString(),
+      })
+
+      this._syncCumulativeToFirebase(userId)
+
+      overlay.remove()
+
+      var userName = ''
+      var allUsers = Store.get('users') || []
+      var userObj = allUsers.find(function (u) { return u.id === userId })
+      if (userObj) userName = userObj.fullName
+      this._showSavedNotice(userName || userId)
+    })
+
+    document.getElementById('close-global-modal').addEventListener('click', () => {
+      overlay.remove()
+    })
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove() })
+  },
+
+  _showSavedNotice(userName) {
+    const container = document.getElementById('tab-evaluation')
+    if (!container) return
+    const existing = container.querySelector('.eval-toast-notice')
+    if (existing) existing.remove()
+    const notice = document.createElement('div')
+    notice.className = 'eval-toast-notice'
+    notice.innerHTML = '✅ تم حفظ تقييم <strong>' + userName + '</strong> بنجاح!'
+    container.appendChild(notice)
+    setTimeout(() => { notice.remove() }, 3000)
   },
 
   async saveDay() {
@@ -624,33 +687,6 @@ window.Evaluation = {
       Store.writePath(path, val)
     })
 
-    if (this._pendingEditReason) {
-      const savedReason = this._pendingEditReason
-      dayEntries.forEach(e => {
-        const currentUser = Auth.currentUser()
-        if (!currentUser) return
-        const changedCategories = []
-        this.COLUMNS.forEach(c => {
-          const val = Number(e[c.key]) || 0
-          if (val !== 0) {
-            changedCategories.push(`${c.label} (${val > 0 ? '+' : ''}${val})`)
-          }
-        })
-        const totalScore = e.totalScore || 0
-        const categoryStr = changedCategories.length > 0 ? changedCategories.join(' ، ') : `المجموع (${totalScore >= 0 ? '+' : ''}${totalScore})`
-        const logEntry = {
-          timestamp: new Date().toISOString(),
-          category: categoryStr,
-          amount: (totalScore >= 0 ? '+' : '') + totalScore,
-          reason: savedReason,
-          changedBy: currentUser.fullName,
-          changedByUid: currentUser.id,
-        }
-        const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)
-        Store.writePath(`pointsHistory/${e.userId}/${logId}`, logEntry)
-      })
-    }
-
     const notice = document.getElementById('eval-saved-notice')
     if (notice) {
       notice.style.display = 'block'
@@ -658,7 +694,6 @@ window.Evaluation = {
     }
 
     this._pendingZeroReason = null
-    this._pendingEditReason = null
     this.render()
   },
 
