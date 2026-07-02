@@ -135,7 +135,10 @@ window.Evaluation = {
     switch (val) {
       case 'bonus': this.fillRow(userId, 'max'); break
       case 'reduce': this.fillRow(userId, 'reduce'); break
-      case 'neutral': this.fillRow(userId, 'zero'); break
+      case 'neutral':
+        this.fillRow(userId, 'zero')
+        await this._executeAbsoluteUserReset(userId, this._pendingZeroReason)
+        break
       case 'normal': this.fillRow(userId, 'normal'); break
     }
     sel.value = ''
@@ -250,12 +253,12 @@ window.Evaluation = {
       </div>
       <div class="eval-footer">
         ${isTodayKey ? `
-          <button class="btn-sm btn-primary" onclick="Evaluation.saveDay()">💾 حفظ تفاصيل اليوم</button>
+          <button class="btn-sm btn-primary" onclick="Evaluation.saveDay()">💾 حفظ اليوم</button>
           <button class="btn-sm btn-ghost" onclick="Evaluation.render()">🔄 تحديث</button>
         ` : (saved ? `
           <button class="btn-sm btn-ghost" onclick="Evaluation.unlockDay()">🔓 فتح اليوم للتعديل</button>
         ` : `
-          <button class="btn-sm btn-primary" onclick="Evaluation.saveDay()">💾 حفظ تفاصيل اليوم</button>
+          <button class="btn-sm btn-primary" onclick="Evaluation.saveDay()">💾 حفظ اليوم والتاريخ</button>
           <button class="btn-sm btn-ghost" onclick="Evaluation.render()">🔄 تحديث</button>
         `)}
         <span class="eval-stats" id="eval-stats"></span>
@@ -422,6 +425,98 @@ window.Evaluation = {
     if (user) {
       user.cumulativePoints = total
       Store.writePath(`users/${userId}/cumulativePoints`, total)
+    }
+  },
+
+  async _executeAbsoluteUserReset(userId, reason) {
+    const currentDate = this._dateKey || Points.getTodayKey()
+    const db = firebase.database()
+
+    const [dailySnap, userSnap] = await Promise.all([
+      db.ref('/ithopiia/dailyPoints').once('value'),
+      db.ref('/ithopiia/users/' + userId).once('value'),
+    ])
+
+    const allDailyPoints = dailySnap.val() || {}
+    const userData = userSnap.val()
+    if (!userData) return
+
+    let otherDaysTotal = 0
+    Object.keys(allDailyPoints).forEach(function (dateKey) {
+      var day = allDailyPoints[dateKey]
+      if (day && day[userId] && dateKey !== currentDate) {
+        var entry = day[userId]
+        if (entry.saved !== false) {
+          otherDaysTotal += calcEntryScore(entry)
+        }
+      }
+    })
+
+    var newCumulative = otherDaysTotal
+    if (newCumulative < 0) newCumulative = 0
+
+    var logRef = db.ref('/ithopiia/pointsHistory/' + userId).push()
+    var logKey = logRef.key
+
+    var updates = {}
+    updates['/ithopiia/users/' + userId + '/cumulativePoints'] = newCumulative
+    updates['/ithopiia/users/' + userId + '/dailyPoints'] = 0
+
+    updates['/ithopiia/evaluation/' + currentDate + '/' + userId + '/spiritual'] = 0
+    updates['/ithopiia/evaluation/' + currentDate + '/' + userId + '/exercises'] = 0
+    updates['/ithopiia/evaluation/' + currentDate + '/' + userId + '/moral'] = 0
+    updates['/ithopiia/evaluation/' + currentDate + '/' + userId + '/rehearsal'] = 0
+    updates['/ithopiia/evaluation/' + currentDate + '/' + userId + '/acting'] = 0
+    updates['/ithopiia/evaluation/' + currentDate + '/' + userId + '/movement'] = 0
+    updates['/ithopiia/evaluation/' + currentDate + '/' + userId + '/clothing'] = 0
+    updates['/ithopiia/evaluation/' + currentDate + '/' + userId + '/bonus'] = 0
+    updates['/ithopiia/evaluation/' + currentDate + '/' + userId + '/totalScore'] = 0
+    updates['/ithopiia/evaluation/' + currentDate + '/' + userId + '/saved'] = true
+
+    updates['/ithopiia/dailyPoints/' + currentDate + '/' + userId + '/basePoints'] = userData.basePoints ?? 0
+    updates['/ithopiia/dailyPoints/' + currentDate + '/' + userId + '/evaluationScore'] = 0
+    updates['/ithopiia/dailyPoints/' + currentDate + '/' + userId + '/manualBonus'] = 0
+    updates['/ithopiia/dailyPoints/' + currentDate + '/' + userId + '/finalScore'] = 0
+    updates['/ithopiia/dailyPoints/' + currentDate + '/' + userId + '/zeroReason'] = reason || ''
+    updates['/ithopiia/dailyPoints/' + currentDate + '/' + userId + '/saved'] = true
+    updates['/ithopiia/dailyPoints/' + currentDate + '/' + userId + '/date'] = new Date().toISOString()
+
+    updates['/ithopiia/pointsHistory/' + userId + '/' + logKey] = {
+      timestamp: new Date().toISOString(),
+      date: currentDate,
+      summary: '⚠️ تم عمل تصفير كامل لجميع خانات التقييم اليومي',
+      reason: reason || 'إعادة تعيين الدرجات بواسطة المشرف',
+      type: 'minus',
+      changedBy: userData.fullName || '',
+      changedByUid: userId,
+    }
+
+    try {
+      await db.ref().update(updates)
+      var user = (Store.get('users') || []).find(function (u) { return u.id === userId })
+      if (user) {
+        user.cumulativePoints = newCumulative
+      }
+      var storeDp = Store.get('dailyPoints') || []
+      var localDp = storeDp.find(function (p) { return p.userId === userId && p.dateKey === currentDate })
+      if (localDp) {
+        localDp.finalScore = 0
+        localDp.evaluationScore = 0
+        localDp.manualBonus = 0
+        localDp.zeroReason = reason || ''
+        localDp.saved = true
+      }
+      var storeEval = Store.get('evaluation') || []
+      var localEval = storeEval.find(function (e) { return e.userId === userId && e.dateKey === currentDate })
+      if (localEval) {
+        this.COLUMNS.forEach(function (c) { localEval[c.key] = 0 })
+        localEval.totalScore = 0
+        localEval.saved = true
+      }
+      showCustomAlert('تم التصفير وإعادة حساب المجموع الكلي بنجاح! 🔄')
+    } catch (err) {
+      console.error('Reset synchronization failed:', err)
+      showCustomAlert('فشلت عملية التصفير، يرجى المحاولة مرة أخرى.')
     }
   },
 
