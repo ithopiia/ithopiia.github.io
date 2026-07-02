@@ -1,3 +1,44 @@
+window.showCustomConfirm = function (message) {
+  return new Promise(function (resolve) {
+    var overlay = document.createElement('div')
+    overlay.className = 'custom-modal-overlay'
+    overlay.innerHTML = '\
+      <div class="custom-modal-box">\
+        <h3>تأكيد</h3>\
+        <p>' + message + '</p>\
+        <div class="modal-actions">\
+          <button id="btn-custom-confirm-yes" class="modal-btn confirm">نعم</button>\
+          <button id="btn-custom-confirm-no" class="modal-btn cancel">لا</button>\
+        </div>\
+      </div>'
+    document.body.appendChild(overlay)
+    function confirm() { overlay.remove(); resolve(true) }
+    function cancel() { overlay.remove(); resolve(false) }
+    overlay.querySelector('#btn-custom-confirm-yes').addEventListener('click', confirm)
+    overlay.querySelector('#btn-custom-confirm-no').addEventListener('click', cancel)
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) cancel() })
+  })
+}
+
+window.showCustomAlert = function (message) {
+  return new Promise(function (resolve) {
+    var overlay = document.createElement('div')
+    overlay.className = 'custom-modal-overlay'
+    overlay.innerHTML = '\
+      <div class="custom-modal-box">\
+        <h3>تنبيه</h3>\
+        <p>' + message + '</p>\
+        <div class="modal-actions">\
+          <button id="btn-custom-alert-ok" class="modal-btn confirm">حسناً</button>\
+        </div>\
+      </div>'
+    document.body.appendChild(overlay)
+    function ok() { overlay.remove(); resolve() }
+    overlay.querySelector('#btn-custom-alert-ok').addEventListener('click', ok)
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) ok() })
+  })
+}
+
 window.Admin = {
   _editingDateKey: null,
   _activeGenderUsers: 'all',
@@ -99,10 +140,12 @@ window.Admin = {
     if (!user) return
     let newRole
     if (user.role === 'member') {
-      if (!confirm('إلغاء صلاحيات العضو لهذا المستخدم؟')) return
+      const c1 = await showCustomConfirm('إلغاء صلاحيات العضو لهذا المستخدم؟')
+      if (!c1) return
       newRole = 'user'
     } else {
-      if (!confirm('ترقية هذا المستخدم إلى عضو؟ سيحصل على صلاحيات المشرف مع بقائه ظاهرًا في الموقع.')) return
+      const c2 = await showCustomConfirm('ترقية هذا المستخدم إلى عضو؟ سيحصل على صلاحيات المشرف مع بقائه ظاهرًا في الموقع.')
+      if (!c2) return
       newRole = 'member'
     }
     user.role = newRole
@@ -250,6 +293,7 @@ window.Admin = {
           <div class="stats-timeline" id="stats-timeline-${userId}">
             ${Admin._renderTimeline(Admin._activeStatTab, penaltyDates, bonusDates, zeroDates, userPoints, evalCategoryMap)}
           </div>
+          ${Admin._renderPointsHistory(userId)}
         </div>
       </div>`
     }
@@ -339,8 +383,33 @@ window.Admin = {
     return '<p class="text-muted" style="text-align:center;padding:16px">اختر إحدى الإحصائيات أعلاه</p>'
   },
 
-  deleteUser(id) {
-    if (!confirm('هل تريد حذف هذا المستخدم؟')) return
+  _renderPointsHistory(userId) {
+    var allHistory = Store._data && Store._data.pointsHistory ? Store._data.pointsHistory : {}
+    var userLogs = allHistory[userId] || {}
+    var logKeys = Object.keys(userLogs).sort().reverse().slice(0, 20)
+    if (logKeys.length === 0) return ''
+    var items = logKeys.map(function (key) {
+      var log = userLogs[key]
+      var reasonHtml = log.reason && log.reason !== 'بدون سبب' ? '<div class="timeline-desc" style="color:var(--text-muted);margin-top:2px">' + log.reason + '</div>' : ''
+      return '\
+        <div class="timeline-item">\
+          <div class="timeline-marker" style="background:var(--accent)"></div>\
+          <div class="timeline-content">\
+            <div class="timeline-date">' + (log.timestamp ? new Date(log.timestamp).toLocaleDateString('en-CA') : '') + '</div>\
+            <div class="timeline-desc" style="color:#ccc;font-weight:600">' + (log.category || '') + ' (' + (log.amount || '') + ')</div>\
+            ' + reasonHtml + '\
+            <div style="font-size:0.65rem;color:var(--text-muted);margin-top:1px">تعديل بواسطة: ' + (log.changedBy || '-') + '</div>\
+          </div>\
+        </div>'
+    }).join('')
+    return '\
+      <h3 style="margin-top:16px;font-size:1rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:8px">📋 سجل التعديلات (آخر 20)</h3>\
+      <div class="stats-timeline">' + items + '</div>'
+  },
+
+  async deleteUser(id) {
+    const confirmed = await showCustomConfirm('هل تريد حذف هذا المستخدم؟')
+    if (!confirmed) return
     Store.writePath(`users/${id}`, null)
   },
 
@@ -706,7 +775,7 @@ window.Admin = {
     }
   },
 
-  saveLeaderboardSchedule() {
+  async saveLeaderboardSchedule() {
     const dateOpen = document.getElementById('lb-open-date')?.value
     const hrOpen = parseInt(document.getElementById('lb-open-hour')?.value)
     const minOpen = parseInt(document.getElementById('lb-open-minute')?.value)
@@ -737,7 +806,7 @@ window.Admin = {
       String(closeS).padStart(2, '0'))
 
     if (isNaN(openDateObj.getTime()) || isNaN(closeDateObj.getTime())) return
-    if (closeDateObj <= openDateObj) { alert('يجب أن يكون وقت القفل بعد وقت الفتح'); return }
+    if (closeDateObj <= openDateObj) { await showCustomAlert('يجب أن يكون وقت القفل بعد وقت الفتح'); return }
 
     const now = Date.now()
     const openTime = openDateObj.getTime()
@@ -767,8 +836,9 @@ window.Admin = {
     this._notifyDashboard()
   },
 
-  clearLeaderboardSchedule() {
-    if (!confirm('هل تريد إلغاء الجدولة بالكامل؟')) return
+  async clearLeaderboardSchedule() {
+    const confirmed = await showCustomConfirm('هل تريد إلغاء الجدولة بالكامل؟')
+    if (!confirmed) return
     const data = {
       openAt: null, closeAt: null,
       openDate: null, openHour: null, openMinute: null, openSecond: null,
@@ -881,8 +951,9 @@ window.Admin = {
       </div>`
   },
 
-  deleteNote(noteId) {
-    if (!confirm('هل تريد حذف هذه الملاحظة؟')) return
+  async deleteNote(noteId) {
+    const confirmed = await showCustomConfirm('هل تريد حذف هذه الملاحظة؟')
+    if (!confirmed) return
     Store.writePath(`notes/${noteId}`, null)
   },
 
@@ -1059,8 +1130,9 @@ window.Admin = {
     this.renderRoomsTab()
   },
 
-  deleteRoom(roomId) {
-    if (!confirm('حذف الغرفة سيؤدي إلى إزالة جميع الأعضاء منها. هل تريد المتابعة؟')) return
+  async deleteRoom(roomId) {
+    const confirmed = await showCustomConfirm('حذف الغرفة سيؤدي إلى إزالة جميع الأعضاء منها. هل تريد المتابعة؟')
+    if (!confirmed) return
     const rooms = Store.get('rooms')
     const idx = rooms.findIndex(r => r.id === roomId)
     if (idx !== -1) rooms.splice(idx, 1)

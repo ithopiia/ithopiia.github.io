@@ -102,6 +102,28 @@ window.Evaluation = {
     })
   },
 
+  _showCustomConfirm(message) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div')
+      overlay.className = 'custom-modal-overlay'
+      overlay.innerHTML = `
+        <div class="custom-modal-box">
+          <h3>تأكيد</h3>
+          <p>${message}</p>
+          <div class="modal-actions">
+            <button id="btn-custom-confirm-yes" class="modal-btn confirm">نعم</button>
+            <button id="btn-custom-confirm-no" class="modal-btn cancel">لا</button>
+          </div>
+        </div>`
+      document.body.appendChild(overlay)
+      const confirm = () => { overlay.remove(); resolve(true) }
+      const cancel = () => { overlay.remove(); resolve(false) }
+      overlay.querySelector('#btn-custom-confirm-yes').addEventListener('click', confirm)
+      overlay.querySelector('#btn-custom-confirm-no').addEventListener('click', cancel)
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel() })
+    })
+  },
+
   _showEditReasonModal() {
     return new Promise((resolve) => {
       const overlay = document.createElement('div')
@@ -109,10 +131,10 @@ window.Evaluation = {
       overlay.innerHTML = `
         <div class="custom-modal-box edit-reason-modal">
           <h3>📝 توثيق تعديل الدرجات</h3>
-          <p>برجاء كتابة سبب تعديل الدرجات (زيادة أو نقص) لتوثيقه في السجل:</p>
+          <p>برجاء كتابة سبب تعديل الدرجات (اختياري) لتوثيقه في السجل:</p>
           <textarea id="modal-edit-reason-input" placeholder="مثال: تحسن في الأداء التمثيلي..."></textarea>
           <div class="modal-actions">
-            <button id="btn-modal-edit-confirm" class="modal-btn confirm">تأكيد وتوثيق</button>
+            <button id="btn-modal-edit-confirm" class="modal-btn confirm">حفظ التعديل</button>
             <button id="btn-modal-edit-cancel" class="modal-btn cancel">إلغاء</button>
           </div>
         </div>`
@@ -120,9 +142,8 @@ window.Evaluation = {
       const input = overlay.querySelector('#modal-edit-reason-input')
       const confirm = () => {
         const text = input.value.trim()
-        if (!text) return
         overlay.remove()
-        resolve(text)
+        resolve(text || 'بدون سبب')
       }
       const cancel = () => { overlay.remove(); resolve(null) }
       overlay.querySelector('#btn-modal-edit-confirm').addEventListener('click', confirm)
@@ -160,8 +181,6 @@ window.Evaluation = {
 
     const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)
     Store.writePath(`pointsHistory/${userId}/${logId}`, logEntry)
-
-    this._pendingEditReason = null
   },
 
   async onSmartAction(sel, userId) {
@@ -297,7 +316,7 @@ window.Evaluation = {
         ` : (saved ? `
           <button class="btn-sm btn-ghost" onclick="Evaluation.unlockDay()">🔓 فتح اليوم للتعديل</button>
         ` : `
-          <button class="btn-sm btn-primary" onclick="Evaluation.saveDay()">💾 حفظ اليوم وإنهاؤه</button>
+          <button class="btn-sm btn-primary" onclick="Evaluation.saveDay()">💾 حفظ يوم والتاريخ</button>
           <button class="btn-sm btn-ghost" onclick="Evaluation.render()">🔄 تحديث</button>
         `)}
         <span class="eval-stats" id="eval-stats"></span>
@@ -544,9 +563,10 @@ window.Evaluation = {
     el.textContent = `📊 ${count} أعضاء — إجمالي النقاط: ${total}`
   },
 
-  saveDay() {
+  async saveDay() {
     const dateKey = this._dateKey
-    if (!confirm(`هل تريد حفظ يوم ${this.formatDate(dateKey)} وإنهاؤه؟`)) return
+    const confirmed = await this._showCustomConfirm(`هل تريد حفظ يوم ${this.formatDate(dateKey)} والتاريخ؟`)
+    if (!confirmed) return
 
     const all = Store.get('evaluation') || []
     const dailyPoints = Store.get('dailyPoints') || []
@@ -642,9 +662,10 @@ window.Evaluation = {
     this.render()
   },
 
-  unlockDay() {
+  async unlockDay() {
     const dateKey = this._dateKey
-    if (!confirm('فتح اليوم سيسمح بالتعديل مرة أخرى. هل تريد المتابعة؟')) return
+    const confirmed = await this._showCustomConfirm('فتح اليوم سيسمح بالتعديل مرة أخرى. هل تريد المتابعة؟')
+    if (!confirmed) return
     const all = Store.get('evaluation')
     all.forEach(e => {
       if (e.dateKey === dateKey) {
