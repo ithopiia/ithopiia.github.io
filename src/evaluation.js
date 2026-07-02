@@ -75,15 +75,15 @@ window.Evaluation = {
   _showReasonModal() {
     return new Promise((resolve) => {
       const overlay = document.createElement('div')
-      overlay.className = 'custom-modal-overlay'
+      overlay.className = 'custom-alert-overlay'
       overlay.innerHTML = `
-        <div class="custom-modal-box">
-          <h3>⚠️ تسجيل سبب التصفير</h3>
+        <div class="custom-alert-box animate-pop">
+          <h4>⚠️ تسجيل سبب التصفير</h4>
           <p>اكتب سبب تصفير هذا الشخص فوراً لضمان التسجيل في السجل الرقمي:</p>
           <textarea id="modal-reason-input" placeholder="مثال: غياب بدون إذن عن البروفة..."></textarea>
-          <div class="modal-actions">
-            <button id="btn-modal-confirm" class="modal-btn confirm">تأكيد التصفير</button>
-            <button id="btn-modal-cancel" class="modal-btn cancel">إلغاء</button>
+          <div class="alert-actions">
+            <button id="btn-modal-confirm" class="btn-alert-success">تأكيد التصفير</button>
+            <button id="btn-modal-cancel" class="btn-alert-danger">إلغاء</button>
           </div>
         </div>`
       document.body.appendChild(overlay)
@@ -105,14 +105,14 @@ window.Evaluation = {
   _showCustomConfirm(message) {
     return new Promise((resolve) => {
       const overlay = document.createElement('div')
-      overlay.className = 'custom-modal-overlay'
+      overlay.className = 'custom-alert-overlay'
       overlay.innerHTML = `
-        <div class="custom-modal-box">
+        <div class="custom-alert-box animate-pop">
           <h3>تأكيد</h3>
           <p>${message}</p>
-          <div class="modal-actions">
-            <button id="btn-custom-confirm-yes" class="modal-btn confirm">نعم</button>
-            <button id="btn-custom-confirm-no" class="modal-btn cancel">لا</button>
+          <div class="alert-actions">
+            <button id="btn-custom-confirm-yes" class="btn-alert-success">نعم</button>
+            <button id="btn-custom-confirm-no" class="btn-alert-danger">لا</button>
           </div>
         </div>`
       document.body.appendChild(overlay)
@@ -127,15 +127,15 @@ window.Evaluation = {
   _showEditReasonModal() {
     return new Promise((resolve) => {
       const overlay = document.createElement('div')
-      overlay.className = 'custom-modal-overlay'
+      overlay.className = 'custom-alert-overlay'
       overlay.innerHTML = `
-        <div class="custom-modal-box edit-reason-modal">
-          <h3>📝 توثيق تعديل الدرجات</h3>
-          <p>برجاء كتابة سبب تعديل الدرجات (اختياري) لتوثيقه في السجل:</p>
-          <textarea id="modal-edit-reason-input" placeholder="مثال: تحسن في الأداء التمثيلي..."></textarea>
-          <div class="modal-actions">
-            <button id="btn-modal-edit-confirm" class="modal-btn confirm">حفظ التعديل</button>
-            <button id="btn-modal-edit-cancel" class="modal-btn cancel">إلغاء</button>
+        <div class="custom-alert-box edit-reason-modal animate-pop">
+          <h4>📝 تعديل خانة</h4>
+          <p>اكتب سبب التعديل هنا (اختياري)...</p>
+          <textarea id="modal-edit-reason-input" placeholder="اكتب سبب التعديل هنا (اختياري)..."></textarea>
+          <div class="alert-actions">
+            <button id="btn-modal-edit-confirm" class="btn-alert-success">حفظ التعديل</button>
+            <button id="btn-modal-edit-cancel" class="btn-alert-secondary">إلغاء</button>
           </div>
         </div>`
       document.body.appendChild(overlay)

@@ -1,14 +1,14 @@
 window.showCustomConfirm = function (message) {
   return new Promise(function (resolve) {
     var overlay = document.createElement('div')
-    overlay.className = 'custom-modal-overlay'
+    overlay.className = 'custom-alert-overlay'
     overlay.innerHTML = '\
-      <div class="custom-modal-box">\
+      <div class="custom-alert-box animate-pop">\
         <h3>تأكيد</h3>\
         <p>' + message + '</p>\
-        <div class="modal-actions">\
-          <button id="btn-custom-confirm-yes" class="modal-btn confirm">نعم</button>\
-          <button id="btn-custom-confirm-no" class="modal-btn cancel">لا</button>\
+        <div class="alert-actions">\
+          <button id="btn-custom-confirm-yes" class="btn-alert-success">نعم</button>\
+          <button id="btn-custom-confirm-no" class="btn-alert-danger">لا</button>\
         </div>\
       </div>'
     document.body.appendChild(overlay)
@@ -23,13 +23,13 @@ window.showCustomConfirm = function (message) {
 window.showCustomAlert = function (message) {
   return new Promise(function (resolve) {
     var overlay = document.createElement('div')
-    overlay.className = 'custom-modal-overlay'
+    overlay.className = 'custom-alert-overlay'
     overlay.innerHTML = '\
-      <div class="custom-modal-box">\
+      <div class="custom-alert-box animate-pop">\
         <h3>تنبيه</h3>\
         <p>' + message + '</p>\
-        <div class="modal-actions">\
-          <button id="btn-custom-alert-ok" class="modal-btn confirm">حسناً</button>\
+        <div class="alert-actions">\
+          <button id="btn-custom-alert-ok" class="btn-alert-success">حسناً</button>\
         </div>\
       </div>'
     document.body.appendChild(overlay)
