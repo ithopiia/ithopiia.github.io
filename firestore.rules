@@ -1,0 +1,15 @@
+{
+  "rules": {
+    "ithopiia": {
+      ".read": true,
+      ".write": "auth != null",
+      "roles": {
+        ".read": true,
+        ".write": "auth.token.email === 'admin@ithopiia.com' || auth.token.email === 'admin@hthopiia.com' || root.child('ithopiia/roles/' + auth.uid).exists()"
+      },
+      "settings": {
+        ".write": "root.child('ithopiia/roles/' + auth.uid).exists()"
+      }
+    }
+  }
+}

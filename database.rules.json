@@ -1,0 +1,51 @@
+{
+  "rules": {
+    "students": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$studentId": {
+        ".write": "auth != null",
+        "hymns": {
+          ".write": "auth != null"
+        },
+        "totalScore": {
+          ".write": "auth != null"
+        }
+      }
+    },
+    "ithopiia": {
+      "users": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && (auth.uid === $uid || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')",
+          "cumulativePoints": {
+            ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
+          },
+          "dailyPoints": {
+            ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
+          }
+        }
+      },
+      "dailyPoints": {
+        ".read": "auth != null",
+        ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
+      },
+      "rooms": {
+        ".read": "auth != null",
+        ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
+      },
+      "evaluation": {
+        ".read": "auth != null",
+        ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
+      },
+      "notes": {
+        ".read": "auth != null",
+        ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
+      },
+      "settings": {
+        ".read": "auth != null",
+        ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
+      }
+    }
+  }
+}
