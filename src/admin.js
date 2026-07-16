@@ -1,9 +1,10 @@
 window.formatWhatsAppLink = function (phone) {
-  if (!phone) return ''
-  var cleaned = phone.replace(/[\s\-()]/g, '')
-  if (/^01\d/.test(cleaned)) cleaned = '20' + cleaned.slice(1)
-  else if (/^20\d/.test(cleaned)) cleaned = cleaned
-  else if (/^\+20\d/.test(cleaned)) cleaned = cleaned.slice(1)
+  if (!phone) return '#'
+  var phoneStr = String(phone).trim()
+  var cleaned = phoneStr.replace(/\D/g, '')
+  if (!cleaned) return '#'
+  if (cleaned.startsWith('01')) cleaned = '2' + cleaned
+  else if (cleaned.startsWith('1')) cleaned = '20' + cleaned
   return 'https://wa.me/' + cleaned
 }
 
