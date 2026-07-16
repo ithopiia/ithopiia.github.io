@@ -1,3 +1,12 @@
+window.formatWhatsAppLink = function (phone) {
+  if (!phone) return ''
+  var cleaned = phone.replace(/[\s\-()]/g, '')
+  if (/^01\d/.test(cleaned)) cleaned = '20' + cleaned.slice(1)
+  else if (/^20\d/.test(cleaned)) cleaned = cleaned
+  else if (/^\+20\d/.test(cleaned)) cleaned = cleaned.slice(1)
+  return 'https://wa.me/' + cleaned
+}
+
 window.showCustomConfirm = function (message) {
   return new Promise(function (resolve) {
     var overlay = document.createElement('div')
@@ -275,7 +284,7 @@ window.Admin = {
             <div class="info-item"><span class="info-label">النوع</span><span class="info-value">${genderMap[freshUser.gender] || freshUser.gender || '-'}</span></div>
             <div class="info-item"><span class="info-label">الغرف التقييمية</span><span class="info-value">${userRoomNames}</span></div>
             <div class="info-item"><span class="info-label">تاريخ الميلاد</span><span class="info-value">${freshUser.birthdate || '-'}</span></div>
-            <div class="info-item"><span class="info-label">واتساب</span><span class="info-value">${freshUser.whatsapp || '-'}</span></div>
+            <div class="info-item"><span class="info-label">واتساب</span><span class="info-value">${freshUser.whatsapp ? '<a href="' + window.formatWhatsAppLink(freshUser.whatsapp) + '" target="_blank" rel="noopener noreferrer" class="whatsapp-link">' + freshUser.whatsapp + '</a>' : '-'}</span></div>
             <div class="info-item"><span class="info-label">الكرازة</span><span class="info-value">${freshUser.attendedElKaraza === 'yes' ? 'نعم' : freshUser.attendedElKaraza === 'no' ? 'لا' : '-'}</span></div>
             ${freshUser.createdAt ? `<div class="info-item"><span class="info-label">تاريخ التسجيل</span><span class="info-value">${new Date(freshUser.createdAt).toLocaleDateString('en-CA')}</span></div>` : ''}
           </div>
@@ -1086,7 +1095,7 @@ window.Admin = {
                   <td>${genderMap[u.gender] || u.gender || '-'}</td>
                   <td>${u.birthdate || '-'}</td>
                   <td>${userRoomNames}</td>
-                  <td>${u.whatsapp || '-'}</td>
+                  <td>${u.whatsapp ? '<a href="' + window.formatWhatsAppLink(u.whatsapp) + '" target="_blank" rel="noopener noreferrer" class="whatsapp-link">' + u.whatsapp + '</a>' : '-'}</td>
                   <td>${u.attendedElKaraza === 'yes' ? 'نعم' : u.attendedElKaraza === 'no' ? 'لا' : '-'}</td>
                   <td>${u.role === 'member' ? 'عضو لجنة' : 'مستخدم'}</td>
                   <td><span class="global-total-score-value">${u.cumulativePoints || 0}</span></td>

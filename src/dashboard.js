@@ -243,7 +243,7 @@ window.Dashboard = {
           </div>
           <div class="info-item">
             <span class="info-label">رقم واتساب</span>
-            <span class="info-value">${fresh.whatsapp || '-'}</span>
+            <span class="info-value">${fresh.whatsapp ? '<a href="' + window.formatWhatsAppLink(fresh.whatsapp) + '" target="_blank" rel="noopener noreferrer" class="whatsapp-link">' + fresh.whatsapp + '</a>' : '-'}</span>
           </div>
           <div class="info-item">
             <span class="info-label">حضور الكرازة</span>

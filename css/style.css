@@ -732,6 +732,13 @@ textarea { resize: vertical; }
 .info-label { font-size: 0.85rem; color: var(--text-muted); }
 .info-value { font-size: 0.9rem; font-weight: 600; text-align: left; color: var(--accent); }
 
+.whatsapp-link {
+  color: #25d366;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.whatsapp-link:hover { color: #128c7e; text-decoration: underline; }
+
 /* ===== FEEDBACK / NOTES ===== */
 .feedback-section { display: flex; flex-direction: column; gap: 16px; }
 
