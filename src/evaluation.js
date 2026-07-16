@@ -737,12 +737,16 @@ window.Evaluation = {
       dp.saved = true
       dp.bonusReason = bonusReason
 
+      var resolvedZeroReason = ''
       if (dp.finalScore <= 0) {
         if (this._pendingZeroReason) {
           dp.zeroReason = this._pendingZeroReason
+          resolvedZeroReason = this._pendingZeroReason
           this._pendingZeroReason = null
         } else if (!dp.zeroReason) {
           dp.zeroReason = ''
+        } else {
+          resolvedZeroReason = dp.zeroReason
         }
       }
 
@@ -782,7 +786,7 @@ window.Evaluation = {
         rehearsal: entry.rehearsal,
         spiritual: entry.spiritual,
       }
-      await saveAssessmentFinalSync(userId, dateKey, scorePayload, bonusReason, bonusReason)
+      await saveAssessmentFinalSync(userId, dateKey, scorePayload, bonusReason, bonusReason, resolvedZeroReason)
 
       overlay.remove()
 
@@ -837,6 +841,7 @@ window.Evaluation = {
           if (existing) existing.zeroReason = this._pendingZeroReason
         }
       }
+      e.zeroReason = reason || ''
       if (!existing) {
         var bonusVal = Number(e.bonus) || 0
         dailyPoints.push({
@@ -854,6 +859,7 @@ window.Evaluation = {
         })
       } else {
         existing.bonusReason = bonusReason
+        if (isZero) existing.zeroReason = reason
       }
     })
 
@@ -868,7 +874,7 @@ window.Evaluation = {
         finalScore: totalScore,
         overwritten: true,
         adminNotes: '',
-        zeroReason: '',
+        zeroReason: e.zeroReason || '',
         bonusReason: e.bonusReason || '',
         saved: true,
         date: new Date().toISOString(),
@@ -981,7 +987,7 @@ function initiateAbsoluteLiveSyncTrigger(userId, dateKey) {
     });
 }
 
-window.saveAssessmentFinalSync = function(userId, dateKey, scorePayload, finalReason = "", bonusReason = "") {
+window.saveAssessmentFinalSync = function(userId, dateKey, scorePayload, finalReason = "", bonusReason = "", zeroReason = "") {
     if (!userId || !dateKey) return;
 
     // 1. Force strict absolute numbers straight from the current active payload
@@ -1012,12 +1018,14 @@ window.saveAssessmentFinalSync = function(userId, dateKey, scorePayload, finalRe
     atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/finalScore`] = absoluteTotal;
     atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/saved`] = true;
     atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/bonusReason`] = bonusReason || "";
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/zeroReason`] = zeroReason || "";
 
     // Hard Overwrite DailyPoints Leaf Nodes
     atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/evaluationScore`] = absoluteTotal;
     atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/finalScore`] = absoluteTotal;
     atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/manualBonus`] = bonus;
     atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/bonusReason`] = bonusReason || "";
+    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/zeroReason`] = zeroReason || "";
     atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/saved`] = true;
     atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/overwritten`] = true;
 
@@ -1035,12 +1043,14 @@ window.saveAssessmentFinalSync = function(userId, dateKey, scorePayload, finalRe
                 localEntry.evaluationScore = absoluteTotal;
                 localEntry.finalScore = absoluteTotal;
                 localEntry.bonusReason = bonusReason || "";
+                localEntry.zeroReason = zeroReason || "";
             } else {
                 allDp.push({
                     userId, dateKey,
                     evaluationScore: absoluteTotal,
                     finalScore: absoluteTotal,
                     bonusReason: bonusReason || "",
+                    zeroReason: zeroReason || "",
                     saved: true,
                     overwritten: true,
                 });
