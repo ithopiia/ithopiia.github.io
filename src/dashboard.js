@@ -178,14 +178,16 @@ window.Dashboard = {
   renderStats(user) {
     const el = document.getElementById('dash-stats')
     const userRooms = user.rooms || []
+    const userGender = user.gender
     let visibleUsers = (Store.get('users') || []).filter(u => u.role !== 'admin')
-    const isMember = user?.role === 'member'
-    if (userRooms.length > 0 && !isMember) {
-      visibleUsers = visibleUsers.filter(u => {
-        if (u.id === user.id) return true
+    visibleUsers = visibleUsers.filter(u => {
+      if (u.id === user.id) return true
+      if (u.gender !== userGender) return false
+      if (userRooms.length > 0) {
         return (u.rooms || []).some(r => userRooms.includes(r))
-      })
-    }
+      }
+      return true
+    })
     const sorted = [...visibleUsers].sort((a, b) => (b.cumulativePoints || 0) - (a.cumulativePoints || 0))
     const rank = sorted.findIndex(u => u.id === user.id) + 1
     const lbReleased = Auth.isLeaderboardReleased()

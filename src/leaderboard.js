@@ -87,8 +87,7 @@ window.Leaderboard = {
     const users = Store.get('users') || []
     let approved = users.filter(u => u.status === 'approved' && u.role !== 'admin')
     const isHiddenAdmin = Auth.isHiddenAdmin()
-    const isMember = currentUser?.role === 'member'
-    if (!isHiddenAdmin && !isMember && currentUser) {
+    if (!isHiddenAdmin && currentUser) {
       const userRooms = currentUser.rooms || []
       approved = approved.filter(u => {
         if (u.id === currentUser.id) return true
