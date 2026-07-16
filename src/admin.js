@@ -353,8 +353,8 @@ window.Admin = {
         }
         if (parts.length === 0) parts.push('بونص')
         var dp = userPoints.find(function (p) { return p.dateKey === d })
-        var negReason = dp && dp.negativeReason ? dp.negativeReason : ''
-        var reasonHtml = negReason ? '<div class="timeline-reason" style="background:rgba(231,76,60,0.06);border-radius:4px;padding:4px 8px">↳ السبب: ' + negReason + '</div>' : ''
+        var bonusReason = dp && dp.bonusReason ? dp.bonusReason : ''
+        var reasonHtml = bonusReason ? '<div class="timeline-reason" style="background:rgba(231,76,60,0.06);border-radius:4px;padding:4px 8px">↳ سبب البونص: ' + bonusReason + '</div>' : ''
         return `
         <div class="timeline-item">
           <div class="timeline-marker timeline-marker-penalty"></div>
@@ -374,18 +374,18 @@ window.Admin = {
           parts.push('بونص (+' + cats.bonus + ')')
         }
         var dp = userPoints.find(function (p) { return p.dateKey === d })
-        var posReason = dp && dp.positiveReason ? dp.positiveReason : ''
+        var bonusReason = dp && dp.bonusReason ? dp.bonusReason : ''
         if (parts.length === 0) {
-          if (!posReason) {
+          if (!bonusReason) {
             var pointEntry = userPoints.find(function (p) { return p.dateKey === d })
             var entryScore = pointEntry ? calcEntryScore(pointEntry) : 0
             parts.push('نقاط اليوم (+' + entryScore + ')')
           }
         }
-        if (parts.length === 1 && parts[0].indexOf('نقاط اليوم') === 0 && posReason) {
+        if (parts.length === 1 && parts[0].indexOf('نقاط اليوم') === 0 && bonusReason) {
           parts.pop()
         }
-        var reasonHtml = posReason ? '<div class="timeline-reason" style="background:rgba(46,204,113,0.06);border-radius:4px;padding:4px 8px">↳ السبب: ' + posReason + '</div>' : ''
+        var reasonHtml = bonusReason ? '<div class="timeline-reason" style="background:rgba(46,204,113,0.06);border-radius:4px;padding:4px 8px">↳ سبب البونص: ' + bonusReason + '</div>' : ''
         return `
         <div class="timeline-item">
           <div class="timeline-marker timeline-marker-bonus"></div>
@@ -422,7 +422,7 @@ window.Admin = {
     var items = logKeys.map(function (key) {
       var log = userLogs[key]
       var logDate = log.date || (log.timestamp ? log.timestamp.split('T')[0] : '')
-      var reasonText = log.reason || 'تم الحفظ التلقائي لليوم'
+      var reasonText = log.bonusReason || log.reason || 'تم الحفظ التلقائي لليوم'
       if (log.type === 'minus' || log.type === 'bonus') {
         if (log.summary && log.summary.indexOf('بونص') !== -1) {
           var isNegative = log.summary.indexOf('-') !== -1
@@ -435,7 +435,7 @@ window.Admin = {
             <div class="log-item-card-universal ' + cardClass + '">\
               <div class="log-date">📅 ' + logDate + '</div>\
               <div class="log-summary-text"><strong>' + icon + ' ' + label + ' ' + cleanPoints + '</strong></div>\
-              <div class="log-reason-output">📝 تفاصيل التقييم: ' + reasonText + '</div>\
+              <div class="log-reason-output">📝 سبب البونص: ' + reasonText + '</div>\
             </div>'
         }
         var isRegularMinus = log.type === 'minus'

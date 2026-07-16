@@ -2,6 +2,7 @@ window.Evaluation = {
   _dateKey: null,
   _activeGender: 'male',
   _pendingZeroReason: null,
+  _pendingBonusReason: null,
   BASELINE_POINTS: 0,
 
   COLUMNS: [
@@ -103,6 +104,36 @@ window.Evaluation = {
     })
   },
 
+  _showBonusReasonModal() {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div')
+      overlay.className = 'custom-alert-overlay'
+      overlay.innerHTML = `
+        <div class="custom-alert-box animate-pop">
+          <h4>⭐ يرجى كتابة سبب البونص</h4>
+          <p>اكتب سبب منح أو خصم نقاط البونص لهذا الشخص:</p>
+          <textarea id="modal-bonus-reason-input" placeholder="مثال: تميز في الأداء..."></textarea>
+          <div class="alert-actions">
+            <button id="btn-bonus-confirm" class="btn-alert-success">تأكيد</button>
+            <button id="btn-bonus-cancel" class="btn-alert-danger">إلغاء</button>
+          </div>
+        </div>`
+      document.body.appendChild(overlay)
+      const input = overlay.querySelector('#modal-bonus-reason-input')
+      const confirm = () => {
+        const text = input.value.trim()
+        if (!text) return
+        overlay.remove()
+        resolve(text)
+      }
+      const cancel = () => { overlay.remove(); resolve(null) }
+      overlay.querySelector('#btn-bonus-confirm').addEventListener('click', confirm)
+      overlay.querySelector('#btn-bonus-cancel').addEventListener('click', cancel)
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel() })
+      setTimeout(() => input.focus(), 100)
+    })
+  },
+
   _showCustomConfirm(message) {
     return new Promise((resolve) => {
       const overlay = document.createElement('div')
@@ -132,6 +163,11 @@ window.Evaluation = {
       const reason = await this._showReasonModal()
       if (!reason) { sel.value = ''; return }
       this._pendingZeroReason = reason
+    }
+    if (val === 'bonus' || val === 'reduce') {
+      const bonusReason = await this._showBonusReasonModal()
+      if (!bonusReason) { sel.value = ''; return }
+      this._pendingBonusReason = bonusReason
     }
     switch (val) {
       case 'bonus': this.fillRow(userId, 'max'); break
@@ -243,16 +279,6 @@ window.Evaluation = {
                             <option value="neutral">تثبيت محايد (0)</option>
                             <option value="normal">تقفيل عادي (10)</option>
                           </select>
-                          <div class="eval-detail-group" id="eval-detail-group-${u.id}" style="display:none">
-                            <div class="action-buttons-container">
-                              <button class="btn-detail btn-detail-pos" onclick="Evaluation._toggleDetailInput('${u.id}','pos')" type="button">🟢 تفصيل التقييم الموجب</button>
-                              <button class="btn-detail btn-detail-neg" onclick="Evaluation._toggleDetailInput('${u.id}','neg')" type="button">🔴 تفصيل التقييم السالب</button>
-                            </div>
-                            <div class="eval-detail-fields" id="eval-detail-fields-${u.id}">
-                              <input type="text" id="eval-pos-reason-${u.id}" class="eval-detail-input eval-detail-input-pos" placeholder="اكتب سبب النقاط الموجبة هنا..." dir="rtl" style="display:none">
-                              <input type="text" id="eval-neg-reason-${u.id}" class="eval-detail-input eval-detail-input-neg" placeholder="اكتب سبب النقاط السالبة هنا..." dir="rtl" style="display:none">
-                            </div>
-                          </div>
                         ` : ''}
                       </td>
                     </tr>
@@ -299,7 +325,7 @@ window.Evaluation = {
     const grid = document.getElementById('eval-grid-table')
     if (!grid) return
 
-    grid.addEventListener('click', (e) => {
+    grid.addEventListener('click', async (e) => {
       const btn = e.target.closest('.stepper-btn:not(:disabled)')
       if (!btn) return
       const userId = btn.dataset.user
@@ -328,6 +354,12 @@ window.Evaluation = {
       let next = current + step
       next = Math.max(minVal, Math.min(maxVal, next))
 
+      if (col === 'bonus' && next !== 0) {
+        const bonusReason = await this._showBonusReasonModal()
+        if (!bonusReason) return
+        this._pendingBonusReason = bonusReason
+      }
+
       entry[col] = next
       const total = this.calculateTotal(entry)
       entry.totalScore = total
@@ -338,32 +370,7 @@ window.Evaluation = {
       const totalEl = document.getElementById(`eval-total-${userId}`)
       if (totalEl) totalEl.textContent = this.BASELINE_POINTS + total
       this.updateStats()
-      this._checkScoreChangesForVisibility(userId)
     })
-  },
-
-  _checkScoreChangesForVisibility(userId) {
-    const capturedDateKey = this._dateKey
-    const all = Store.get('evaluation') || []
-    let entry = all.find(e => e.userId === userId && e.dateKey === capturedDateKey)
-    if (!entry) return
-    const hasChanges = this.COLUMNS.some(c => {
-      const val = Number(entry[c.key]) || 0
-      return val !== 0
-    })
-    const group = document.getElementById('eval-detail-group-' + userId)
-    if (group) group.style.display = hasChanges ? 'block' : 'none'
-  },
-
-  _toggleDetailInput(userId, type) {
-    var el = document.getElementById('eval-' + type + '-reason-' + userId)
-    if (!el) return
-    if (el.style.display === 'none') {
-      el.style.display = 'block'
-      el.focus()
-    } else {
-      el.style.display = 'none'
-    }
   },
 
   updateCell(userId, col, value) {
@@ -415,6 +422,11 @@ window.Evaluation = {
     dp.finalScore = (adjustment || 0)
     dp.saved = true
 
+    if (bonusVal !== 0 && this._pendingBonusReason) {
+      dp.bonusReason = this._pendingBonusReason
+      this._pendingBonusReason = null
+    }
+
     if (dp.finalScore <= 0) {
       if (this._pendingZeroReason) {
         dp.zeroReason = this._pendingZeroReason
@@ -435,6 +447,7 @@ window.Evaluation = {
       overwritten: true,
       adminNotes: dp.adminNotes ?? '',
       zeroReason: dp.zeroReason ?? '',
+      bonusReason: dp.bonusReason ?? '',
       saved: true,
       date: dp.date ?? new Date().toISOString(),
     }
@@ -447,6 +460,7 @@ window.Evaluation = {
         finalScore: dp.finalScore,
         manualBonus: dp.manualBonus,
         zeroReason: dp.zeroReason ?? '',
+        bonusReason: dp.bonusReason ?? '',
       }
     }
 
@@ -556,7 +570,6 @@ window.Evaluation = {
     const totalEl = document.getElementById(`eval-total-${userId}`)
     if (totalEl) totalEl.textContent = this.BASELINE_POINTS + total
     this.updateStats()
-    this._checkScoreChangesForVisibility(userId)
   },
 
   updateStats() {
@@ -638,11 +651,8 @@ window.Evaluation = {
     }
 
     document.getElementById('submit-global-grade').addEventListener('click', async () => {
-      var posEl = document.getElementById('eval-pos-reason-' + userId)
-      var negEl = document.getElementById('eval-neg-reason-' + userId)
-      const positiveReason = posEl ? posEl.value.trim() : ''
-      const negativeReason = negEl ? negEl.value.trim() : ''
-      const sharedReason = [positiveReason, negativeReason].filter(Boolean).join(' | ') || 'تم التقييم اليومي العادي'
+      const bonusReason = this._pendingBonusReason || ''
+      this._pendingBonusReason = null
 
       const db = firebase.database()
       const updates = {}
@@ -658,10 +668,9 @@ window.Evaluation = {
           timestamp: new Date().toISOString(),
           date: dateKey,
           summary: changesStr,
-          reason: sharedReason,
-          positiveReason: positiveReason,
-          negativeReason: negativeReason,
+          reason: bonusReason || 'تم التقييم اليومي العادي',
           type: logType,
+          bonusReason: bonusReason,
           changedBy: currentUser.fullName,
           changedByUid: currentUser.id,
         }
@@ -675,10 +684,9 @@ window.Evaluation = {
           timestamp: new Date().toISOString(),
           date: dateKey,
           summary: bonusStr,
-          reason: sharedReason,
-          positiveReason: positiveReason,
-          negativeReason: negativeReason,
+          reason: bonusReason || 'تم التقييم اليومي العادي',
           type: bonusChange.diff > 0 ? 'bonus' : 'minus',
+          bonusReason: bonusReason,
           changedBy: currentUser.fullName,
           changedByUid: currentUser.id,
         }
@@ -709,8 +717,7 @@ window.Evaluation = {
       dp.evaluationScore = totalScore
       dp.finalScore = totalScore
       dp.saved = true
-      dp.positiveReason = positiveReason
-      dp.negativeReason = negativeReason
+      dp.bonusReason = bonusReason
 
       if (dp.finalScore <= 0) {
         if (this._pendingZeroReason) {
@@ -757,7 +764,7 @@ window.Evaluation = {
         rehearsal: entry.rehearsal,
         spiritual: entry.spiritual,
       }
-      await saveAssessmentFinalSync(userId, dateKey, scorePayload, sharedReason, positiveReason, negativeReason)
+      await saveAssessmentFinalSync(userId, dateKey, scorePayload, bonusReason, bonusReason)
 
       overlay.remove()
 
@@ -796,15 +803,12 @@ window.Evaluation = {
 
     const dayEntries = all.filter(e => e.dateKey === dateKey)
     dayEntries.forEach(e => {
-      const posEl = document.getElementById('eval-pos-reason-' + e.userId)
-      const negEl = document.getElementById('eval-neg-reason-' + e.userId)
-      const positiveReason = posEl ? posEl.value.trim() : ''
-      const negativeReason = negEl ? negEl.value.trim() : ''
+      const bonusReason = this._pendingBonusReason || ''
+      this._pendingBonusReason = null
 
       e.totalScore = this.calculateTotal(e)
       e.saved = true
-      e.positiveReason = positiveReason
-      e.negativeReason = negativeReason
+      e.bonusReason = bonusReason
 
       const existing = dailyPoints.find(p => p.userId === e.userId && p.dateKey === dateKey)
       const isZero = (e.totalScore || 0) <= 0
@@ -827,13 +831,11 @@ window.Evaluation = {
           finalScore: e.totalScore || 0,
           adminNotes: '',
           zeroReason: reason,
-          positiveReason: positiveReason,
-          negativeReason: negativeReason,
+          bonusReason: bonusReason,
           saved: true,
         })
       } else {
-        existing.positiveReason = positiveReason
-        existing.negativeReason = negativeReason
+        existing.bonusReason = bonusReason
       }
     })
 
@@ -849,8 +851,7 @@ window.Evaluation = {
         overwritten: true,
         adminNotes: '',
         zeroReason: '',
-        positiveReason: e.positiveReason || '',
-        negativeReason: e.negativeReason || '',
+        bonusReason: e.bonusReason || '',
         saved: true,
         date: new Date().toISOString(),
       }
@@ -962,7 +963,7 @@ function initiateAbsoluteLiveSyncTrigger(userId, dateKey) {
     });
 }
 
-window.saveAssessmentFinalSync = function(userId, dateKey, scorePayload, finalReason = "", positiveReason = "", negativeReason = "") {
+window.saveAssessmentFinalSync = function(userId, dateKey, scorePayload, finalReason = "", bonusReason = "") {
     if (!userId || !dateKey) return;
 
     // 1. Force strict absolute numbers straight from the current active payload
@@ -992,15 +993,13 @@ window.saveAssessmentFinalSync = function(userId, dateKey, scorePayload, finalRe
     atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/evaluationScore`] = absoluteTotal;
     atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/finalScore`] = absoluteTotal;
     atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/saved`] = true;
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/positiveReason`] = positiveReason || "";
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/negativeReason`] = negativeReason || "";
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/bonusReason`] = bonusReason || "";
 
     // Hard Overwrite DailyPoints Leaf Nodes
     atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/evaluationScore`] = absoluteTotal;
     atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/finalScore`] = absoluteTotal;
     atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/manualBonus`] = bonus;
-    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/positiveReason`] = positiveReason || "";
-    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/negativeReason`] = negativeReason || "";
+    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/bonusReason`] = bonusReason || "";
     atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/saved`] = true;
     atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/overwritten`] = true;
 
@@ -1017,15 +1016,13 @@ window.saveAssessmentFinalSync = function(userId, dateKey, scorePayload, finalRe
             if (localEntry) {
                 localEntry.evaluationScore = absoluteTotal;
                 localEntry.finalScore = absoluteTotal;
-                localEntry.positiveReason = positiveReason || "";
-                localEntry.negativeReason = negativeReason || "";
+                localEntry.bonusReason = bonusReason || "";
             } else {
                 allDp.push({
                     userId, dateKey,
                     evaluationScore: absoluteTotal,
                     finalScore: absoluteTotal,
-                    positiveReason: positiveReason || "",
-                    negativeReason: negativeReason || "",
+                    bonusReason: bonusReason || "",
                     saved: true,
                     overwritten: true,
                 });
