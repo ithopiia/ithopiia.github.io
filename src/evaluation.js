@@ -90,16 +90,25 @@ window.Evaluation = {
         </div>`
       document.body.appendChild(overlay)
       const input = overlay.querySelector('#modal-reason-input')
-      const confirm = () => {
-        const text = input.value.trim()
+      let _currentReason = ''
+      input.addEventListener('input', function () { _currentReason = input.value })
+      const confirm = (e) => {
+        if (e) e.stopPropagation()
+        const text = _currentReason.trim()
         if (!text) return
         overlay.remove()
         resolve(text)
       }
       const cancel = () => { overlay.remove(); resolve(null) }
-      overlay.querySelector('#btn-modal-confirm').addEventListener('click', confirm)
+      const confirmBtn = overlay.querySelector('#btn-modal-confirm')
+      confirmBtn.addEventListener('click', confirm)
+      confirmBtn.addEventListener('mousedown', function (e) { e.stopPropagation() })
       overlay.querySelector('#btn-modal-cancel').addEventListener('click', cancel)
       overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel() })
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirm(e) }
+        if (e.key === 'Escape') cancel()
+      })
       setTimeout(() => input.focus(), 100)
     })
   },
@@ -120,16 +129,25 @@ window.Evaluation = {
         </div>`
       document.body.appendChild(overlay)
       const input = overlay.querySelector('#modal-bonus-reason-input')
-      const confirm = () => {
-        const text = input.value.trim()
+      let _currentBonusReason = ''
+      input.addEventListener('input', function () { _currentBonusReason = input.value })
+      const confirm = (e) => {
+        if (e) e.stopPropagation()
+        const text = _currentBonusReason.trim()
         if (!text) return
         overlay.remove()
         resolve(text)
       }
       const cancel = () => { overlay.remove(); resolve(null) }
-      overlay.querySelector('#btn-bonus-confirm').addEventListener('click', confirm)
+      const confirmBtn = overlay.querySelector('#btn-bonus-confirm')
+      confirmBtn.addEventListener('click', confirm)
+      confirmBtn.addEventListener('mousedown', function (e) { e.stopPropagation() })
       overlay.querySelector('#btn-bonus-cancel').addEventListener('click', cancel)
       overlay.addEventListener('click', (e) => { if (e.target === overlay) cancel() })
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirm(e) }
+        if (e.key === 'Escape') cancel()
+      })
       setTimeout(() => input.focus(), 100)
     })
   },
