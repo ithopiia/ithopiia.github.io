@@ -669,50 +669,9 @@ window.Evaluation = {
     }
 
     document.getElementById('submit-global-grade').addEventListener('click', async () => {
-      const bonusReason = this._pendingBonusReason || ''
-      this._pendingBonusReason = null
-
       const db = firebase.database()
       const updates = {}
       var hasMinusChanges = false
-
-      if (regularChanges.length > 0) {
-        hasMinusChanges = regularChanges.some(function (c) { return c.diff < 0 })
-        const changesStr = regularChanges.map(c => `${c.label} (${c.diff > 0 ? '+' : ''}${c.diff})`).join(' ، ')
-        const logType = hasMinusChanges ? 'minus' : 'bonus'
-
-        const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)
-        updates['/ithopiia/pointsHistory/' + userId + '/' + logId] = {
-          timestamp: new Date().toISOString(),
-          date: dateKey,
-          summary: changesStr,
-          reason: bonusReason || 'تم التقييم اليومي العادي',
-          type: logType,
-          bonusReason: bonusReason,
-          changedBy: currentUser.fullName,
-          changedByUid: currentUser.id,
-        }
-      }
-
-      if (bonusChange) {
-        const bonusSign = bonusChange.diff > 0 ? '+' : ''
-        const bonusStr = 'بونص (' + bonusSign + bonusChange.diff + ')'
-        const bonusLogId = 'log_' + Date.now() + '_b' + Math.random().toString(36).substr(2, 4)
-        updates['/ithopiia/pointsHistory/' + userId + '/' + bonusLogId] = {
-          timestamp: new Date().toISOString(),
-          date: dateKey,
-          summary: bonusStr,
-          reason: bonusReason || 'تم التقييم اليومي العادي',
-          type: bonusChange.diff > 0 ? 'bonus' : 'minus',
-          bonusReason: bonusReason,
-          changedBy: currentUser.fullName,
-          changedByUid: currentUser.id,
-        }
-      }
-
-      const totalScore = this.calculateTotal(entry)
-      entry.totalScore = totalScore
-      entry.saved = true
 
       var bonusVal = Number(entry.bonus) || 0
       const dailyPoints = Store.get('dailyPoints') || []
@@ -731,11 +690,62 @@ window.Evaluation = {
         }
         dailyPoints.push(dp)
       }
+
+      var resolvedBonusReason = ''
+      if (bonusVal !== 0) {
+        if (this._pendingBonusReason) {
+          dp.bonusReason = this._pendingBonusReason
+          resolvedBonusReason = this._pendingBonusReason
+          this._pendingBonusReason = null
+        } else if (dp.bonusReason) {
+          resolvedBonusReason = dp.bonusReason
+        } else {
+          dp.bonusReason = ''
+        }
+      }
+
+      if (regularChanges.length > 0) {
+        hasMinusChanges = regularChanges.some(function (c) { return c.diff < 0 })
+        const changesStr = regularChanges.map(c => `${c.label} (${c.diff > 0 ? '+' : ''}${c.diff})`).join(' ، ')
+        const logType = hasMinusChanges ? 'minus' : 'bonus'
+
+        const logId = 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4)
+        updates['/ithopiia/pointsHistory/' + userId + '/' + logId] = {
+          timestamp: new Date().toISOString(),
+          date: dateKey,
+          summary: changesStr,
+          reason: resolvedBonusReason || 'تم التقييم اليومي العادي',
+          type: logType,
+          bonusReason: resolvedBonusReason,
+          changedBy: currentUser.fullName,
+          changedByUid: currentUser.id,
+        }
+      }
+
+      if (bonusChange) {
+        const bonusSign = bonusChange.diff > 0 ? '+' : ''
+        const bonusStr = 'بونص (' + bonusSign + bonusChange.diff + ')'
+        const bonusLogId = 'log_' + Date.now() + '_b' + Math.random().toString(36).substr(2, 4)
+        updates['/ithopiia/pointsHistory/' + userId + '/' + bonusLogId] = {
+          timestamp: new Date().toISOString(),
+          date: dateKey,
+          summary: bonusStr,
+          reason: resolvedBonusReason || 'تم التقييم اليومي العادي',
+          type: bonusChange.diff > 0 ? 'bonus' : 'minus',
+          bonusReason: resolvedBonusReason,
+          changedBy: currentUser.fullName,
+          changedByUid: currentUser.id,
+        }
+      }
+
+      const totalScore = this.calculateTotal(entry)
+      entry.totalScore = totalScore
+      entry.saved = true
+
       dp.manualBonus = bonusVal
       dp.evaluationScore = totalScore
       dp.finalScore = totalScore
       dp.saved = true
-      dp.bonusReason = bonusReason
 
       var resolvedZeroReason = ''
       if (dp.finalScore <= 0) {
@@ -786,7 +796,7 @@ window.Evaluation = {
         rehearsal: entry.rehearsal,
         spiritual: entry.spiritual,
       }
-      await saveAssessmentFinalSync(userId, dateKey, scorePayload, bonusReason, bonusReason, resolvedZeroReason)
+      await saveAssessmentFinalSync(userId, dateKey, scorePayload, resolvedBonusReason, resolvedBonusReason, resolvedZeroReason)
 
       overlay.remove()
 
@@ -825,14 +835,23 @@ window.Evaluation = {
 
     const dayEntries = all.filter(e => e.dateKey === dateKey)
     dayEntries.forEach(e => {
-      const bonusReason = this._pendingBonusReason || ''
-      this._pendingBonusReason = null
-
       e.totalScore = this.calculateTotal(e)
       e.saved = true
-      e.bonusReason = bonusReason
 
       const existing = dailyPoints.find(p => p.userId === e.userId && p.dateKey === dateKey)
+
+      var bonusVal = Number(e.bonus) || 0
+      let bonusReason = ''
+      if (bonusVal !== 0) {
+        bonusReason = this._pendingBonusReason || e.bonusReason || (existing?.bonusReason) || ''
+        if (this._pendingBonusReason && !e.bonusReason && !(existing?.bonusReason)) {
+          e.bonusReason = this._pendingBonusReason
+          if (existing) existing.bonusReason = this._pendingBonusReason
+          this._pendingBonusReason = null
+        }
+      }
+      e.bonusReason = bonusReason || ''
+
       const isZero = (e.totalScore || 0) <= 0
       let reason = ''
       if (isZero) {
@@ -843,7 +862,6 @@ window.Evaluation = {
       }
       e.zeroReason = reason || ''
       if (!existing) {
-        var bonusVal = Number(e.bonus) || 0
         dailyPoints.push({
           userId: e.userId, dateKey,
           date: new Date().toISOString(),
@@ -858,7 +876,7 @@ window.Evaluation = {
           saved: true,
         })
       } else {
-        existing.bonusReason = bonusReason
+        if (bonusVal !== 0) existing.bonusReason = bonusReason
         if (isZero) existing.zeroReason = reason
       }
     })
@@ -891,6 +909,7 @@ window.Evaluation = {
     }
 
     this._pendingZeroReason = null
+    this._pendingBonusReason = null
     this.render()
   },
 
