@@ -214,12 +214,11 @@ window.Admin = {
 
       const penaltyDates = userPoints.filter(function (p) {
         var cats = evalCategoryMap[p.dateKey]
-        return cats && Object.values(cats).some(function (v) { return v < 0 })
+        return cats && cats.bonus != null && cats.bonus < 0
       }).map(function (p) { return p.dateKey }).reverse()
       const bonusDates = userPoints.filter(function (p) {
-        if (calcEntryScore(p) > 0) return true
         var cats = evalCategoryMap[p.dateKey]
-        return cats && Object.values(cats).some(function (v) { return v > 0 })
+        return cats && cats.bonus != null && cats.bonus > 0
       }).map(function (p) { return p.dateKey }).reverse()
       const zeroDates = userPoints.filter(function (p) { return calcEntryScore(p) <= 0 }).map(function (p) { return p.dateKey }).reverse()
 
@@ -300,7 +299,7 @@ window.Admin = {
             </div>
             <div class="stat-card ${Admin._activeStatTab === 'bonus' ? 'stat-card-active' : ''}" onclick="Admin._selectStatTab('bonus')">
               <div class="stat-value">${bonusDates.length}</div>
-              <div class="stat-label">عدد مرات النقاط الموجبة</div>
+              <div class="stat-label">عدد نقاط البونص</div>
             </div>
             <div class="stat-card ${Admin._activeStatTab === 'zero' ? 'stat-card-active' : ''}" onclick="Admin._selectStatTab('zero')">
               <div class="stat-value">${zeroDates.length}</div>
@@ -349,16 +348,10 @@ window.Admin = {
       return penaltyDates.map(function (d) {
         var cats = evalCategoryMap ? evalCategoryMap[d] : null
         var parts = []
-        if (cats) {
-          Object.keys(cats).forEach(function (k) {
-            if (cats[k] < 0) {
-              var colDef = Evaluation.COLUMNS.find(function (c) { return c.key === k })
-              var label = colDef ? colDef.label : k
-              parts.push(label + ' (' + cats[k] + ')')
-            }
-          })
+        if (cats && cats.bonus != null) {
+          parts.push('بونص (' + cats.bonus + ')')
         }
-        if (parts.length === 0) parts.push('تمنص')
+        if (parts.length === 0) parts.push('بونص')
         var dp = userPoints.find(function (p) { return p.dateKey === d })
         var negReason = dp && dp.negativeReason ? dp.negativeReason : ''
         var reasonHtml = negReason ? '<div class="timeline-reason" style="background:rgba(231,76,60,0.06);border-radius:4px;padding:4px 8px">↳ السبب: ' + negReason + '</div>' : ''
@@ -377,14 +370,8 @@ window.Admin = {
       return bonusDates.map(function (d) {
         var cats = evalCategoryMap ? evalCategoryMap[d] : null
         var parts = []
-        if (cats) {
-          Object.keys(cats).forEach(function (k) {
-            if (cats[k] > 0) {
-              var colDef = Evaluation.COLUMNS.find(function (c) { return c.key === k })
-              var label = colDef ? colDef.label : k
-              parts.push(label + ' (+' + cats[k] + ')')
-            }
-          })
+        if (cats && cats.bonus != null) {
+          parts.push('بونص (+' + cats.bonus + ')')
         }
         var dp = userPoints.find(function (p) { return p.dateKey === d })
         var posReason = dp && dp.positiveReason ? dp.positiveReason : ''
