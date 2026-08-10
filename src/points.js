@@ -28,6 +28,11 @@ const Points = {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   },
 
+  getCurrentYearMonth() {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  },
+
   getDateKey(date) {
     const d = new Date(date)
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -183,29 +188,23 @@ const Points = {
 
   getMonths() {
     const all = Store.get('dailyPoints') || []
+    const currentMonth = this.getCurrentYearMonth()
     const months = new Set()
     all.forEach(p => {
       if (p.saved !== false && p.dateKey) {
-        months.add(p.dateKey.substring(0, 7))
+        const m = p.dateKey.substring(0, 7)
+        if (m <= currentMonth) months.add(m)
       }
     })
-    const now = new Date()
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     months.add(currentMonth)
     return Array.from(months).sort().reverse()
   },
 
   getMonthlyPoints(userId, yearMonth) {
     const all = Store.get('dailyPoints') || []
-    const monthly = all
+    return all
       .filter(p => p.userId === userId && p.saved !== false && p.dateKey && p.dateKey.startsWith(yearMonth))
-    const sum = monthly.reduce((s, p) => s + calcEntryScore(p), 0)
-    if (sum === 0 && monthly.length === 0) {
-      const users = Store.get('users') || []
-      const user = users.find(u => u.id === userId)
-      return user?.cumulativePoints ?? 0
-    }
-    return sum
+      .reduce((s, p) => s + calcEntryScore(p), 0)
   },
 
   getMonthlyLeaderboard(yearMonth, genderFilter) {
@@ -221,7 +220,9 @@ const Points = {
       rooms: u.rooms,
     }))
     standings.sort((a, b) => b.total - a.total)
-    return standings.map((s, i) => ({ ...s, rank: i + 1 }))
+    return standings
+      .filter(s => s.total > 0)
+      .map((s, i) => ({ ...s, rank: i + 1 }))
   },
 
   getMonthName(yearMonth) {

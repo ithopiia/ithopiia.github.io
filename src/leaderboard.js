@@ -115,8 +115,14 @@ window.Leaderboard = {
     if (this._activeTab === 'monthly') {
       const approved = this._getFilteredApprovedUsers(currentUser)
       const approvedIds = new Set(approved.map(u => u.id))
-      const standings = Points.getMonthlyLeaderboard(this._selectedMonth)
-        .filter(s => approvedIds.has(s.userId))
+      const isFutureMonth = this._selectedMonth > Points.getCurrentYearMonth()
+      const standings = isFutureMonth
+        ? []
+        : Points.getMonthlyLeaderboard(this._selectedMonth)
+            .filter(s => approvedIds.has(s.userId))
+      const monthBody = isFutureMonth
+        ? '<p class="text-muted">الشهر لم يبدأ بعد.</p>'
+        : this._renderMonthSection(this._selectedMonth, standings, currentUser)
       tabContent = `
         <div class="lb-controls">
           <label class="lb-filter-label">تصفية بالشهر:</label>
@@ -125,7 +131,7 @@ window.Leaderboard = {
           </select>
         </div>
         <input type="text" class="lb-search" placeholder="بحث..." oninput="Leaderboard.filter(this)">
-        ${this._renderMonthSection(this._selectedMonth, standings, currentUser)}`
+        ${monthBody}`
     } else {
       const approved = this._getFilteredApprovedUsers(currentUser)
       const approvedIds = new Set(approved.map(u => u.id))
@@ -156,8 +162,22 @@ window.Leaderboard = {
     let bodyContent = ''
 
     if (this._activeTab === 'monthly') {
-      const boyStandings = Points.getMonthlyLeaderboard(this._selectedMonth, 'male')
-      const girlStandings = Points.getMonthlyLeaderboard(this._selectedMonth, 'female')
+      const isFutureMonth = this._selectedMonth > Points.getCurrentYearMonth()
+      const genderSections = isFutureMonth
+        ? '<p class="text-muted">الشهر لم يبدأ بعد.</p>'
+        : `
+        <div class="admin-lb-split">
+          <div class="lb-gender-section">
+            <h3 class="lb-gender-title">ترتيب الأولاد</h3>
+            <input type="text" class="lb-search" placeholder="بحث في الأولاد..." oninput="Leaderboard.filter(this)">
+            ${this._renderList(Points.getMonthlyLeaderboard(this._selectedMonth, 'male'), currentUser)}
+          </div>
+          <div class="lb-gender-section">
+            <h3 class="lb-gender-title">ترتيب البنات</h3>
+            <input type="text" class="lb-search" placeholder="بحث في البنات..." oninput="Leaderboard.filter(this)">
+            ${this._renderList(Points.getMonthlyLeaderboard(this._selectedMonth, 'female'), currentUser)}
+          </div>
+        </div>`
       bodyContent = `
         <div class="lb-controls" style="margin-bottom:16px">
           <label class="lb-filter-label">تصفية بالشهر:</label>
@@ -165,18 +185,7 @@ window.Leaderboard = {
             ${this._monthOptions()}
           </select>
         </div>
-        <div class="admin-lb-split">
-          <div class="lb-gender-section">
-            <h3 class="lb-gender-title">ترتيب الأولاد</h3>
-            <input type="text" class="lb-search" placeholder="بحث في الأولاد..." oninput="Leaderboard.filter(this)">
-            ${this._renderList(boyStandings, currentUser)}
-          </div>
-          <div class="lb-gender-section">
-            <h3 class="lb-gender-title">ترتيب البنات</h3>
-            <input type="text" class="lb-search" placeholder="بحث في البنات..." oninput="Leaderboard.filter(this)">
-            ${this._renderList(girlStandings, currentUser)}
-          </div>
-        </div>`
+        ${genderSections}`
     } else {
       const boyStandings = Points.getLeaderboard('male')
       const girlStandings = Points.getLeaderboard('female')
