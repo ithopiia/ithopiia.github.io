@@ -1,9 +1,14 @@
 window.Leaderboard = {
   _selectedMonth: null,
+  _selectedRoom: null,
   _activeTab: 'monthly',
 
   _getMonths() {
     return Points.getMonths()
+  },
+
+  _getRooms() {
+    return Store.get('rooms') || []
   },
 
   _monthOptions() {
@@ -11,6 +16,37 @@ window.Leaderboard = {
       const label = Points.getMonthName(m) + ' ' + m.split('-')[0]
       return `<option value="${m}" ${m === this._selectedMonth ? 'selected' : ''}>${label}</option>`
     }).join('')
+  },
+
+  _resolveRoom(preferUserRoom) {
+    const rooms = this._getRooms()
+    if (this._selectedRoom && rooms.some(r => r.id === this._selectedRoom)) return this._selectedRoom
+    const saved = localStorage.getItem('ithopiia_lbRoom')
+    if (saved && rooms.some(r => r.id === saved)) return saved
+    if (preferUserRoom) {
+      const currentUser = Auth.currentUser()
+      const primary = currentUser ? Points.getPrimaryRoomId(currentUser.id) : null
+      if (primary) return primary
+    }
+    return rooms.length ? rooms[0].id : null
+  },
+
+  _roomOptions() {
+    const selected = this._resolveRoom(true)
+    return this._getRooms().map(r =>
+      `<option value="${r.id}" ${r.id === selected ? 'selected' : ''}>${r.name}</option>`
+    ).join('')
+  },
+
+  _renderRoomControls() {
+    if (!this._getRooms().length) return ''
+    return `
+      <div class="lb-controls" style="margin-bottom:12px">
+        <label class="lb-filter-label">الغرفة:</label>
+        <select class="lb-month-select" onchange="Leaderboard.selectRoom(this.value)">
+          ${this._roomOptions()}
+        </select>
+      </div>`
   },
 
   _renderList(standings, currentUser) {
@@ -56,44 +92,49 @@ window.Leaderboard = {
       </div>`
   },
 
-  switchTab(tab) {
-    this._activeTab = tab
+  _rerender() {
     const dashEl = document.getElementById('dash-leaderboard-content')
-    if (dashEl) {
-      const released = Auth.isLeaderboardReleased()
-      if (released) dashEl.innerHTML = this.renderDashboard()
+    if (dashEl && Auth.isLeaderboardReleased()) {
+      dashEl.innerHTML = this.renderDashboard()
     }
     const adminLb = document.getElementById('admin-tab-leaderboard')
     if (adminLb && adminLb.closest('.tab-content')?.classList.contains('active')) {
       adminLb.innerHTML = this.renderAdmin()
     }
+  },
+
+  switchTab(tab) {
+    this._activeTab = tab
+    this._rerender()
   },
 
   selectMonth(yearMonth) {
     this._selectedMonth = yearMonth
     if (this._activeTab !== 'monthly') return
-    const dashEl = document.getElementById('dash-leaderboard-content')
-    if (dashEl) {
-      const released = Auth.isLeaderboardReleased()
-      if (released) dashEl.innerHTML = this.renderDashboard()
-    }
-    const adminLb = document.getElementById('admin-tab-leaderboard')
-    if (adminLb && adminLb.closest('.tab-content')?.classList.contains('active')) {
-      adminLb.innerHTML = this.renderAdmin()
-    }
+    this._rerender()
   },
 
-  _getFilteredApprovedUsers(currentUser) {
+  selectRoom(roomId) {
+    this._selectedRoom = roomId || null
+    localStorage.setItem('ithopiia_lbRoom', roomId || '')
+    this._rerender()
+  },
+
+  _getFilteredApprovedUsers(currentUser, roomId) {
     const users = Store.get('users') || []
     let approved = users.filter(u => u.status === 'approved' && u.role !== 'admin')
-    const isHiddenAdmin = Auth.isHiddenAdmin()
-    if (!isHiddenAdmin && currentUser) {
-      const userRooms = currentUser.rooms || []
-      approved = approved.filter(u => {
-        if (u.id === currentUser.id) return true
-        const otherRooms = u.rooms || []
-        return otherRooms.some(r => userRooms.includes(r))
-      })
+    if (roomId) {
+      approved = approved.filter(u => u.id === currentUser.id || (u.rooms || []).includes(roomId))
+    } else {
+      const isHiddenAdmin = Auth.isHiddenAdmin()
+      if (!isHiddenAdmin && currentUser) {
+        const userRooms = currentUser.rooms || []
+        approved = approved.filter(u => {
+          if (u.id === currentUser.id) return true
+          const otherRooms = u.rooms || []
+          return otherRooms.some(r => userRooms.includes(r))
+        })
+      }
     }
     approved = approved.filter(u => u.gender === currentUser.gender)
     return approved
@@ -103,6 +144,8 @@ window.Leaderboard = {
     const currentUser = Auth.currentUser()
     if (!currentUser) return '<p class="text-muted">لا يوجد أعضاء بعد.</p>'
 
+    const roomId = this._resolveRoom(true)
+
     const months = this._getMonths()
     if (!this._selectedMonth && months.length > 0) {
       this._selectedMonth = months[0]
@@ -110,15 +153,17 @@ window.Leaderboard = {
 
     if (!this._selectedMonth) return '<p class="text-muted">لا توجد بيانات شهرية.</p>'
 
+    const roomControls = this._renderRoomControls()
+
     let tabContent = ''
 
     if (this._activeTab === 'monthly') {
-      const approved = this._getFilteredApprovedUsers(currentUser)
+      const approved = this._getFilteredApprovedUsers(currentUser, roomId)
       const approvedIds = new Set(approved.map(u => u.id))
       const isFutureMonth = this._selectedMonth > Points.getCurrentYearMonth()
       const standings = isFutureMonth
         ? []
-        : Points.getMonthlyLeaderboard(this._selectedMonth)
+        : Points.getMonthlyLeaderboard(roomId, this._selectedMonth)
             .filter(s => approvedIds.has(s.userId))
       const monthBody = isFutureMonth
         ? '<p class="text-muted">الشهر لم يبدأ بعد.</p>'
@@ -133,9 +178,9 @@ window.Leaderboard = {
         <input type="text" class="lb-search" placeholder="بحث..." oninput="Leaderboard.filter(this)">
         ${monthBody}`
     } else {
-      const approved = this._getFilteredApprovedUsers(currentUser)
+      const approved = this._getFilteredApprovedUsers(currentUser, roomId)
       const approvedIds = new Set(approved.map(u => u.id))
-      const standings = Points.getLeaderboard()
+      const standings = Points.getLeaderboard(roomId)
         .filter(s => approvedIds.has(s.userId))
       tabContent = `
         <input type="text" class="lb-search" placeholder="بحث..." oninput="Leaderboard.filter(this)">
@@ -147,11 +192,13 @@ window.Leaderboard = {
 
     return `
       ${this._renderTabSwitcher()}
+      ${roomControls}
       ${tabContent}`
   },
 
   renderAdmin() {
     const currentUser = Auth.currentUser()
+    const roomId = this._resolveRoom(false)
     const months = this._getMonths()
     if (!this._selectedMonth && months.length > 0) {
       this._selectedMonth = months[0]
@@ -159,6 +206,7 @@ window.Leaderboard = {
 
     if (!this._selectedMonth) return '<p class="text-muted">لا توجد بيانات شهرية.</p>'
 
+    const roomControls = this._renderRoomControls()
     let bodyContent = ''
 
     if (this._activeTab === 'monthly') {
@@ -170,12 +218,12 @@ window.Leaderboard = {
           <div class="lb-gender-section">
             <h3 class="lb-gender-title">ترتيب الأولاد</h3>
             <input type="text" class="lb-search" placeholder="بحث في الأولاد..." oninput="Leaderboard.filter(this)">
-            ${this._renderList(Points.getMonthlyLeaderboard(this._selectedMonth, 'male'), currentUser)}
+            ${this._renderList(Points.getMonthlyLeaderboard(roomId, this._selectedMonth, 'male'), currentUser)}
           </div>
           <div class="lb-gender-section">
             <h3 class="lb-gender-title">ترتيب البنات</h3>
             <input type="text" class="lb-search" placeholder="بحث في البنات..." oninput="Leaderboard.filter(this)">
-            ${this._renderList(Points.getMonthlyLeaderboard(this._selectedMonth, 'female'), currentUser)}
+            ${this._renderList(Points.getMonthlyLeaderboard(roomId, this._selectedMonth, 'female'), currentUser)}
           </div>
         </div>`
       bodyContent = `
@@ -187,8 +235,8 @@ window.Leaderboard = {
         </div>
         ${genderSections}`
     } else {
-      const boyStandings = Points.getLeaderboard('male')
-      const girlStandings = Points.getLeaderboard('female')
+      const boyStandings = Points.getLeaderboard(roomId, 'male')
+      const girlStandings = Points.getLeaderboard(roomId, 'female')
       bodyContent = `
         <div class="admin-lb-split">
           <div class="lb-gender-section">
@@ -206,6 +254,7 @@ window.Leaderboard = {
 
     return `
       ${this._renderTabSwitcher()}
+      ${roomControls}
       ${bodyContent}`
   },
 

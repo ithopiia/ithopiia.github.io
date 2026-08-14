@@ -124,6 +124,11 @@ window.Dashboard = {
     const el = document.getElementById('dash-user-info')
     const fresh = (Store.get('users') || []).find(u => u.id === user.id) || user
     const showCumulative = Auth.isLeaderboardReleased()
+    const primaryRoomId = Points.getPrimaryRoomId(user.id)
+    const roomTotal = primaryRoomId
+      ? Points.getUserTotalPoints(user.id, primaryRoomId)
+      : (fresh.cumulativePoints || 0)
+    const roomName = primaryRoomId ? this._getUserRoomNames({ rooms: [primaryRoomId] }) : ''
     el.innerHTML = `
       <div class="stats-grid">
         <div class="stat-card">
@@ -132,8 +137,8 @@ window.Dashboard = {
         </div>
         ${showCumulative ? `
         <div class="stat-card">
-          <div class="stat-value">${fresh.cumulativePoints || 0}</div>
-          <div class="stat-label">إجمالي النقاط</div>
+          <div class="stat-value">${roomTotal}</div>
+          <div class="stat-label">${roomName ? 'نقاط غرفة ' + roomName : 'إجمالي النقاط'}</div>
         </div>
         ` : ''}
       </div>`
@@ -142,11 +147,12 @@ window.Dashboard = {
   renderClaimArea(user) {
     const el = document.getElementById('dash-claim-area')
     const todayKey = Points.getTodayKey()
+    const roomId = Points.getPrimaryRoomId(user.id)
     const dailyPoints = Store.get('dailyPoints') || []
-    let todayEntry = dailyPoints.find(p => p.userId === user.id && p.dateKey === todayKey)
+    let todayEntry = dailyPoints.find(p => p.userId === user.id && p.dateKey === todayKey && (p.roomId || null) === (roomId || null))
 
     if (!todayEntry) {
-      todayEntry = Points.ensureTodayPoints(user.id)
+      todayEntry = Points.ensureTodayPoints(user.id, roomId)
     }
 
     const total = todayEntry.finalScore || 0
@@ -177,14 +183,14 @@ window.Dashboard = {
 
   renderStats(user) {
     const el = document.getElementById('dash-stats')
-    const userRooms = user.rooms || []
     const userGender = user.gender
+    const primaryRoomId = Points.getPrimaryRoomId(user.id)
     let visibleUsers = (Store.get('users') || []).filter(u => u.role !== 'admin')
     visibleUsers = visibleUsers.filter(u => {
       if (u.id === user.id) return true
       if (u.gender !== userGender) return false
-      if (userRooms.length > 0) {
-        return (u.rooms || []).some(r => userRooms.includes(r))
+      if (primaryRoomId) {
+        return (u.rooms || []).includes(primaryRoomId)
       }
       return true
     })

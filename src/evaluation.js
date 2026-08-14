@@ -21,6 +21,11 @@ window.Evaluation = {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   },
 
+  _resolveRoomForUser(userId) {
+    if (this._selectedRoom) return this._selectedRoom
+    return Points.getPrimaryRoomId(userId) || '_unassigned'
+  },
+
   formatDate(key) {
     const [y, m, d] = key.split('-')
     return `${d}/${m}/${y}`
@@ -418,11 +423,13 @@ window.Evaluation = {
 
   _applyAdjustment(userId, adjustment, dateKey, evalEntry) {
     if (!dateKey) dateKey = this._dateKey
+    const roomId = this._selectedRoom || Points.getPrimaryRoomId(userId)
+    const roomPath = roomId || '_unassigned'
     const dailyPoints = Store.get('dailyPoints')
-    let dp = dailyPoints.find(p => p.userId === userId && p.dateKey === dateKey)
+    let dp = dailyPoints.find(p => p.userId === userId && p.dateKey === dateKey && (p.roomId || null) === (roomId || null))
     if (!dp) {
       dp = {
-        userId, dateKey,
+        userId, dateKey, roomId,
         date: new Date().toISOString(),
         basePoints: this.BASELINE_POINTS,
         evaluationScore: 0,
@@ -457,7 +464,7 @@ window.Evaluation = {
     const db = firebase.database()
     const updates = {}
 
-    updates['/ithopiia/dailyPoints/' + dateKey + '/' + userId] = {
+    updates['/ithopiia/dailyPoints/' + dateKey + '/' + roomPath + '/' + userId] = {
       basePoints: dp.basePoints,
       evaluationScore: dp.evaluationScore,
       manualBonus: dp.manualBonus,
@@ -467,6 +474,7 @@ window.Evaluation = {
       zeroReason: dp.zeroReason ?? '',
       bonusReason: dp.bonusReason ?? '',
       saved: true,
+      roomId: roomId || null,
       date: dp.date ?? new Date().toISOString(),
     }
 
@@ -532,12 +540,16 @@ window.Evaluation = {
     resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/rehearsal`] = 0;
     resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/spiritual`] = 0;
 
-    resetPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/evaluationScore`] = targetScore;
-    resetPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/finalScore`] = targetScore;
-    resetPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/manualBonus`] = 0;
-    resetPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/zeroReason`] = finalReason;
-    resetPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/saved`] = true;
-    resetPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/overwritten`] = true;
+    const roomId = this._selectedRoom || Points.getPrimaryRoomId(userId)
+    const roomPath = roomId || '_unassigned'
+
+    resetPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/evaluationScore`] = targetScore;
+    resetPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/finalScore`] = targetScore;
+    resetPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/manualBonus`] = 0;
+    resetPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/zeroReason`] = finalReason;
+    resetPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/saved`] = true;
+    resetPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/overwritten`] = true;
+    resetPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/roomId`] = roomId || null;
 
     console.log(`[Namespace Guard] Executing ${actionType} write for total: ${targetScore} on date: ${dateKey}`);
 
@@ -674,11 +686,12 @@ window.Evaluation = {
       var hasMinusChanges = false
 
       var bonusVal = Number(entry.bonus) || 0
+      const roomId = this._selectedRoom || Points.getPrimaryRoomId(userId)
       const dailyPoints = Store.get('dailyPoints') || []
-      let dp = dailyPoints.find(p => p.userId === userId && p.dateKey === dateKey)
+      let dp = dailyPoints.find(p => p.userId === userId && p.dateKey === dateKey && (p.roomId || null) === (roomId || null))
       if (!dp) {
         dp = {
-          userId, dateKey,
+          userId, dateKey, roomId,
           date: new Date().toISOString(),
           basePoints: this.BASELINE_POINTS,
           evaluationScore: 0,
@@ -838,7 +851,9 @@ window.Evaluation = {
       e.totalScore = this.calculateTotal(e)
       e.saved = true
 
-      const existing = dailyPoints.find(p => p.userId === e.userId && p.dateKey === dateKey)
+      const roomId = this._selectedRoom || Points.getPrimaryRoomId(e.userId)
+      const roomPath = roomId || '_unassigned'
+      const existing = dailyPoints.find(p => p.userId === e.userId && p.dateKey === dateKey && (p.roomId || null) === (roomId || null))
 
       var bonusVal = Number(e.bonus) || 0
       let bonusReason = ''
@@ -863,7 +878,7 @@ window.Evaluation = {
       e.zeroReason = reason || ''
       if (!existing) {
         dailyPoints.push({
-          userId: e.userId, dateKey,
+          userId: e.userId, dateKey, roomId,
           date: new Date().toISOString(),
           basePoints: this.BASELINE_POINTS,
           evaluationScore: e.totalScore || 0,
@@ -883,9 +898,11 @@ window.Evaluation = {
 
     const allPaths = {}
     dayEntries.forEach(e => {
+      const roomId = this._selectedRoom || Points.getPrimaryRoomId(e.userId)
+      const roomPath = roomId || '_unassigned'
       const { userId, dateKey: dk, totalScore, saved, ...evalScores } = e
       allPaths[`evaluation/${dateKey}/${userId}`] = { ...evalScores, totalScore, evaluationScore: totalScore, finalScore: totalScore, saved }
-      allPaths[`dailyPoints/${dateKey}/${userId}`] = {
+      allPaths[`dailyPoints/${dateKey}/${roomPath}/${userId}`] = {
         basePoints: this.BASELINE_POINTS,
         evaluationScore: totalScore,
         manualBonus: Number(e.bonus) || 0,
@@ -895,6 +912,7 @@ window.Evaluation = {
         zeroReason: e.zeroReason || '',
         bonusReason: e.bonusReason || '',
         saved: true,
+        roomId: roomId || null,
         date: new Date().toISOString(),
       }
     })
@@ -972,11 +990,17 @@ window.forceAbsoluteDatabaseOverwrite = function (userId, scorePayload, finalRea
   })
 }
 
+function resolveEvalRoomPath(userId) {
+  var selected = (typeof window.Evaluation !== 'undefined' && window.Evaluation._selectedRoom) ? window.Evaluation._selectedRoom : null
+  if (selected) return selected
+  return (typeof window.Points !== 'undefined') ? (window.Points.getPrimaryRoomId(userId) || '_unassigned') : '_unassigned'
+}
+
 function initiateAbsoluteLiveSyncTrigger(userId, dateKey) {
     if (!userId || !dateKey) return;
-    
-    const evaluationTotalRef = firebase.database().ref(`/evaluation/${dateKey}/${userId}/totalScore`);
-    const evaluationBonusRef = firebase.database().ref(`/evaluation/${dateKey}/${userId}/bonus`);
+
+    const evaluationTotalRef = firebase.database().ref(`/ithopiia/evaluation/${dateKey}/${userId}/totalScore`);
+    const evaluationBonusRef = firebase.database().ref(`/ithopiia/evaluation/${dateKey}/${userId}/bonus`);
 
     console.log(`[Trigger Active] Shielding live synchronization for user: ${userId}`);
 
@@ -986,6 +1010,7 @@ function initiateAbsoluteLiveSyncTrigger(userId, dateKey) {
             evaluationBonusRef.once('value').then((bonusSnap) => {
                 const liveBonus = Number(bonusSnap.val() || 0);
                 const numericTotal = Number(liveTotal);
+                const roomPath = resolveEvalRoomPath(userId);
 
                 let correctionPayload = {
                     evaluationScore: numericTotal,
@@ -993,10 +1018,11 @@ function initiateAbsoluteLiveSyncTrigger(userId, dateKey) {
                     manualBonus: liveBonus,
                     saved: true,
                     overwritten: true,
+                    roomId: roomPath === '_unassigned' ? null : roomPath,
                     date: new Date().toISOString()
                 };
 
-                return firebase.database().ref(`/dailyPoints/${dateKey}/${userId}`).update(correctionPayload);
+                return firebase.database().ref(`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}`).update(correctionPayload);
             }).then(() => {
                 console.log(`[Trigger Success] dailyPoints forcefully synced to match totalScore: ${liveTotal}`);
             }).catch(err => {
@@ -1021,6 +1047,9 @@ window.saveAssessmentFinalSync = function(userId, dateKey, scorePayload, finalRe
 
     const absoluteTotal = acting + clothing + exercises + moral + movement + rehearsal + spiritual + bonus;
 
+    const roomPath = resolveEvalRoomPath(userId);
+    const roomId = roomPath === '_unassigned' ? null : roomPath;
+
     let atomicPayload = {};
     
     // Hard Overwrite Evaluation Leaf Nodes
@@ -1040,13 +1069,14 @@ window.saveAssessmentFinalSync = function(userId, dateKey, scorePayload, finalRe
     atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/zeroReason`] = zeroReason || "";
 
     // Hard Overwrite DailyPoints Leaf Nodes
-    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/evaluationScore`] = absoluteTotal;
-    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/finalScore`] = absoluteTotal;
-    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/manualBonus`] = bonus;
-    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/bonusReason`] = bonusReason || "";
-    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/zeroReason`] = zeroReason || "";
-    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/saved`] = true;
-    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${userId}/overwritten`] = true;
+    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/evaluationScore`] = absoluteTotal;
+    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/finalScore`] = absoluteTotal;
+    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/manualBonus`] = bonus;
+    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/bonusReason`] = bonusReason || "";
+    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/zeroReason`] = zeroReason || "";
+    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/saved`] = true;
+    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/overwritten`] = true;
+    atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/roomId`] = roomId;
 
     console.log(`[Forced Re-Sync] Overwriting user ${userId} branches with strict total: ${absoluteTotal}`);
 
@@ -1057,7 +1087,7 @@ window.saveAssessmentFinalSync = function(userId, dateKey, scorePayload, finalRe
             
             // Immediately patch the local store so cumulative recalc sees fresh data
             const allDp = Store._data.dailyPoints || [];
-            let localEntry = allDp.find(p => p.userId === userId && p.dateKey === dateKey);
+            let localEntry = allDp.find(p => p.userId === userId && p.dateKey === dateKey && (p.roomId || null) === (roomId || null));
             if (localEntry) {
                 localEntry.evaluationScore = absoluteTotal;
                 localEntry.finalScore = absoluteTotal;
@@ -1065,7 +1095,7 @@ window.saveAssessmentFinalSync = function(userId, dateKey, scorePayload, finalRe
                 localEntry.zeroReason = zeroReason || "";
             } else {
                 allDp.push({
-                    userId, dateKey,
+                    userId, dateKey, roomId,
                     evaluationScore: absoluteTotal,
                     finalScore: absoluteTotal,
                     bonusReason: bonusReason || "",

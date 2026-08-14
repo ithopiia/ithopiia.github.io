@@ -53,14 +53,7 @@ window.Store = {
     })
 
     this._pathRef('dailyPoints').on('value', snap => {
-      this._data.dailyPoints = []
-      if (snap.exists()) {
-        Object.keys(snap.val()).forEach(dateKey => {
-          Object.keys(snap.val()[dateKey]).forEach(userId => {
-            this._data.dailyPoints.push({ userId, dateKey, ...snap.val()[dateKey][userId] })
-          })
-        })
-      }
+      this._data.dailyPoints = this._flattenDailyPoints(snap)
       this._recalcCumulative()
       if (this._initialLoadDone) this._notify()
       else ready()
@@ -111,13 +104,49 @@ window.Store = {
     })
   },
 
+  _isEntryField(k) {
+    return ['finalScore', 'basePoints', 'evaluationScore', 'manualBonus', 'overwritten', 'adminNotes', 'saved', 'bonusPoints', 'totalScore', 'points', 'score', 'bonus', 'minus', 'total', 'date', 'roomId'].indexOf(k) !== -1
+  },
+
+  _flattenDailyPoints(snap) {
+    const out = []
+    if (!snap.exists()) return out
+    const val = snap.val()
+    Object.keys(val).forEach(dateKey => {
+      const dateNode = val[dateKey] || {}
+      Object.keys(dateNode).forEach(secondKey => {
+        const secondVal = dateNode[secondKey]
+        if (!secondVal || typeof secondVal !== 'object') return
+        const secondKeys = Object.keys(secondVal)
+        const looksLikeEntry = secondKeys.some(k => this._isEntryField(k))
+        if (looksLikeEntry) {
+          out.push({ userId: secondKey, dateKey, roomId: null, ...secondVal })
+        } else {
+          const roomId = secondKey === '_unassigned' ? null : secondKey
+          secondKeys.forEach(userId => {
+            const entry = secondVal[userId]
+            if (entry && typeof entry === 'object') {
+              out.push({ userId, dateKey, roomId, ...entry })
+            }
+          })
+        }
+      })
+    })
+    return out
+  },
+
   _recalcCumulative() {
     if (this._recalculating) return
     this._recalculating = true
     const totals = {}
+    const roomTotals = {}
     this._data.dailyPoints.forEach(p => {
       if (p.saved !== false) {
         totals[p.userId] = (totals[p.userId] || 0) + calcEntryScore(p)
+        if (p.roomId) {
+          if (!roomTotals[p.userId]) roomTotals[p.userId] = {}
+          roomTotals[p.userId][p.roomId] = (roomTotals[p.userId][p.roomId] || 0) + calcEntryScore(p)
+        }
       }
     })
     this._data.users.forEach(u => {
@@ -137,6 +166,23 @@ window.Store = {
         changed = true
         if (canWrite) {
           this.writePath(`users/${u.id}/cumulativePoints`, total)
+        }
+      }
+      const newRoomPoints = roomTotals[u.id] || {}
+      const oldRoomPoints = u.roomPoints || {}
+      const keys = new Set([...Object.keys(oldRoomPoints), ...Object.keys(newRoomPoints)])
+      let roomChanged = false
+      keys.forEach(rid => {
+        const nv = newRoomPoints[rid] || 0
+        if ((oldRoomPoints[rid] || 0) !== nv) {
+          oldRoomPoints[rid] = nv
+          roomChanged = true
+        }
+      })
+      if (roomChanged) {
+        u.roomPoints = { ...oldRoomPoints }
+        if (canWrite) {
+          this.writePath(`users/${u.id}/roomPoints`, u.roomPoints)
         }
       }
     })
@@ -195,7 +241,16 @@ window.Store = {
     if (!ref) return
     if (Array.isArray(val)) {
       const obj = {}
-      if (key === 'dailyPoints' || key === 'evaluation') {
+      if (key === 'dailyPoints') {
+        val.forEach(item => {
+          if (!item.dateKey || !item.userId) return
+          const roomKey = item.roomId || '_unassigned'
+          if (!obj[item.dateKey]) obj[item.dateKey] = {}
+          if (!obj[item.dateKey][roomKey]) obj[item.dateKey][roomKey] = {}
+          const { userId, dateKey, roomId, ...rest } = item
+          obj[item.dateKey][roomKey][userId] = rest
+        })
+      } else if (key === 'evaluation') {
         val.forEach(item => {
           if (!item.dateKey || !item.userId) return
           if (!obj[item.dateKey]) obj[item.dateKey] = {}
@@ -212,10 +267,15 @@ window.Store = {
   },
 
   push(key, item) {
-    if (key === 'evaluation' || key === 'dailyPoints') {
+    if (key === 'evaluation') {
       if (item.dateKey && item.userId) {
         const { userId, dateKey, ...rest } = item
         this.writePath(`${key}/${dateKey}/${userId}`, rest)
+      }
+    } else if (key === 'dailyPoints') {
+      if (item.dateKey && item.userId) {
+        const { userId, dateKey, roomId, ...rest } = item
+        this.writePath(`${key}/${dateKey}/${roomId || '_unassigned'}/${userId}`, rest)
       }
     } else if (item.id) {
       this.writePath(`${key}/${item.id}`, item)

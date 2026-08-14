@@ -38,15 +38,27 @@ const Points = {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   },
 
-  ensureTodayPoints(userId) {
+  getPrimaryRoomId(userId) {
+    const user = (Store.get('users') || []).find(u => u.id === userId)
+    const rooms = (user && user.rooms) || []
+    return rooms.length > 0 ? rooms[0] : null
+  },
+
+  resolveRoomPath(roomId) {
+    return roomId || '_unassigned'
+  },
+
+  ensureTodayPoints(userId, roomId) {
+    if (roomId === undefined || roomId === null) roomId = this.getPrimaryRoomId(userId)
     const key = this.getTodayKey()
     const all = Store.get('dailyPoints') || []
-    const existing = all.find(p => p.userId === userId && p.dateKey === key)
+    const existing = all.find(p => p.userId === userId && p.dateKey === key && (p.roomId || null) === (roomId || null))
     if (existing) return existing
 
     const entry = {
       userId,
       dateKey: key,
+      roomId,
       date: new Date().toISOString(),
       basePoints: CONFIG.pointsPerDay,
       evaluationScore: 0,
@@ -59,7 +71,7 @@ const Points = {
     const currentUser = (typeof Auth !== 'undefined' && Auth.currentUser) ? Auth.currentUser() : null
     const canWrite = currentUser && (currentUser.role === 'admin' || currentUser.role === 'member') && !window._leaderboardWritesBlocked
     if (canWrite) {
-      Store.writePath(`dailyPoints/${key}/${userId}`, {
+      Store.writePath(`dailyPoints/${key}/${this.resolveRoomPath(roomId)}/${userId}`, {
         basePoints: entry.basePoints,
         evaluationScore: entry.evaluationScore,
         manualBonus: entry.manualBonus,
@@ -67,6 +79,7 @@ const Points = {
         overwritten: entry.overwritten,
         adminNotes: entry.adminNotes,
         saved: entry.saved,
+        roomId,
         date: entry.date,
       })
     }
@@ -83,30 +96,35 @@ const Points = {
     if (!campaignActive) return
     if (lastDay && today > lastDay) return
 
-    users.forEach(u => this.ensureTodayPoints(u.id))
+    users.forEach(u => {
+      const rooms = (u.rooms && u.rooms.length) ? u.rooms : [null]
+      rooms.forEach(roomId => this.ensureTodayPoints(u.id, roomId))
+    })
   },
 
-  getUserTodayPoints(userId) {
-    return this.ensureTodayPoints(userId)
+  getUserTodayPoints(userId, roomId) {
+    if (roomId === undefined || roomId === null) roomId = this.getPrimaryRoomId(userId)
+    return this.ensureTodayPoints(userId, roomId)
   },
 
-  getUserDailyPoints(userId) {
+  getUserDailyPoints(userId, roomId) {
+    if (roomId === undefined || roomId === null) roomId = this.getPrimaryRoomId(userId)
     const all = Store.get('dailyPoints') || []
     return all
-      .filter(p => p.userId === userId)
+      .filter(p => p.userId === userId && (roomId === undefined || (p.roomId || null) === (roomId || null)))
       .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
   },
 
-  getUserTotalPoints(userId) {
+  getUserTotalPoints(userId, roomId) {
     const all = Store.get('dailyPoints') || []
     return all
-      .filter(p => p.userId === userId && p.saved !== false)
+      .filter(p => p.userId === userId && p.saved !== false && (roomId === undefined || (p.roomId || null) === (roomId || null)))
       .reduce((sum, p) => sum + calcEntryScore(p), 0)
   },
 
-  getUserPointsBreakdown(userId) {
+  getUserPointsBreakdown(userId, roomId) {
     const all = Store.get('dailyPoints') || []
-    const saved = all.filter(p => p.userId === userId && p.saved !== false)
+    const saved = all.filter(p => p.userId === userId && p.saved !== false && (roomId === undefined || (p.roomId || null) === (roomId || null)))
     var baseTotal = 0
     var bonusTotal = 0
     var minusTotal = 0
@@ -125,19 +143,22 @@ const Points = {
     }
   },
 
-  getAllUsersTotalPoints() {
-    const users = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
+  getAllUsersTotalPoints(roomId) {
+    let users = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
+    if (roomId) {
+      users = users.filter(u => (u.rooms || []).includes(roomId))
+    }
     return users.map(u => ({
       userId: u.id,
       fullName: u.fullName,
       gender: u.gender,
-      total: this.getUserTotalPoints(u.id),
+      total: this.getUserTotalPoints(u.id, roomId),
       rooms: u.rooms,
     }))
   },
 
-  getLeaderboard(genderFilter) {
-    let standings = this.getAllUsersTotalPoints()
+  getLeaderboard(roomId, genderFilter) {
+    let standings = this.getAllUsersTotalPoints(roomId)
     if (genderFilter) {
       standings = standings.filter(s => s.gender === genderFilter)
     }
@@ -200,15 +221,18 @@ const Points = {
     return Array.from(months).sort().reverse()
   },
 
-  getMonthlyPoints(userId, yearMonth) {
+  getMonthlyPoints(userId, yearMonth, roomId) {
     const all = Store.get('dailyPoints') || []
     return all
-      .filter(p => p.userId === userId && p.saved !== false && p.dateKey && p.dateKey.startsWith(yearMonth))
+      .filter(p => p.userId === userId && p.saved !== false && p.dateKey && p.dateKey.startsWith(yearMonth) && (roomId === undefined || (p.roomId || null) === (roomId || null)))
       .reduce((s, p) => s + calcEntryScore(p), 0)
   },
 
-  getMonthlyLeaderboard(yearMonth, genderFilter) {
+  getMonthlyLeaderboard(roomId, yearMonth, genderFilter) {
     let users = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
+    if (roomId) {
+      users = users.filter(u => (u.rooms || []).includes(roomId))
+    }
     if (genderFilter) {
       users = users.filter(u => u.gender === genderFilter)
     }
@@ -216,7 +240,7 @@ const Points = {
       userId: u.id,
       fullName: u.fullName,
       gender: u.gender,
-      total: this.getMonthlyPoints(u.id, yearMonth),
+      total: this.getMonthlyPoints(u.id, yearMonth, roomId),
       rooms: u.rooms,
     }))
     standings.sort((a, b) => b.total - a.total)

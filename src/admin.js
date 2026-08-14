@@ -125,11 +125,12 @@ window.Admin = {
           <thead><tr><th>الاسم</th><th>البريد الإلكتروني</th><th>النقاط</th><th>الحالة</th><th>النوع</th><th>الإجراء</th></tr></thead>
           <tbody id="admin-users-tbody">
             ${filtered.map(u => {
+              const roomPoints = Points.getUserTotalPoints(u.id, Points.getPrimaryRoomId(u.id))
               return `
               <tr data-student-container-id="${u.id}">
                 <td><span class="name-link" onclick="Admin.showUserProfile('${u.id}')">${u.fullName}</span></td>
                 <td>${u.email || '-'}</td>
-                <td><span class="global-total-score-value">${u.cumulativePoints || 0}</span></td>
+                <td><span class="global-total-score-value">${roomPoints}</span></td>
                 <td>${u.status === 'approved' ? 'مقبول' : u.status === 'rejected' ? 'مرفوض' : u.status || '-'}</td>
                 <td>${u.role === 'member' ? '👤 عضو' : 'مستخدم'}</td>
                 <td class="table-actions">
@@ -204,6 +205,11 @@ window.Admin = {
 
       var breakdown = Points.getUserPointsBreakdown(userId)
 
+      const roomTotals = (freshUser.rooms || []).map(rid => {
+        const r = rooms.find(room => room.id === rid)
+        return { id: rid, name: r ? r.name : rid, total: Points.getUserTotalPoints(userId, rid) }
+      })
+
       const currentRank = freshUser.currentRank ?? Store.getUserRank(userId)
       const previousRank = freshUser.previousRank
 
@@ -265,6 +271,12 @@ window.Admin = {
               <div class="stat-label">أيام مسجلة</div>
             </div>
           </div>
+          ${roomTotals.length ? `
+          <div class="info-grid" style="margin-top:12px">
+            ${roomTotals.map(rt => `
+              <div class="info-item"><span class="info-label">نقاط غرفة ${rt.name}</span><span class="info-value">${rt.total}</span></div>
+            `).join('')}
+          </div>` : ''}
           ${currentRank > 0 ? `
           <div class="rank-history-line" style="margin-top:12px;text-align:center;padding:10px;background:var(--surface2);border-radius:var(--radius);border:1px solid var(--border)">
             <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px">تحديث الترتيب</div>
@@ -1089,6 +1101,7 @@ window.Admin = {
                 const r = rooms.find(room => room.id === id)
                 return r ? r.name : id
               }).join(', ') || '-'
+              const roomPoints = Points.getUserTotalPoints(u.id, Points.getPrimaryRoomId(u.id))
               return `
                 <tr data-student-container-id="${u.id}">
                   <td>${u.fullName || '-'}</td>
@@ -1099,7 +1112,7 @@ window.Admin = {
                   <td>${u.whatsapp ? '<a href="' + window.formatWhatsAppLink(u.whatsapp) + '" target="_blank" rel="noopener noreferrer" class="whatsapp-link">' + u.whatsapp + '</a>' : '-'}</td>
                   <td>${u.attendedElKaraza === 'yes' ? 'نعم' : u.attendedElKaraza === 'no' ? 'لا' : '-'}</td>
                   <td>${u.role === 'member' ? 'عضو لجنة' : 'مستخدم'}</td>
-                  <td><span class="global-total-score-value">${u.cumulativePoints || 0}</span></td>
+                  <td><span class="global-total-score-value">${roomPoints}</span></td>
                   <td>${created}</td>
                 </tr>
               `
@@ -1145,11 +1158,13 @@ window.Admin = {
         ${rooms.map(r => {
           const roomUsers = allUsers.filter(u => (u.rooms || []).includes(r.id))
           const nonMembers = allUsers.filter(u => !(u.rooms || []).includes(r.id))
+          const roomTotal = roomUsers.reduce((sum, u) => sum + Points.getUserTotalPoints(u.id, r.id), 0)
           return `
             <div class="room-card">
               <div class="room-header">
                 <span class="room-name">${r.name}</span>
                 <span class="room-count">${roomUsers.length} عضو</span>
+                <span class="room-count">${roomTotal} نقطة</span>
                 <button class="btn-sm btn-danger" onclick="Admin.deleteRoom('${r.id}')">🗑️ حذف</button>
               </div>
               <div class="room-members">

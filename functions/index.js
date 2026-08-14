@@ -46,24 +46,33 @@ exports.grantDailyPoints = functions.pubsub.schedule('0 0 * * *').timeZone('Afri
     if (user.status !== 'approved') continue
     if (user.role === 'admin') continue
 
-    if (todayEntries[userId]) {
-      console.log(`User ${userId} already has points for ${todayKey}`)
-      continue
-    }
+    const roomIds = (user.rooms && user.rooms.length) ? user.rooms : [null]
 
-    todayEntries[userId] = {
-      basePoints: POINTS_PER_DAY,
-      bonusPoints: 0,
-      overwritten: false,
-      finalScore: POINTS_PER_DAY,
-      adminNotes: '',
-      saved: true,
-      date: new Date().toISOString(),
-    }
+    for (const roomId of roomIds) {
+      const roomKey = roomId || '_unassigned'
+      if (!todayEntries[roomKey]) todayEntries[roomKey] = {}
+      if (todayEntries[roomKey][userId]) {
+        console.log(`User ${userId} already has points for ${todayKey}`)
+        continue
+      }
 
-    if (!user.cumulativePoints) user.cumulativePoints = 0
-    user.cumulativePoints += POINTS_PER_DAY
-    granted++
+      todayEntries[roomKey][userId] = {
+        basePoints: POINTS_PER_DAY,
+        bonusPoints: 0,
+        overwritten: false,
+        finalScore: POINTS_PER_DAY,
+        adminNotes: '',
+        saved: true,
+        roomId: roomId || null,
+        date: new Date().toISOString(),
+      }
+
+      if (!user.cumulativePoints) user.cumulativePoints = 0
+      user.cumulativePoints += POINTS_PER_DAY
+      if (!user.roomPoints) user.roomPoints = {}
+      user.roomPoints[roomKey] = (user.roomPoints[roomKey] || 0) + POINTS_PER_DAY
+      granted++
+    }
   }
 
   if (granted === 0) {

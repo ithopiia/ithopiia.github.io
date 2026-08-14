@@ -68,10 +68,15 @@ async function seed() {
 
     matched++
 
+    const roomId = (user.rooms && user.rooms.length) ? user.rooms[0] : null
+    const roomKey = roomId || '_unassigned'
+
     // Strict skip check: if user already has ANY recorded data, preserve it
-    const existingSeed = data.dailyPoints?.[SEED_DATE]?.[userId]
+    // Handles both legacy shape (dailyPoints/{date}/{userId}) and room shape (dailyPoints/{date}/{roomKey}/{userId})
+    const existingSeed = data.dailyPoints?.[SEED_DATE]?.[userId] || data.dailyPoints?.[SEED_DATE]?.[roomKey]?.[userId]
     const hasCampaignEntry = data.dailyPoints && Object.keys(data.dailyPoints).some(
-      dateKey => dateKey >= CAMPAIGN_START && dateKey <= TODAY && data.dailyPoints[dateKey]?.[userId]
+      dateKey => dateKey >= CAMPAIGN_START && dateKey <= TODAY &&
+        (data.dailyPoints[dateKey]?.[userId] || data.dailyPoints[dateKey]?.[roomKey]?.[userId])
     )
     const hasCustomPoints = user.cumulativePoints != null && user.cumulativePoints !== 0
 
@@ -86,7 +91,7 @@ async function seed() {
     }
 
     // User is clean — no seed, no campaign entries, no custom points.
-    // Create baseline dailyPoints entry and set cumulativePoints.
+    // Create baseline dailyPoints entry (under the user's room) and set cumulativePoints.
     const seedEntry = {
       basePoints: seedPoints,
       bonusPoints: 0,
@@ -94,13 +99,18 @@ async function seed() {
       overwritten: false,
       adminNotes: 'قاعدة أولية',
       saved: true,
+      roomId: roomId || null,
       date: new Date().toISOString(),
     }
 
     console.log(`✅ ${name}: seed=${seedPoints}`)
 
-    updates[`dailyPoints/${SEED_DATE}/${userId}`] = seedEntry
+    if (!user.roomPoints) user.roomPoints = {}
+    user.roomPoints[roomKey] = (user.roomPoints[roomKey] || 0) + seedPoints
+
+    updates[`dailyPoints/${SEED_DATE}/${roomKey}/${userId}`] = seedEntry
     updates[`users/${userId}/cumulativePoints`] = seedPoints
+    updates[`users/${userId}/roomPoints`] = user.roomPoints
   }
 
   if (matched === 0) {
