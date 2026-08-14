@@ -222,7 +222,7 @@ window.Evaluation = {
     const allUsers = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
     const genderUsers = allUsers.filter(u => u.gender === this._activeGender)
     const users = this._selectedRoom
-      ? genderUsers.filter(u => (u.rooms || []).includes(this._selectedRoom))
+      ? genderUsers.filter(u => Points.isUserInRoom(u, this._selectedRoom))
       : genderUsers
     const dayData = this.getEvaluation(dateKey)
     const saved = dayData.length > 0 && dayData.every(e => e.saved)

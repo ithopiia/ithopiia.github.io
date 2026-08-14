@@ -48,11 +48,31 @@ const Points = {
     return roomId || '_unassigned'
   },
 
+  _effectiveRoomId(p, roomId) {
+    if (p.roomId) return p.roomId
+    const primary = this.getPrimaryRoomId(p.userId)
+    if (primary) return primary
+    return roomId || null
+  },
+
+  _matchRoom(p, roomId) {
+    if (roomId === undefined) return true
+    return this._effectiveRoomId(p, roomId) === (roomId || null)
+  },
+
+  isUserInRoom(u, roomId) {
+    if (!roomId) return true
+    const userRooms = (u && u.rooms) || []
+    if (userRooms.includes(roomId)) return true
+    if (userRooms.length === 0) return true
+    return false
+  },
+
   ensureTodayPoints(userId, roomId) {
     if (roomId === undefined || roomId === null) roomId = this.getPrimaryRoomId(userId)
     const key = this.getTodayKey()
     const all = Store.get('dailyPoints') || []
-    const existing = all.find(p => p.userId === userId && p.dateKey === key && (p.roomId || null) === (roomId || null))
+    const existing = all.find(p => p.userId === userId && p.dateKey === key && this._matchRoom(p, roomId))
     if (existing) return existing
 
     const entry = {
@@ -111,20 +131,20 @@ const Points = {
     if (roomId === undefined || roomId === null) roomId = this.getPrimaryRoomId(userId)
     const all = Store.get('dailyPoints') || []
     return all
-      .filter(p => p.userId === userId && (roomId === undefined || (p.roomId || null) === (roomId || null)))
+      .filter(p => p.userId === userId && this._matchRoom(p, roomId))
       .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
   },
 
   getUserTotalPoints(userId, roomId) {
     const all = Store.get('dailyPoints') || []
     return all
-      .filter(p => p.userId === userId && p.saved !== false && (roomId === undefined || (p.roomId || null) === (roomId || null)))
+      .filter(p => p.userId === userId && p.saved !== false && this._matchRoom(p, roomId))
       .reduce((sum, p) => sum + calcEntryScore(p), 0)
   },
 
   getUserPointsBreakdown(userId, roomId) {
     const all = Store.get('dailyPoints') || []
-    const saved = all.filter(p => p.userId === userId && p.saved !== false && (roomId === undefined || (p.roomId || null) === (roomId || null)))
+    const saved = all.filter(p => p.userId === userId && p.saved !== false && this._matchRoom(p, roomId))
     var baseTotal = 0
     var bonusTotal = 0
     var minusTotal = 0
@@ -146,7 +166,7 @@ const Points = {
   getAllUsersTotalPoints(roomId) {
     let users = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
     if (roomId) {
-      users = users.filter(u => (u.rooms || []).includes(roomId))
+      users = users.filter(u => this.isUserInRoom(u, roomId))
     }
     return users.map(u => ({
       userId: u.id,
@@ -224,14 +244,14 @@ const Points = {
   getMonthlyPoints(userId, yearMonth, roomId) {
     const all = Store.get('dailyPoints') || []
     return all
-      .filter(p => p.userId === userId && p.saved !== false && p.dateKey && p.dateKey.startsWith(yearMonth) && (roomId === undefined || (p.roomId || null) === (roomId || null)))
+      .filter(p => p.userId === userId && p.saved !== false && p.dateKey && p.dateKey.startsWith(yearMonth) && this._matchRoom(p, roomId))
       .reduce((s, p) => s + calcEntryScore(p), 0)
   },
 
   getMonthlyLeaderboard(roomId, yearMonth, genderFilter) {
     let users = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
     if (roomId) {
-      users = users.filter(u => (u.rooms || []).includes(roomId))
+      users = users.filter(u => this.isUserInRoom(u, roomId))
     }
     if (genderFilter) {
       users = users.filter(u => u.gender === genderFilter)

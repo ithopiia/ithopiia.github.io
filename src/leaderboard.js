@@ -124,7 +124,7 @@ window.Leaderboard = {
     const users = Store.get('users') || []
     let approved = users.filter(u => u.status === 'approved' && u.role !== 'admin')
     if (roomId) {
-      approved = approved.filter(u => u.id === currentUser.id || (u.rooms || []).includes(roomId))
+      approved = approved.filter(u => u.id === currentUser.id || Points.isUserInRoom(u, roomId))
     } else {
       const isHiddenAdmin = Auth.isHiddenAdmin()
       if (!isHiddenAdmin && currentUser) {

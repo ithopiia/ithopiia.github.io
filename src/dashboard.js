@@ -190,7 +190,7 @@ window.Dashboard = {
       if (u.id === user.id) return true
       if (u.gender !== userGender) return false
       if (primaryRoomId) {
-        return (u.rooms || []).includes(primaryRoomId)
+        return Points.isUserInRoom(u, primaryRoomId)
       }
       return true
     })

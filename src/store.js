@@ -108,6 +108,12 @@ window.Store = {
     return ['finalScore', 'basePoints', 'evaluationScore', 'manualBonus', 'overwritten', 'adminNotes', 'saved', 'bonusPoints', 'totalScore', 'points', 'score', 'bonus', 'minus', 'total', 'date', 'roomId'].indexOf(k) !== -1
   },
 
+  _primaryRoomOf(userId) {
+    const u = (this._data.users || []).find(x => x.id === userId)
+    const rooms = (u && u.rooms) || []
+    return rooms.length ? rooms[0] : null
+  },
+
   _flattenDailyPoints(snap) {
     const out = []
     if (!snap.exists()) return out
@@ -143,9 +149,10 @@ window.Store = {
     this._data.dailyPoints.forEach(p => {
       if (p.saved !== false) {
         totals[p.userId] = (totals[p.userId] || 0) + calcEntryScore(p)
-        if (p.roomId) {
+        const pRoom = p.roomId || this._primaryRoomOf(p.userId)
+        if (pRoom) {
           if (!roomTotals[p.userId]) roomTotals[p.userId] = {}
-          roomTotals[p.userId][p.roomId] = (roomTotals[p.userId][p.roomId] || 0) + calcEntryScore(p)
+          roomTotals[p.userId][pRoom] = (roomTotals[p.userId][pRoom] || 0) + calcEntryScore(p)
         }
       }
     })
