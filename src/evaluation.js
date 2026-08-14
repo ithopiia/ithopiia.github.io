@@ -491,7 +491,7 @@ window.Evaluation = {
     }
 
     var cumulativeTotal = (Store.get('dailyPoints') || [])
-      .filter(function (p) { return p.userId === userId && p.saved !== false })
+      .filter(function (p) { return p.userId === userId })
       .reduce(function (sum, p) { return sum + calcEntryScore(p) }, 0)
     var user = (Store.get('users') || []).find(function (u) { return u.id === userId })
     if (user) user.cumulativePoints = cumulativeTotal
@@ -505,7 +505,7 @@ window.Evaluation = {
   _syncCumulativeToFirebase(userId) {
     const dailyPoints = Store.get('dailyPoints') || []
     const total = dailyPoints
-      .filter(p => p.userId === userId && p.saved !== false)
+      .filter(p => p.userId === userId)
       .reduce((sum, p) => sum + calcEntryScore(p), 0)
     const users = Store.get('users') || []
     const user = users.find(u => u.id === userId)
@@ -774,7 +774,7 @@ window.Evaluation = {
       }
 
       var cumulativeTotal = (Store.get('dailyPoints') || [])
-        .filter(function (p) { return p.userId === userId && p.saved !== false })
+        .filter(function (p) { return p.userId === userId })
         .reduce(function (sum, p) { return sum + calcEntryScore(p) }, 0)
 
       var localUser = (Store.get('users') || []).find(function (u) { return u.id === userId })

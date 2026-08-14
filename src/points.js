@@ -138,13 +138,13 @@ const Points = {
   getUserTotalPoints(userId, roomId) {
     const all = Store.get('dailyPoints') || []
     return all
-      .filter(p => p.userId === userId && p.saved !== false && this._matchRoom(p, roomId))
+      .filter(p => p.userId === userId && this._matchRoom(p, roomId))
       .reduce((sum, p) => sum + calcEntryScore(p), 0)
   },
 
   getUserPointsBreakdown(userId, roomId) {
     const all = Store.get('dailyPoints') || []
-    const saved = all.filter(p => p.userId === userId && p.saved !== false && this._matchRoom(p, roomId))
+    const saved = all.filter(p => p.userId === userId && this._matchRoom(p, roomId))
     var baseTotal = 0
     var bonusTotal = 0
     var minusTotal = 0
@@ -232,7 +232,7 @@ const Points = {
     const currentMonth = this.getCurrentYearMonth()
     const months = new Set()
     all.forEach(p => {
-      if (p.saved !== false && p.dateKey) {
+      if (p.dateKey) {
         const m = p.dateKey.substring(0, 7)
         if (m <= currentMonth) months.add(m)
       }
@@ -244,7 +244,7 @@ const Points = {
   getMonthlyPoints(userId, yearMonth, roomId) {
     const all = Store.get('dailyPoints') || []
     return all
-      .filter(p => p.userId === userId && p.saved !== false && p.dateKey && p.dateKey.startsWith(yearMonth) && this._matchRoom(p, roomId))
+      .filter(p => p.userId === userId && p.dateKey && p.dateKey.startsWith(yearMonth) && this._matchRoom(p, roomId))
       .reduce((s, p) => s + calcEntryScore(p), 0)
   },
 
@@ -267,6 +267,49 @@ const Points = {
     return standings
       .filter(s => s.total > 0)
       .map((s, i) => ({ ...s, rank: i + 1 }))
+  },
+
+  _buildTotalsCache() {
+    const users = Store.get('users') || []
+    const dp = Store.get('dailyPoints') || []
+    const totals = {}
+    const init = () => ({ overall: 0, rooms: {}, months: {} })
+    dp.forEach(p => {
+      if (!p || !p.userId || !p.dateKey) return
+      const score = calcEntryScore(p)
+      const room = p.roomId || this.getPrimaryRoomId(p.userId) || null
+      const month = p.dateKey.substring(0, 7)
+      const T = totals[p.userId] || (totals[p.userId] = init())
+      T.overall += score
+      T.rooms[room] = (T.rooms[room] || 0) + score
+      const M = T.months[month] || (T.months[month] = { overall: 0, rooms: {} })
+      M.overall += score
+      M.rooms[room] = (M.rooms[room] || 0) + score
+    })
+    users.forEach(u => {
+      if (u.hymns) {
+        const T = totals[u.id] || (totals[u.id] = init())
+        Object.values(u.hymns).forEach(score => {
+          T.overall += (parseInt(score, 10) || 0)
+        })
+      }
+    })
+    return totals
+  },
+
+  recalculateLeaderboardTotals() {
+    if (Store._syncLock) return Store._totalsCache || {}
+    Store._syncLock = true
+    try {
+      if (typeof Store._reconcileEvaluationIntoDailyPoints === 'function') {
+        Store._reconcileEvaluationIntoDailyPoints()
+      }
+      Store._recalcCumulative()
+      Store._totalsCache = this._buildTotalsCache()
+    } finally {
+      Store._syncLock = false
+    }
+    return Store._totalsCache || {}
   },
 
   getMonthName(yearMonth) {

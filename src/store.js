@@ -5,6 +5,8 @@ window.Store = {
   _authReady: false,
   _initialLoadDone: false,
   _recalculating: false,
+  _syncLock: false,
+  _totalsCache: null,
   _readyCount: 0,
   _debounceTimers: {},
   TOTAL_PATHS: 7,
@@ -36,6 +38,7 @@ window.Store = {
       this._readyCount++
       if (this._readyCount === this.TOTAL_PATHS) {
         this._initialLoadDone = true
+        this._autoSyncTotals()
         this._notify()
       }
     }
@@ -54,9 +57,12 @@ window.Store = {
 
     this._pathRef('dailyPoints').on('value', snap => {
       this._data.dailyPoints = this._flattenDailyPoints(snap)
-      this._recalcCumulative()
-      if (this._initialLoadDone) this._notify()
-      else ready()
+      if (this._initialLoadDone) {
+        this._autoSyncTotals()
+        this._notify()
+      } else {
+        ready()
+      }
     })
 
     this._pathRef('evaluation').on('value', snap => {
@@ -68,8 +74,12 @@ window.Store = {
           })
         })
       }
-      if (this._initialLoadDone) this._notify()
-      else ready()
+      if (this._initialLoadDone) {
+        this._autoSyncTotals()
+        this._notify()
+      } else {
+        ready()
+      }
     })
 
     this._pathRef('settings').on('value', snap => {
@@ -141,13 +151,97 @@ window.Store = {
     return out
   },
 
+  _autoSyncTotals() {
+    if (window.Points && typeof Points.recalculateLeaderboardTotals === 'function') {
+      Points.recalculateLeaderboardTotals()
+    } else {
+      this._recalcCumulative()
+    }
+  },
+
+  _reconcileEvaluationIntoDailyPoints() {
+    const evalEntries = this._data.evaluation || []
+    const dp = this._data.dailyPoints || []
+    const columns = ['spiritual', 'exercises', 'moral', 'rehearsal', 'acting', 'movement', 'clothing', 'bonus']
+
+    const roomOf = (userId) => {
+      const u = this._data.users.find(x => x.id === userId)
+      const rooms = (u && u.rooms) || []
+      return rooms.length ? rooms[0] : null
+    }
+
+    const byUserDate = {}
+    dp.forEach(p => {
+      if (p.userId && p.dateKey) byUserDate[p.userId + '|' + p.dateKey] = p
+    })
+
+    const seen = {}
+    evalEntries.forEach(e => {
+      if (!e || !e.userId || !e.dateKey) return
+      const key = e.userId + '|' + e.dateKey
+      if (seen[key]) return
+      seen[key] = true
+
+      const score = columns.reduce((s, c) => s + (Number(e[c]) || 0), 0)
+      const bonusVal = Number(e.bonus) || 0
+
+      const existing = byUserDate[key]
+      if (existing) {
+        if (calcEntryScore(existing) !== score) {
+          existing.evaluationScore = score
+          existing.finalScore = score
+          existing.manualBonus = bonusVal
+          existing.saved = true
+          const base = `dailyPoints/${e.dateKey}/${existing.roomId || '_unassigned'}/${e.userId}`
+          this.writePath(`${base}/evaluationScore`, score)
+          this.writePath(`${base}/finalScore`, score)
+          this.writePath(`${base}/manualBonus`, bonusVal)
+          this.writePath(`${base}/saved`, true)
+        }
+        return
+      }
+
+      const roomId = roomOf(e.userId)
+      const roomPath = roomId || '_unassigned'
+      const now = new Date().toISOString()
+      dp.push({
+        userId: e.userId,
+        dateKey: e.dateKey,
+        roomId,
+        date: now,
+        basePoints: 0,
+        evaluationScore: score,
+        manualBonus: bonusVal,
+        overwritten: true,
+        finalScore: score,
+        adminNotes: '',
+        zeroReason: e.zeroReason || '',
+        bonusReason: e.bonusReason || '',
+        saved: true,
+      })
+      this.writePath(`dailyPoints/${e.dateKey}/${roomPath}/${e.userId}`, {
+        basePoints: 0,
+        evaluationScore: score,
+        manualBonus: bonusVal,
+        finalScore: score,
+        overwritten: true,
+        adminNotes: '',
+        zeroReason: e.zeroReason || '',
+        bonusReason: e.bonusReason || '',
+        saved: true,
+        roomId,
+        date: now,
+      })
+    })
+  },
+
   _recalcCumulative() {
     if (this._recalculating) return
     this._recalculating = true
     const totals = {}
     const roomTotals = {}
     this._data.dailyPoints.forEach(p => {
-      if (p.saved !== false) {
+      if (p && p.userId && p.dateKey) {
         totals[p.userId] = (totals[p.userId] || 0) + calcEntryScore(p)
         const pRoom = p.roomId || this._primaryRoomOf(p.userId)
         if (pRoom) {

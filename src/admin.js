@@ -189,7 +189,7 @@ window.Admin = {
     const renderModal = () => {
       const freshUser = (Store.get('users') || []).find(u => u.id === userId) || user
       const dailyPoints = Store.get('dailyPoints') || []
-      const userPoints = dailyPoints.filter(p => p.userId === userId && p.saved !== false)
+      const userPoints = dailyPoints.filter(p => p.userId === userId)
         .sort((a, b) => b.dateKey.localeCompare(a.dateKey))
 
       const notes = Store.get('notes') || []
@@ -218,7 +218,7 @@ window.Admin = {
       var evaluationList = Store.get('evaluation') || []
       var evalCategoryMap = {}
       evaluationList.forEach(function (e) {
-        if (e.userId === userId && e.saved) {
+        if (e.userId === userId) {
           var cats = {}
           Evaluation.COLUMNS.forEach(function (c) {
             var val = Number(e[c.key]) || 0

@@ -144,6 +144,8 @@ window.Leaderboard = {
     const currentUser = Auth.currentUser()
     if (!currentUser) return '<p class="text-muted">لا يوجد أعضاء بعد.</p>'
 
+    Points.recalculateLeaderboardTotals()
+
     const roomId = this._resolveRoom(true)
 
     const months = this._getMonths()
@@ -198,6 +200,7 @@ window.Leaderboard = {
 
   renderAdmin() {
     const currentUser = Auth.currentUser()
+    Points.recalculateLeaderboardTotals()
     const roomId = this._resolveRoom(false)
     const months = this._getMonths()
     if (!this._selectedMonth && months.length > 0) {
