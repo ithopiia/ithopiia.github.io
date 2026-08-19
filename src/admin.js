@@ -66,6 +66,9 @@ window.Admin = {
     if (window.Hymns) {
       Hymns.render()
     }
+    if (window.IndividualAwards) {
+      IndividualAwards.render()
+    }
     this.bindTabs()
     if (window.Evaluation) {
       Evaluation.render()
@@ -97,6 +100,8 @@ window.Admin = {
           this.renderRoomsTab()
         } else if (tabId === 'admin-tab-hymns') {
           if (window.Hymns) Hymns.render()
+        } else if (tabId === 'admin-tab-individual-awards') {
+          if (window.IndividualAwards) IndividualAwards.render()
         }
         localStorage.setItem('ithopiia_activeTab_admin', tabId)
       })
@@ -301,6 +306,21 @@ window.Admin = {
             <div class="info-item"><span class="info-label">الكرازة</span><span class="info-value">${freshUser.attendedElKaraza === 'yes' ? 'نعم' : freshUser.attendedElKaraza === 'no' ? 'لا' : '-'}</span></div>
             ${freshUser.createdAt ? `<div class="info-item"><span class="info-label">تاريخ التسجيل</span><span class="info-value">${new Date(freshUser.createdAt).toLocaleDateString('en-CA')}</span></div>` : ''}
           </div>
+          ${(() => {
+            const userAwardIds = window.IndividualAwards ? IndividualAwards.getUserAwards(userId) : []
+            if (userAwardIds.length === 0) return ''
+            const awardNames = userAwardIds.map(aid => {
+              const cfg = (window.INDIVIDUAL_AWARDS_CONFIG || []).find(c => c.id === aid)
+              return cfg ? cfg.name : aid
+            })
+            return `
+            <div style="margin-top:12px">
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px">الجوائز الفردية</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px">
+                ${awardNames.map(name => `<span class="award-badge-inline">🏆 أفضل ممثل - ${name}</span>`).join('')}
+              </div>
+            </div>`
+          })()}
           ${userNotes.length > 0 ? `
             <h3 style="margin-top:16px;font-size:1rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:8px">الملاحظات المكتوبة من كل الليدرز عليه</h3>
             ${userNotes.map(n => `

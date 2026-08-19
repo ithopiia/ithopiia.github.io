@@ -294,6 +294,13 @@ const Points = {
         })
       }
     })
+    const indAwards = (Store._data && Store._data.individualAwards) || []
+    indAwards.forEach(a => {
+      if (a && a.userId && a.awarded) {
+        const T = totals[a.userId] || (totals[a.userId] = init())
+        T.overall += (parseInt(a.points, 10) || 0)
+      }
+    })
     return totals
   },
 

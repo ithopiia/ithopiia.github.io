@@ -9,10 +9,10 @@ window.Store = {
   _totalsCache: null,
   _readyCount: 0,
   _debounceTimers: {},
-  TOTAL_PATHS: 7,
+  TOTAL_PATHS: 8,
 
   _defaults() {
-    return { users: [], dailyPoints: [], evaluation: [], settings: {}, rooms: [], notes: [], hymns: [] }
+    return { users: [], dailyPoints: [], evaluation: [], settings: {}, rooms: [], notes: [], hymns: [], individualAwards: [] }
   },
 
   async init() {
@@ -128,6 +128,20 @@ window.Store = {
       if (this._initialLoadDone) this._notify()
       else ready()
     })
+
+    this._pathRef('individualAwards').on('value', snap => {
+      this._data.individualAwards = []
+      if (snap.exists()) {
+        Object.keys(snap.val()).forEach(showId => {
+          Object.keys(snap.val()[showId]).forEach(userId => {
+            this._data.individualAwards.push({ showId, userId, ...snap.val()[showId][userId] })
+          })
+        })
+      }
+      this._recalcCumulative()
+      if (this._initialLoadDone) this._notify()
+      else ready()
+    })
   },
 
   _isEntryField(k) {
@@ -228,6 +242,11 @@ window.Store = {
         Object.values(u.hymns).forEach(score => {
           totals[u.id] = (totals[u.id] || 0) + (parseInt(score, 10) || 0)
         })
+      }
+    })
+    ;(this._data.individualAwards || []).forEach(a => {
+      if (a && a.userId && a.awarded) {
+        totals[a.userId] = (totals[a.userId] || 0) + (parseInt(a.points, 10) || 0)
       }
     })
     const currentUser = (typeof Auth !== 'undefined' && Auth.currentUser) ? Auth.currentUser() : null
