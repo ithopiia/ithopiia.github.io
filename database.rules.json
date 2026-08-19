@@ -25,7 +25,7 @@
             ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
           },
           "individualAwards": {
-            ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
+            ".write": "auth != null"
           }
         }
       },
@@ -51,7 +51,7 @@
       },
       "individualAwards": {
         ".read": "auth != null",
-        ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
+        ".write": "auth != null"
       }
     }
   }
