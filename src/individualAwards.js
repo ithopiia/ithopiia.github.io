@@ -146,17 +146,16 @@ window.IndividualAwards = {
     const userData = snapshot.val() || {}
     let currentTotal = parseInt(userData.cumulativePoints || 0, 10)
 
-    const updates = {
-      [`individualAwards/${showId}/${userId}`]: {
+    const db = firebase.database()
+    await Promise.all([
+      db.ref(`ithopiia/individualAwards/${showId}/${userId}`).set({
         awarded: true,
         awardedAt: Date.now(),
         points: AWARD_POINTS,
-      },
-      [`users/${userId}/individualAwards/${showId}`]: AWARD_POINTS,
-      [`users/${userId}/cumulativePoints`]: currentTotal + AWARD_POINTS,
-    }
-
-    await firebase.database().ref('ithopiia').update(updates)
+      }),
+      db.ref(`ithopiia/users/${userId}/individualAwards/${showId}`).set(AWARD_POINTS),
+      db.ref(`ithopiia/users/${userId}/cumulativePoints`).set(currentTotal + AWARD_POINTS),
+    ])
 
     const awards = Store._data.individualAwards || []
     const existing = awards.find(a => a.userId === userId && a.showId === showId)
@@ -183,13 +182,12 @@ window.IndividualAwards = {
     const userData = snapshot.val() || {}
     let currentTotal = parseInt(userData.cumulativePoints || 0, 10)
 
-    const updates = {
-      [`individualAwards/${showId}/${userId}`]: null,
-      [`users/${userId}/individualAwards/${showId}`]: null,
-      [`users/${userId}/cumulativePoints`]: Math.max(0, currentTotal - AWARD_POINTS),
-    }
-
-    await firebase.database().ref('ithopiia').update(updates)
+    const db = firebase.database()
+    await Promise.all([
+      db.ref(`ithopiia/individualAwards/${showId}/${userId}`).remove(),
+      db.ref(`ithopiia/users/${userId}/individualAwards/${showId}`).remove(),
+      db.ref(`ithopiia/users/${userId}/cumulativePoints`).set(Math.max(0, currentTotal - AWARD_POINTS)),
+    ])
 
     Store._data.individualAwards = (Store._data.individualAwards || [])
       .filter(a => !(a.userId === userId && a.showId === showId))

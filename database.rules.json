@@ -23,6 +23,9 @@
           },
           "dailyPoints": {
             ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
+          },
+          "individualAwards": {
+            ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
           }
         }
       },
@@ -43,6 +46,10 @@
         ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
       },
       "settings": {
+        ".read": "auth != null",
+        ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
+      },
+      "individualAwards": {
         ".read": "auth != null",
         ".write": "auth != null && (root.child('ithopiia/users/' + auth.uid + '/role').val() === 'admin' || root.child('ithopiia/users/' + auth.uid + '/role').val() === 'member')"
       }
