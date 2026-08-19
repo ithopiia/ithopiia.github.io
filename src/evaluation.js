@@ -36,21 +36,22 @@ window.Evaluation = {
     this.render()
   },
 
-  getEvaluation(dateKey) {
-    return (Store.get('evaluation') || []).filter(e => e.dateKey === dateKey)
+  getEvaluation(dateKey, roomId) {
+    return (Store.get('evaluation') || []).filter(e => e.dateKey === dateKey && (roomId == null || e.roomId === roomId))
   },
 
   getOrCreateEntry(userId, dateKey) {
+    const roomId = this._selectedRoom || Points.getPrimaryRoomId(userId)
     const all = Store.get('evaluation')
-    let entry = all.find(e => e.userId === userId && e.dateKey === dateKey)
+    let entry = all.find(e => e.userId === userId && e.dateKey === dateKey && e.roomId === roomId)
     if (!entry) {
-      entry = this._defaultEntry(userId, dateKey)
+      entry = this._defaultEntry(userId, dateKey, roomId)
       all.push(entry)
       var defaultData = {}
       this.COLUMNS.forEach(function (c) { defaultData[c.key] = 0 })
       defaultData.totalScore = 0
       defaultData.saved = false
-      Store.writePath('evaluation/' + dateKey + '/' + userId, defaultData)
+      Store.writePath('evaluation/' + dateKey + '/' + (roomId || '_unassigned') + '/' + userId, defaultData)
       return entry
     }
     return entry
@@ -67,14 +68,14 @@ window.Evaluation = {
       + (Number(entry.bonus) || 0)
   },
 
-  _defaultEntry(userId, dateKey) {
+  _defaultEntry(userId, dateKey, roomId) {
     const scores = {}
     let total = 0
     this.COLUMNS.forEach(function (c) {
       scores[c.key] = 0
       total += 0
     })
-    return { userId, dateKey, ...scores, totalScore: total, saved: false }
+    return { userId, dateKey, roomId: roomId || null, ...scores, totalScore: total, saved: false }
   },
 
   _evalSnapshots: {},
@@ -224,7 +225,7 @@ window.Evaluation = {
     const users = this._selectedRoom
       ? genderUsers.filter(u => Points.isUserInRoom(u, this._selectedRoom))
       : genderUsers
-    const dayData = this.getEvaluation(dateKey)
+    const dayData = this.getEvaluation(dateKey, this._selectedRoom)
     const saved = dayData.length > 0 && dayData.every(e => e.saved)
     const isTodayKey = dateKey === this.getTodayKey()
 
@@ -357,11 +358,12 @@ window.Evaluation = {
       if (!userId || !col || !step) return
 
       const capturedDateKey = this._dateKey
+      const capturedRoomId = this._selectedRoom
       const all = Store.get('evaluation') || []
-      let entry = all.find(e => e.userId === userId && e.dateKey === capturedDateKey)
+      let entry = all.find(e => e.userId === userId && e.dateKey === capturedDateKey && e.roomId === capturedRoomId)
       if (!entry) {
         const newEntry = {
-          userId, dateKey: capturedDateKey,
+          userId, dateKey: capturedDateKey, roomId: capturedRoomId,
           spiritual: 0, exercises: 0, moral: 0,
           rehearsal: 0, acting: 0, movement: 0, clothing: 0, bonus: 0,
           totalScore: 0, saved: false,
@@ -398,10 +400,11 @@ window.Evaluation = {
 
   updateCell(userId, col, value) {
     const capturedDateKey = this._dateKey
+    const capturedRoomId = this._selectedRoom
     const all = Store.get('evaluation') || []
-    let entry = all.find(e => e.userId === userId && e.dateKey === capturedDateKey)
+    let entry = all.find(e => e.userId === userId && e.dateKey === capturedDateKey && e.roomId === capturedRoomId)
     if (!entry) {
-      entry = this._defaultEntry(userId, capturedDateKey)
+      entry = this._defaultEntry(userId, capturedDateKey, capturedRoomId)
       all.push(entry)
     }
 
@@ -480,7 +483,7 @@ window.Evaluation = {
 
     if (evalEntry) {
       const { userId: uid, dateKey: dk, totalScore, saved, ...evalScores } = evalEntry
-      updates['/ithopiia/evaluation/' + dateKey + '/' + userId] = {
+      updates['/ithopiia/evaluation/' + dateKey + '/' + roomPath + '/' + userId] = {
         ...evalScores, totalScore, saved,
         evaluationScore: dp.evaluationScore,
         finalScore: dp.finalScore,
@@ -525,23 +528,23 @@ window.Evaluation = {
 
     let resetPayload = {};
 
-    resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/totalScore`] = targetScore;
-    resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/evaluationScore`] = targetScore;
-    resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/finalScore`] = targetScore;
-    resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/zeroReason`] = finalReason;
-    resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/saved`] = true;
-
-    resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/acting`] = 0;
-    resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/bonus`] = 0;
-    resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/clothing`] = 0;
-    resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/exercises`] = 0;
-    resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/moral`] = 0;
-    resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/movement`] = 0;
-    resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/rehearsal`] = 0;
-    resetPayload[`/ithopiia/evaluation/${dateKey}/${userId}/spiritual`] = 0;
-
     const roomId = this._selectedRoom || Points.getPrimaryRoomId(userId)
     const roomPath = roomId || '_unassigned'
+
+    resetPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/totalScore`] = targetScore;
+    resetPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/evaluationScore`] = targetScore;
+    resetPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/finalScore`] = targetScore;
+    resetPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/zeroReason`] = finalReason;
+    resetPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/saved`] = true;
+
+    resetPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/acting`] = 0;
+    resetPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/bonus`] = 0;
+    resetPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/clothing`] = 0;
+    resetPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/exercises`] = 0;
+    resetPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/moral`] = 0;
+    resetPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/movement`] = 0;
+    resetPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/rehearsal`] = 0;
+    resetPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/spiritual`] = 0;
 
     resetPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/evaluationScore`] = targetScore;
     resetPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/finalScore`] = targetScore;
@@ -568,10 +571,11 @@ window.Evaluation = {
 
   fillRow(userId, direction) {
     const capturedDateKey = this._dateKey
+    const capturedRoomId = this._selectedRoom
     const all = Store.get('evaluation') || []
-    let entry = all.find(e => e.userId === userId && e.dateKey === capturedDateKey)
+    let entry = all.find(e => e.userId === userId && e.dateKey === capturedDateKey && e.roomId === capturedRoomId)
     if (!entry) {
-      entry = this._defaultEntry(userId, capturedDateKey)
+      entry = this._defaultEntry(userId, capturedDateKey, capturedRoomId)
       all.push(entry)
     }
 
@@ -605,7 +609,7 @@ window.Evaluation = {
   updateStats() {
     const el = document.getElementById('eval-stats')
     if (!el) return
-    const dayData = this.getEvaluation(this._dateKey)
+    const dayData = this.getEvaluation(this._dateKey, this._selectedRoom)
     const total = dayData.reduce((s, e) => s + this.BASELINE_POINTS + this.calculateTotal(e), 0)
     const count = dayData.length
     el.textContent = `📊 ${count} أعضاء — إجمالي النقاط: ${total}`
@@ -618,7 +622,7 @@ window.Evaluation = {
     if (currentUser.role !== 'admin' && currentUser.role !== 'member') return
 
     const all = Store.get('evaluation') || []
-    const entry = all.find(e => e.userId === userId && e.dateKey === dateKey)
+    const entry = all.find(e => e.userId === userId && e.dateKey === dateKey && e.roomId === this._selectedRoom)
     if (!entry) {
       showCustomAlert('لم يتم العثور على بيانات التقييم لهذا المستخدم.')
       return
@@ -846,7 +850,7 @@ window.Evaluation = {
     const all = Store.get('evaluation') || []
     const dailyPoints = Store.get('dailyPoints') || []
 
-    const dayEntries = all.filter(e => e.dateKey === dateKey)
+    const dayEntries = all.filter(e => e.dateKey === dateKey && e.roomId === this._selectedRoom)
     dayEntries.forEach(e => {
       e.totalScore = this.calculateTotal(e)
       e.saved = true
@@ -901,7 +905,7 @@ window.Evaluation = {
       const roomId = this._selectedRoom || Points.getPrimaryRoomId(e.userId)
       const roomPath = roomId || '_unassigned'
       const { userId, dateKey: dk, totalScore, saved, ...evalScores } = e
-      allPaths[`evaluation/${dateKey}/${userId}`] = { ...evalScores, totalScore, evaluationScore: totalScore, finalScore: totalScore, saved }
+      allPaths[`evaluation/${dateKey}/${roomPath}/${userId}`] = { ...evalScores, totalScore, evaluationScore: totalScore, finalScore: totalScore, saved }
       allPaths[`dailyPoints/${dateKey}/${roomPath}/${userId}`] = {
         basePoints: this.BASELINE_POINTS,
         evaluationScore: totalScore,
@@ -937,9 +941,10 @@ window.Evaluation = {
     if (!confirmed) return
     const all = Store.get('evaluation')
     all.forEach(e => {
-      if (e.dateKey === dateKey) {
+      if (e.dateKey === dateKey && e.roomId === this._selectedRoom) {
         e.saved = false
-        Store.writePath(`evaluation/${dateKey}/${e.userId}/saved`, false)
+        const roomPath = e.roomId || '_unassigned'
+        Store.writePath(`evaluation/${dateKey}/${roomPath}/${e.userId}/saved`, false)
       }
     })
     this.render()
@@ -999,10 +1004,12 @@ function resolveEvalRoomPath(userId) {
 function initiateAbsoluteLiveSyncTrigger(userId, dateKey) {
     if (!userId || !dateKey) return;
 
-    const evaluationTotalRef = firebase.database().ref(`/ithopiia/evaluation/${dateKey}/${userId}/totalScore`);
-    const evaluationBonusRef = firebase.database().ref(`/ithopiia/evaluation/${dateKey}/${userId}/bonus`);
+    const roomPath = resolveEvalRoomPath(userId);
 
-    console.log(`[Trigger Active] Shielding live synchronization for user: ${userId}`);
+    const evaluationTotalRef = firebase.database().ref(`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/totalScore`);
+    const evaluationBonusRef = firebase.database().ref(`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/bonus`);
+
+    console.log(`[Trigger Active] Shielding live synchronization for user: ${userId} in room: ${roomPath}`);
 
     evaluationTotalRef.on('value', (snapshot) => {
         const liveTotal = snapshot.val();
@@ -1010,7 +1017,6 @@ function initiateAbsoluteLiveSyncTrigger(userId, dateKey) {
             evaluationBonusRef.once('value').then((bonusSnap) => {
                 const liveBonus = Number(bonusSnap.val() || 0);
                 const numericTotal = Number(liveTotal);
-                const roomPath = resolveEvalRoomPath(userId);
 
                 let correctionPayload = {
                     evaluationScore: numericTotal,
@@ -1053,20 +1059,20 @@ window.saveAssessmentFinalSync = function(userId, dateKey, scorePayload, finalRe
     let atomicPayload = {};
     
     // Hard Overwrite Evaluation Leaf Nodes
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/acting`] = acting;
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/bonus`] = bonus;
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/clothing`] = clothing;
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/exercises`] = exercises;
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/moral`] = moral;
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/movement`] = movement;
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/rehearsal`] = rehearsal;
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/spiritual`] = spiritual;
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/totalScore`] = absoluteTotal;
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/evaluationScore`] = absoluteTotal;
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/finalScore`] = absoluteTotal;
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/saved`] = true;
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/bonusReason`] = bonusReason || "";
-    atomicPayload[`/ithopiia/evaluation/${dateKey}/${userId}/zeroReason`] = zeroReason || "";
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/acting`] = acting;
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/bonus`] = bonus;
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/clothing`] = clothing;
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/exercises`] = exercises;
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/moral`] = moral;
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/movement`] = movement;
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/rehearsal`] = rehearsal;
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/spiritual`] = spiritual;
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/totalScore`] = absoluteTotal;
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/evaluationScore`] = absoluteTotal;
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/finalScore`] = absoluteTotal;
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/saved`] = true;
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/bonusReason`] = bonusReason || "";
+    atomicPayload[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}/zeroReason`] = zeroReason || "";
 
     // Hard Overwrite DailyPoints Leaf Nodes
     atomicPayload[`/ithopiia/dailyPoints/${dateKey}/${roomPath}/${userId}/evaluationScore`] = absoluteTotal;

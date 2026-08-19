@@ -38,6 +38,7 @@ window.Store = {
       this._readyCount++
       if (this._readyCount === this.TOTAL_PATHS) {
         this._initialLoadDone = true
+        this._migrateLegacyEvaluationData()
         this._autoSyncTotals()
         this._notify()
       }
@@ -69,8 +70,23 @@ window.Store = {
       this._data.evaluation = []
       if (snap.exists()) {
         Object.keys(snap.val()).forEach(dateKey => {
-          Object.keys(snap.val()[dateKey]).forEach(userId => {
-            this._data.evaluation.push({ userId, dateKey, ...snap.val()[dateKey][userId] })
+          const dateNode = snap.val()[dateKey] || {}
+          Object.keys(dateNode).forEach(secondKey => {
+            const secondVal = dateNode[secondKey]
+            if (!secondVal || typeof secondVal !== 'object') return
+            const secondKeys = Object.keys(secondVal)
+            const looksLikeEntry = secondKeys.some(k => this._isEvalEntryField(k))
+            if (looksLikeEntry) {
+              this._data.evaluation.push({ userId: secondKey, dateKey, roomId: null, ...secondVal })
+            } else {
+              const roomId = secondKey === '_unassigned' ? null : secondKey
+              secondKeys.forEach(userId => {
+                const entry = secondVal[userId]
+                if (entry && typeof entry === 'object') {
+                  this._data.evaluation.push({ userId, dateKey, roomId, ...entry })
+                }
+              })
+            }
           })
         })
       }
@@ -118,6 +134,10 @@ window.Store = {
     return ['finalScore', 'basePoints', 'evaluationScore', 'manualBonus', 'overwritten', 'adminNotes', 'saved', 'bonusPoints', 'totalScore', 'points', 'score', 'bonus', 'minus', 'total', 'date', 'roomId'].indexOf(k) !== -1
   },
 
+  _isEvalEntryField(k) {
+    return ['spiritual', 'exercises', 'moral', 'rehearsal', 'acting', 'movement', 'clothing', 'bonus', 'totalScore', 'evaluationScore', 'finalScore', 'saved', 'zeroReason', 'bonusReason', 'manualBonus'].indexOf(k) !== -1
+  },
+
   _primaryRoomOf(userId) {
     const u = (this._data.users || []).find(x => x.id === userId)
     const rooms = (u && u.rooms) || []
@@ -159,80 +179,33 @@ window.Store = {
     }
   },
 
-  _reconcileEvaluationIntoDailyPoints() {
+  _migrateLegacyEvaluationData() {
     const evalEntries = this._data.evaluation || []
     const dp = this._data.dailyPoints || []
-    const columns = ['spiritual', 'exercises', 'moral', 'rehearsal', 'acting', 'movement', 'clothing', 'bonus']
+    const updates = {}
 
-    const roomOf = (userId) => {
-      const u = this._data.users.find(x => x.id === userId)
-      const rooms = (u && u.rooms) || []
-      return rooms.length ? rooms[0] : null
-    }
+    evalEntries.forEach(entry => {
+      if (entry.roomId != null) return
+      if (!entry.userId || !entry.dateKey) return
 
-    const byUserDate = {}
-    dp.forEach(p => {
-      if (p.userId && p.dateKey) byUserDate[p.userId + '|' + p.dateKey] = p
-    })
-
-    const seen = {}
-    evalEntries.forEach(e => {
-      if (!e || !e.userId || !e.dateKey) return
-      const key = e.userId + '|' + e.dateKey
-      if (seen[key]) return
-      seen[key] = true
-
-      const score = columns.reduce((s, c) => s + (Number(e[c]) || 0), 0)
-      const bonusVal = Number(e.bonus) || 0
-
-      const existing = byUserDate[key]
-      if (existing) {
-        if (calcEntryScore(existing) !== score) {
-          existing.evaluationScore = score
-          existing.finalScore = score
-          existing.manualBonus = bonusVal
-          existing.saved = true
-          const base = `dailyPoints/${e.dateKey}/${existing.roomId || '_unassigned'}/${e.userId}`
-          this.writePath(`${base}/evaluationScore`, score)
-          this.writePath(`${base}/finalScore`, score)
-          this.writePath(`${base}/manualBonus`, bonusVal)
-          this.writePath(`${base}/saved`, true)
-        }
-        return
-      }
-
-      const roomId = roomOf(e.userId)
+      const matchingDp = dp.find(p => p.userId === entry.userId && p.dateKey === entry.dateKey)
+      const roomId = matchingDp ? (matchingDp.roomId || null) : null
       const roomPath = roomId || '_unassigned'
-      const now = new Date().toISOString()
-      dp.push({
-        userId: e.userId,
-        dateKey: e.dateKey,
-        roomId,
-        date: now,
-        basePoints: 0,
-        evaluationScore: score,
-        manualBonus: bonusVal,
-        overwritten: true,
-        finalScore: score,
-        adminNotes: '',
-        zeroReason: e.zeroReason || '',
-        bonusReason: e.bonusReason || '',
-        saved: true,
-      })
-      this.writePath(`dailyPoints/${e.dateKey}/${roomPath}/${e.userId}`, {
-        basePoints: 0,
-        evaluationScore: score,
-        manualBonus: bonusVal,
-        finalScore: score,
-        overwritten: true,
-        adminNotes: '',
-        zeroReason: e.zeroReason || '',
-        bonusReason: e.bonusReason || '',
-        saved: true,
-        roomId,
-        date: now,
-      })
+
+      const { userId, dateKey, roomId: _rid, ...rest } = entry
+      updates[`/ithopiia/evaluation/${dateKey}/${roomPath}/${userId}`] = rest
+      updates[`/ithopiia/evaluation/${dateKey}/${userId}`] = null
     })
+
+    if (Object.keys(updates).length > 0) {
+      console.log(`[Migration] Repairing ${Object.keys(updates).length / 2} legacy evaluation entries...`)
+      const db = firebase.database()
+      db.ref().update(updates).then(() => {
+        console.log('[Migration] Legacy evaluation data repaired successfully.')
+      }).catch(err => {
+        console.error('[Migration] Failed to repair legacy evaluation data:', err)
+      })
+    }
   },
 
   _recalcCumulative() {
@@ -354,9 +327,11 @@ window.Store = {
       } else if (key === 'evaluation') {
         val.forEach(item => {
           if (!item.dateKey || !item.userId) return
+          const roomKey = item.roomId || '_unassigned'
           if (!obj[item.dateKey]) obj[item.dateKey] = {}
-          const { userId, dateKey, ...rest } = item
-          obj[item.dateKey][userId] = rest
+          if (!obj[item.dateKey][roomKey]) obj[item.dateKey][roomKey] = {}
+          const { userId, dateKey, roomId, ...rest } = item
+          obj[item.dateKey][roomKey][userId] = rest
         })
       } else {
         val.forEach(item => { if (item.id) obj[item.id] = item })
@@ -370,8 +345,8 @@ window.Store = {
   push(key, item) {
     if (key === 'evaluation') {
       if (item.dateKey && item.userId) {
-        const { userId, dateKey, ...rest } = item
-        this.writePath(`${key}/${dateKey}/${userId}`, rest)
+        const { userId, dateKey, roomId, ...rest } = item
+        this.writePath(`${key}/${dateKey}/${roomId || '_unassigned'}/${userId}`, rest)
       }
     } else if (key === 'dailyPoints') {
       if (item.dateKey && item.userId) {

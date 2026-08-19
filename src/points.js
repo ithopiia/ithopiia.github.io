@@ -301,9 +301,6 @@ const Points = {
     if (Store._syncLock) return Store._totalsCache || {}
     Store._syncLock = true
     try {
-      if (typeof Store._reconcileEvaluationIntoDailyPoints === 'function') {
-        Store._reconcileEvaluationIntoDailyPoints()
-      }
       Store._recalcCumulative()
       Store._totalsCache = this._buildTotalsCache()
     } finally {
