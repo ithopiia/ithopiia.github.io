@@ -40,20 +40,18 @@ window.Evaluation = {
     return (Store.get('evaluation') || []).filter(e => e.dateKey === dateKey && (roomId == null || e.roomId === roomId))
   },
 
-  _resolveEntry(userId, dateKey, roomId, opts) {
+  _resolveEntry(userId, dateKey, roomId) {
     const all = Store.get('evaluation') || []
-    const loose = !opts || opts.allowAnyRoom !== false
     return all.find(e => e.userId === userId && e.dateKey === dateKey && e.roomId === roomId)
       || all.find(e => e.userId === userId && e.dateKey === dateKey && (e.roomId == null || e.roomId === '_unassigned'))
-      || (loose ? (all.find(e => e.userId === userId && e.dateKey === dateKey) || null) : null)
+      || null
   },
 
-  _findDailyPoint(userId, dateKey, roomId, opts) {
+  _findDailyPoint(userId, dateKey, roomId) {
     const all = Store.get('dailyPoints') || []
-    const loose = !opts || opts.allowAnyRoom !== false
     return all.find(p => p.userId === userId && p.dateKey === dateKey && (p.roomId || null) === (roomId || null))
       || all.find(p => p.userId === userId && p.dateKey === dateKey && (p.roomId == null || p.roomId === '_unassigned'))
-      || (loose ? (all.find(p => p.userId === userId && p.dateKey === dateKey) || null) : null)
+      || null
   },
 
   _legacyDailyPointClearPaths(dp, dateKey, userId, newRoomId) {
@@ -67,8 +65,8 @@ window.Evaluation = {
     return Array.from(candidates)
   },
 
-  _buildEntryFromDailyPoints(userId, dateKey, roomId, opts) {
-    const dp = this._findDailyPoint(userId, dateKey, roomId, opts)
+  _buildEntryFromDailyPoints(userId, dateKey, roomId) {
+    const dp = this._findDailyPoint(userId, dateKey, roomId)
     if (!dp) return null
     return {
       userId,
@@ -933,15 +931,14 @@ window.Evaluation = {
     const allPaths = {}
 
     const dayEntries = []
-    const saveOpts = { allowAnyRoom: false }
     const roomUsers = (Store.get('users') || [])
       .filter(u => u.status === 'approved' && u.role !== 'admin')
       .filter(u => u.gender === this._activeGender)
       .filter(u => !this._selectedRoom || Points.isUserInRoom(u, this._selectedRoom))
     roomUsers.forEach(u => {
-      let entry = this._resolveEntry(u.id, dateKey, this._selectedRoom, saveOpts)
+      let entry = this._resolveEntry(u.id, dateKey, this._selectedRoom)
       if (!entry) {
-        entry = this._buildEntryFromDailyPoints(u.id, dateKey, this._selectedRoom, saveOpts)
+        entry = this._buildEntryFromDailyPoints(u.id, dateKey, this._selectedRoom)
         if (entry) all.push(entry)
       }
       if (entry && !dayEntries.includes(entry)) dayEntries.push(entry)
@@ -952,7 +949,7 @@ window.Evaluation = {
 
       const roomId = this._selectedRoom || Points.getPrimaryRoomId(e.userId)
       const roomPath = roomId || '_unassigned'
-      const existing = this._findDailyPoint(e.userId, dateKey, roomId, saveOpts)
+      const existing = this._findDailyPoint(e.userId, dateKey, roomId)
       if (existing) {
         this._legacyDailyPointClearPaths(existing, dateKey, e.userId, roomId).forEach(p => {
           allPaths['dailyPoints/' + p] = null

@@ -7,6 +7,7 @@ window.Store = {
   _recalculating: false,
   _syncLock: false,
   _totalsCache: null,
+  _migrationDone: false,
   _readyCount: 0,
   _debounceTimers: {},
   TOTAL_PATHS: 8,
@@ -36,8 +37,10 @@ window.Store = {
   _attachListeners() {
     const ready = () => {
       this._readyCount++
-      if (this._readyCount === this.TOTAL_PATHS) {
+      if (this._readyCount === this.TOTAL_PATHS && !this._migrationDone) {
         this._initialLoadDone = true
+        this._migrationDone = true
+        this._migrateLegacyDailyPoints()
         this._migrateLegacyEvaluationData()
         this._autoSyncTotals()
         this._notify()
@@ -199,17 +202,74 @@ window.Store = {
     }
   },
 
+  _migrationTargetRoom(userId) {
+    const u = (this._data.users || []).find(x => x.id === userId)
+    const rooms = ((u && u.rooms) || []).filter(Boolean)
+    if (rooms.length >= 1) return rooms[0]
+    return null
+  },
+
+  _migrateLegacyDailyPoints() {
+    const all = this._data.dailyPoints || []
+    const updates = {}
+    const claimed = new Set()
+    let moved = 0
+
+    all.forEach(p => {
+      if (!p || !p.userId || !p.dateKey) return
+      if (p.roomId != null && p.roomId !== '_unassigned') return
+
+      const key = p.dateKey + '/' + p.userId
+      if (claimed.has(key)) {
+        console.warn('[Room Migration] Duplicate legacy dailyPoints for ' + key + ' left untouched for manual review.')
+        return
+      }
+      claimed.add(key)
+
+      const targetRoom = this._migrationTargetRoom(p.userId)
+      if (!targetRoom) {
+        console.warn('[Room Migration] No room membership found for ' + p.userId + ' on ' + p.dateKey + ' — points preserved as-is.')
+        return
+      }
+
+      const hasScopedCopy = all.some(q => q && q.userId === p.userId && q.dateKey === p.dateKey && q.roomId === targetRoom)
+      if (hasScopedCopy) {
+        console.warn('[Room Migration] Room-scoped record already exists for ' + key + ' in ' + targetRoom + ' — legacy copy preserved, skipped to avoid data loss.')
+        return
+      }
+
+      const { userId, dateKey, roomId: _rid, ...rest } = p
+      updates['/ithopiia/dailyPoints/' + dateKey + '/' + targetRoom + '/' + userId] = { ...rest, roomId: targetRoom }
+      updates['/ithopiia/dailyPoints/' + dateKey + '/' + userId] = null
+      updates['/ithopiia/dailyPoints/' + dateKey + '/_unassigned/' + userId] = null
+      moved++
+    })
+
+    if (moved > 0) {
+      console.log('[Room Migration] Separating ' + moved + ' legacy dailyPoints records into their room nodes (atomic move, no data loss)...')
+      const db = firebase.database()
+      db.ref().update(updates).then(() => {
+        console.log('[Room Migration] Legacy dailyPoints separation completed successfully.')
+      }).catch(err => {
+        console.error('[Room Migration] Failed to separate legacy dailyPoints:', err)
+      })
+    }
+  },
+
   _migrateLegacyEvaluationData() {
     const evalEntries = this._data.evaluation || []
     const dp = this._data.dailyPoints || []
     const updates = {}
 
     evalEntries.forEach(entry => {
-      if (entry.roomId != null) return
+      if (entry.roomId != null && entry.roomId !== '_unassigned') return
       if (!entry.userId || !entry.dateKey) return
 
+      const hasScopedCopy = evalEntries.some(q => q && q.userId === entry.userId && q.dateKey === entry.dateKey && q.roomId != null && q.roomId !== '_unassigned')
+      if (hasScopedCopy) return
+
       const matchingDp = dp.find(p => p.userId === entry.userId && p.dateKey === entry.dateKey)
-      const roomId = matchingDp ? (matchingDp.roomId || null) : null
+      const roomId = (matchingDp && matchingDp.roomId) || this._migrationTargetRoom(entry.userId)
       const roomPath = roomId || '_unassigned'
 
       const { userId, dateKey, roomId: _rid, ...rest } = entry
