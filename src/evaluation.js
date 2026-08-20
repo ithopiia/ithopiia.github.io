@@ -40,19 +40,67 @@ window.Evaluation = {
     return (Store.get('evaluation') || []).filter(e => e.dateKey === dateKey && (roomId == null || e.roomId === roomId))
   },
 
+  _resolveEntry(userId, dateKey, roomId, opts) {
+    const all = Store.get('evaluation') || []
+    const loose = !opts || opts.allowAnyRoom !== false
+    return all.find(e => e.userId === userId && e.dateKey === dateKey && e.roomId === roomId)
+      || all.find(e => e.userId === userId && e.dateKey === dateKey && (e.roomId == null || e.roomId === '_unassigned'))
+      || (loose ? (all.find(e => e.userId === userId && e.dateKey === dateKey) || null) : null)
+  },
+
+  _findDailyPoint(userId, dateKey, roomId, opts) {
+    const all = Store.get('dailyPoints') || []
+    const loose = !opts || opts.allowAnyRoom !== false
+    return all.find(p => p.userId === userId && p.dateKey === dateKey && (p.roomId || null) === (roomId || null))
+      || all.find(p => p.userId === userId && p.dateKey === dateKey && (p.roomId == null || p.roomId === '_unassigned'))
+      || (loose ? (all.find(p => p.userId === userId && p.dateKey === dateKey) || null) : null)
+  },
+
+  _legacyDailyPointClearPaths(dp, dateKey, userId, newRoomId) {
+    const newPath = 'dailyPoints/' + dateKey + '/' + (newRoomId || '_unassigned') + '/' + userId
+    const candidates = new Set()
+    if (dp) {
+      candidates.add('dailyPoints/' + dateKey + '/' + ((dp.roomId == null) ? '_unassigned' : dp.roomId) + '/' + userId)
+      if (dp.roomId == null) candidates.add('dailyPoints/' + dateKey + '/' + userId)
+    }
+    candidates.delete(newPath)
+    return Array.from(candidates)
+  },
+
+  _buildEntryFromDailyPoints(userId, dateKey, roomId, opts) {
+    const dp = this._findDailyPoint(userId, dateKey, roomId, opts)
+    if (!dp) return null
+    return {
+      userId,
+      dateKey,
+      roomId: dp.roomId != null ? dp.roomId : (roomId || null),
+      spiritual: 0,
+      exercises: 0,
+      moral: 0,
+      rehearsal: 0,
+      acting: 0,
+      movement: 0,
+      clothing: 0,
+      bonus: Number(dp.manualBonus) || 0,
+      totalScore: calcEntryScore(dp),
+      saved: !!dp.saved,
+      restoredFromDailyPoints: true,
+    }
+  },
+
   getOrCreateEntry(userId, dateKey) {
     const roomId = this._selectedRoom || Points.getPrimaryRoomId(userId)
-    const all = Store.get('evaluation')
-    let entry = all.find(e => e.userId === userId && e.dateKey === dateKey && e.roomId === roomId)
+    let entry = this._resolveEntry(userId, dateKey, roomId)
+    if (!entry) {
+      entry = this._buildEntryFromDailyPoints(userId, dateKey, roomId)
+      if (entry) {
+        ;(Store.get('evaluation') || []).push(entry)
+        return entry
+      }
+    }
     if (!entry) {
       entry = this._defaultEntry(userId, dateKey, roomId)
-      all.push(entry)
-      var defaultData = {}
-      this.COLUMNS.forEach(function (c) { defaultData[c.key] = 0 })
-      defaultData.totalScore = 0
-      defaultData.saved = false
-      Store.writePath('evaluation/' + dateKey + '/' + (roomId || '_unassigned') + '/' + userId, defaultData)
-      return entry
+      ;(Store.get('evaluation') || []).push(entry)
     }
     return entry
   },
@@ -272,8 +320,9 @@ window.Evaluation = {
           <tbody>
             ${users.length === 0 ? '<tr><td colspan="12" style="text-align:center;color:var(--text-muted)">لا يوجد أعضاء في هذه الغرفة</td></tr>' : ''}
             ${users.map((u, i) => {
-              const entry = dayData.find(e => e.userId === u.id)
-              const offsetSum = entry ? this.calculateTotal(entry) : 0
+              let entry = this._resolveEntry(u.id, dateKey, this._selectedRoom)
+              if (!entry) entry = this._buildEntryFromDailyPoints(u.id, dateKey, this._selectedRoom)
+              const offsetSum = entry ? (entry.totalScore != null ? Number(entry.totalScore) || 0 : this.calculateTotal(entry)) : 0
               const total = this.BASELINE_POINTS + offsetSum
               const inputDisabled = !isTodayKey && saved
               const snapKey = u.id + '_' + dateKey
@@ -360,7 +409,11 @@ window.Evaluation = {
       const capturedDateKey = this._dateKey
       const capturedRoomId = this._selectedRoom
       const all = Store.get('evaluation') || []
-      let entry = all.find(e => e.userId === userId && e.dateKey === capturedDateKey && e.roomId === capturedRoomId)
+      let entry = this._resolveEntry(userId, capturedDateKey, capturedRoomId)
+      if (!entry) {
+        entry = this._buildEntryFromDailyPoints(userId, capturedDateKey, capturedRoomId)
+        if (entry) all.push(entry)
+      }
       if (!entry) {
         const newEntry = {
           userId, dateKey: capturedDateKey, roomId: capturedRoomId,
@@ -402,7 +455,11 @@ window.Evaluation = {
     const capturedDateKey = this._dateKey
     const capturedRoomId = this._selectedRoom
     const all = Store.get('evaluation') || []
-    let entry = all.find(e => e.userId === userId && e.dateKey === capturedDateKey && e.roomId === capturedRoomId)
+    let entry = this._resolveEntry(userId, capturedDateKey, capturedRoomId)
+    if (!entry) {
+      entry = this._buildEntryFromDailyPoints(userId, capturedDateKey, capturedRoomId)
+      if (entry) all.push(entry)
+    }
     if (!entry) {
       entry = this._defaultEntry(userId, capturedDateKey, capturedRoomId)
       all.push(entry)
@@ -429,7 +486,12 @@ window.Evaluation = {
     const roomId = this._selectedRoom || Points.getPrimaryRoomId(userId)
     const roomPath = roomId || '_unassigned'
     const dailyPoints = Store.get('dailyPoints')
-    let dp = dailyPoints.find(p => p.userId === userId && p.dateKey === dateKey && (p.roomId || null) === (roomId || null))
+    let dp = this._findDailyPoint(userId, dateKey, roomId)
+    let legacyClearPaths = []
+    if (dp) {
+      legacyClearPaths = this._legacyDailyPointClearPaths(dp, dateKey, userId, roomPath)
+      if (dp.roomId == null && roomId) dp.roomId = roomId
+    }
     if (!dp) {
       dp = {
         userId, dateKey, roomId,
@@ -466,6 +528,7 @@ window.Evaluation = {
 
     const db = firebase.database()
     const updates = {}
+    legacyClearPaths.forEach(p => { updates['/ithopiia/' + p] = null })
 
     updates['/ithopiia/dailyPoints/' + dateKey + '/' + roomPath + '/' + userId] = {
       basePoints: dp.basePoints,
@@ -482,7 +545,7 @@ window.Evaluation = {
     }
 
     if (evalEntry) {
-      const { userId: uid, dateKey: dk, totalScore, saved, ...evalScores } = evalEntry
+      const { userId: uid, dateKey: dk, totalScore, saved, roomId: _rid, restoredFromDailyPoints: _rfdp, ...evalScores } = evalEntry
       updates['/ithopiia/evaluation/' + dateKey + '/' + roomPath + '/' + userId] = {
         ...evalScores, totalScore, saved,
         evaluationScore: dp.evaluationScore,
@@ -573,7 +636,11 @@ window.Evaluation = {
     const capturedDateKey = this._dateKey
     const capturedRoomId = this._selectedRoom
     const all = Store.get('evaluation') || []
-    let entry = all.find(e => e.userId === userId && e.dateKey === capturedDateKey && e.roomId === capturedRoomId)
+    let entry = this._resolveEntry(userId, capturedDateKey, capturedRoomId)
+    if (!entry) {
+      entry = this._buildEntryFromDailyPoints(userId, capturedDateKey, capturedRoomId)
+      if (entry) all.push(entry)
+    }
     if (!entry) {
       entry = this._defaultEntry(userId, capturedDateKey, capturedRoomId)
       all.push(entry)
@@ -609,7 +676,9 @@ window.Evaluation = {
   updateStats() {
     const el = document.getElementById('eval-stats')
     if (!el) return
-    const dayData = this.getEvaluation(this._dateKey, this._selectedRoom)
+    const users = (Store.get('users') || []).filter(u => u.status === 'approved' && u.role !== 'admin')
+    const ids = new Set(users.map(u => u.id))
+    const dayData = (Store.get('evaluation') || []).filter(e => e.dateKey === this._dateKey && ids.has(e.userId))
     const total = dayData.reduce((s, e) => s + this.BASELINE_POINTS + this.calculateTotal(e), 0)
     const count = dayData.length
     el.textContent = `📊 ${count} أعضاء — إجمالي النقاط: ${total}`
@@ -621,8 +690,7 @@ window.Evaluation = {
     if (!currentUser) return
     if (currentUser.role !== 'admin' && currentUser.role !== 'member') return
 
-    const all = Store.get('evaluation') || []
-    const entry = all.find(e => e.userId === userId && e.dateKey === dateKey && e.roomId === this._selectedRoom)
+    const entry = this._resolveEntry(userId, dateKey, this._selectedRoom) || this._buildEntryFromDailyPoints(userId, dateKey, this._selectedRoom)
     if (!entry) {
       showCustomAlert('لم يتم العثور على بيانات التقييم لهذا المستخدم.')
       return
@@ -692,7 +760,12 @@ window.Evaluation = {
       var bonusVal = Number(entry.bonus) || 0
       const roomId = this._selectedRoom || Points.getPrimaryRoomId(userId)
       const dailyPoints = Store.get('dailyPoints') || []
-      let dp = dailyPoints.find(p => p.userId === userId && p.dateKey === dateKey && (p.roomId || null) === (roomId || null))
+      let dp = this._findDailyPoint(userId, dateKey, roomId)
+      let legacyClearPaths = []
+      if (dp) {
+        legacyClearPaths = this._legacyDailyPointClearPaths(dp, dateKey, userId, roomId)
+        if (!dp.roomId && roomId) dp.roomId = roomId
+      }
       if (!dp) {
         dp = {
           userId, dateKey, roomId,
@@ -803,6 +876,14 @@ window.Evaluation = {
         console.error('Counter update failed:', e)
       })
 
+      if (legacyClearPaths.length > 0) {
+        var legacyUpdate = {}
+        legacyClearPaths.forEach(function (p) { legacyUpdate['/ithopiia/' + p] = null })
+        await db.ref().update(legacyUpdate).catch(function (e) {
+          console.error('Legacy dailyPoints cleanup failed:', e)
+        })
+      }
+
       var scorePayload = {
         acting: entry.acting,
         bonus: entry.bonus,
@@ -849,15 +930,35 @@ window.Evaluation = {
 
     const all = Store.get('evaluation') || []
     const dailyPoints = Store.get('dailyPoints') || []
+    const allPaths = {}
 
-    const dayEntries = all.filter(e => e.dateKey === dateKey && e.roomId === this._selectedRoom)
+    const dayEntries = []
+    const saveOpts = { allowAnyRoom: false }
+    const roomUsers = (Store.get('users') || [])
+      .filter(u => u.status === 'approved' && u.role !== 'admin')
+      .filter(u => u.gender === this._activeGender)
+      .filter(u => !this._selectedRoom || Points.isUserInRoom(u, this._selectedRoom))
+    roomUsers.forEach(u => {
+      let entry = this._resolveEntry(u.id, dateKey, this._selectedRoom, saveOpts)
+      if (!entry) {
+        entry = this._buildEntryFromDailyPoints(u.id, dateKey, this._selectedRoom, saveOpts)
+        if (entry) all.push(entry)
+      }
+      if (entry && !dayEntries.includes(entry)) dayEntries.push(entry)
+    })
     dayEntries.forEach(e => {
       e.totalScore = this.calculateTotal(e)
       e.saved = true
 
       const roomId = this._selectedRoom || Points.getPrimaryRoomId(e.userId)
       const roomPath = roomId || '_unassigned'
-      const existing = dailyPoints.find(p => p.userId === e.userId && p.dateKey === dateKey && (p.roomId || null) === (roomId || null))
+      const existing = this._findDailyPoint(e.userId, dateKey, roomId, saveOpts)
+      if (existing) {
+        this._legacyDailyPointClearPaths(existing, dateKey, e.userId, roomId).forEach(p => {
+          allPaths['dailyPoints/' + p] = null
+        })
+        if (existing.roomId == null && roomId) existing.roomId = roomId
+      }
 
       var bonusVal = Number(e.bonus) || 0
       let bonusReason = ''
@@ -900,11 +1001,10 @@ window.Evaluation = {
       }
     })
 
-    const allPaths = {}
     dayEntries.forEach(e => {
       const roomId = this._selectedRoom || Points.getPrimaryRoomId(e.userId)
       const roomPath = roomId || '_unassigned'
-      const { userId, dateKey: dk, totalScore, saved, ...evalScores } = e
+      const { userId, dateKey: dk, totalScore, saved, roomId: _rid, restoredFromDailyPoints: _rfdp, ...evalScores } = e
       allPaths[`evaluation/${dateKey}/${roomPath}/${userId}`] = { ...evalScores, totalScore, evaluationScore: totalScore, finalScore: totalScore, saved }
       allPaths[`dailyPoints/${dateKey}/${roomPath}/${userId}`] = {
         basePoints: this.BASELINE_POINTS,

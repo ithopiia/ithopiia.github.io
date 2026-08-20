@@ -71,23 +71,26 @@ window.Store = {
       if (snap.exists()) {
         Object.keys(snap.val()).forEach(dateKey => {
           const dateNode = snap.val()[dateKey] || {}
-          Object.keys(dateNode).forEach(secondKey => {
-            const secondVal = dateNode[secondKey]
-            if (!secondVal || typeof secondVal !== 'object') return
-            const secondKeys = Object.keys(secondVal)
-            const looksLikeEntry = secondKeys.some(k => this._isEvalEntryField(k))
-            if (looksLikeEntry) {
-              this._data.evaluation.push({ userId: secondKey, dateKey, roomId: null, ...secondVal })
-            } else {
-              const roomId = secondKey === '_unassigned' ? null : secondKey
-              secondKeys.forEach(userId => {
-                const entry = secondVal[userId]
-                if (entry && typeof entry === 'object') {
-                  this._data.evaluation.push({ userId, dateKey, roomId, ...entry })
-                }
-              })
-            }
-          })
+        Object.keys(dateNode).forEach(secondKey => {
+          const secondVal = dateNode[secondKey]
+          if (!secondVal || typeof secondVal !== 'object') return
+          const pathRoomId = secondKey === '_unassigned' ? null : secondKey
+          const secondKeys = Object.keys(secondVal)
+          const looksLikeEntry = secondKeys.some(k => this._isEvalEntryField(k))
+          if (looksLikeEntry) {
+            const entry = { userId: secondKey, dateKey, roomId: null, ...secondVal }
+            this._data.evaluation.push(entry)
+          } else {
+            secondKeys.forEach(userId => {
+              const e = secondVal[userId]
+              if (e && typeof e === 'object') {
+                const entry = { userId, dateKey, roomId: pathRoomId, ...e }
+                if (entry.roomId == null) entry.roomId = pathRoomId
+                this._data.evaluation.push(entry)
+              }
+            })
+          }
+        })
         })
       }
       if (this._initialLoadDone) {
@@ -167,16 +170,19 @@ window.Store = {
       Object.keys(dateNode).forEach(secondKey => {
         const secondVal = dateNode[secondKey]
         if (!secondVal || typeof secondVal !== 'object') return
+        const pathRoomId = secondKey === '_unassigned' ? null : secondKey
         const secondKeys = Object.keys(secondVal)
         const looksLikeEntry = secondKeys.some(k => this._isEntryField(k))
         if (looksLikeEntry) {
-          out.push({ userId: secondKey, dateKey, roomId: null, ...secondVal })
+          const entry = { userId: secondKey, dateKey, roomId: null, ...secondVal }
+          out.push(entry)
         } else {
-          const roomId = secondKey === '_unassigned' ? null : secondKey
           secondKeys.forEach(userId => {
-            const entry = secondVal[userId]
-            if (entry && typeof entry === 'object') {
-              out.push({ userId, dateKey, roomId, ...entry })
+            const e = secondVal[userId]
+            if (e && typeof e === 'object') {
+              const entry = { userId, dateKey, roomId: pathRoomId, ...e }
+              if (entry.roomId == null) entry.roomId = pathRoomId
+              out.push(entry)
             }
           })
         }
